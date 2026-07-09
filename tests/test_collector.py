@@ -115,7 +115,7 @@ def test_shard_rolls_at_target_bytes_and_leaves_no_tmp(tmp_path):
     with _manifest(tmp_path) as m:
         written = run_source(spec, 2, m, _cfg(target_bytes=500), raw, log)
         counts = m.counts_by_state()
-        cursor_pos, cursor_docs = m.get_cursor("roller")
+        cursor_pos, cursor_docs = m.get_cursor(collector.cursor_key(spec, 2))
 
     assert written == 40
     files = sorted((raw / "roller").glob("*.jsonl.zst"))
@@ -154,7 +154,7 @@ def test_resume_after_kill_has_no_duplicates_and_full_coverage(tmp_path):
     with Manifest(db) as m:
         with pytest.raises(Kill):
             run_source(spec1, 1, m, _cfg(target_bytes=500), raw, log)
-        _, cursor_after_crash = m.get_cursor("resumable")
+        _, cursor_after_crash = m.get_cursor(collector.cursor_key(spec1, 1))
 
     assert _tmp_files(raw) == []          # crash left no partial tmp on disk
     assert cursor_after_crash < 100       # we did not finish
@@ -164,7 +164,7 @@ def test_resume_after_kill_has_no_duplicates_and_full_coverage(tmp_path):
     spec2 = SourceSpec(name="resumable", kind="synthetic", stream_factory=factory2)
     with Manifest(db) as m:
         run_source(spec2, 1, m, _cfg(target_bytes=500), raw, log)
-        _, final_cursor = m.get_cursor("resumable")
+        _, final_cursor = m.get_cursor(collector.cursor_key(spec2, 1))
 
     assert final_cursor == 100
     docs = _read_shards(raw, "resumable")
@@ -263,7 +263,12 @@ def test_sources_yaml_parses_and_has_required_keys():
         if s.kind == "hf":
             assert s.dataset and s.split
         else:
-            assert s.generator in collector._GENERATORS
+            from ava.datagen import GENERATORS
+            assert s.generator in GENERATORS, f"{s.name}: unknown generator {s.generator}"
+            # the registry may not claim a phase the generator cannot emit
+            gen_phases = set(GENERATORS[s.generator].phases)
+            assert set(s.phases) <= gen_phases, (
+                f"{s.name} lists phases {s.phases} but {s.generator} emits {sorted(gen_phases)}")
 
 
 def test_every_phase_mixture_sums_to_one():

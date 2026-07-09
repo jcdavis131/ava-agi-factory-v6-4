@@ -59,7 +59,7 @@ sources:
 
   - name: synth_facts
     kind: synthetic
-    generator: facts
+    generator: ency
     text_field: text
     phases: [2]
     weight: {2: 0.15}
@@ -68,9 +68,21 @@ sources:
     license: synthetic
     gated: false
 
+  # MathGenerator covers phases 1/3/4; phase decides which curriculum it emits.
+  - name: synth_code
+    kind: synthetic
+    generator: code
+    text_field: text
+    phases: [2]
+    weight: {2: 0.10}
+    task_type: deliberate
+    filters: {min_chars: 1}
+    license: synthetic
+    gated: false
+
   - name: synth_cot
     kind: synthetic
-    generator: cot
+    generator: math
     text_field: text
     phases: [3]
     weight: {3: 0.30}
@@ -79,9 +91,11 @@ sources:
     license: synthetic
     gated: false
 
+  # Long-context / needle-in-haystack docs come from EncyclopediaGenerator (p4),
+  # not MathGenerator -- verified by inspecting the phases each actually emits.
   - name: synth_needle
     kind: synthetic
-    generator: needle
+    generator: ency
     text_field: text
     phases: [4]
     weight: {4: 0.30}
@@ -92,7 +106,7 @@ sources:
 
   - name: synth_safety
     kind: synthetic
-    generator: safety
+    generator: chat
     text_field: text
     phases: [5]
     weight: {5: 0.20}
@@ -123,7 +137,7 @@ sources:
     text_field: text
     score_field: score
     phases: [2, 4, 5]
-    weight: {2: 0.55, 4: 0.70, 5: 0.40}
+    weight: {2: 0.45, 4: 0.70, 5: 0.40}
     task_type: automatic
     filters:
       min_chars: {2: 200, 4: 4000, 5: 200}   # P4 = long documents only

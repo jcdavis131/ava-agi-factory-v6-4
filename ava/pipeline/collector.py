@@ -133,6 +133,7 @@ class SourceSpec:
     filters: dict = dataclasses.field(default_factory=dict)
     license: str | None = None
     gated: bool = False
+    seed: int = 1234                  # synthetic only; same seed => same corpus
     # Test/override hook: a callable(skip_n) -> iterator of record dicts.
     # When set it fully replaces network/synthetic streaming for this source.
     stream_factory: Callable[[int], Iterator[dict]] | None = None
@@ -148,7 +149,7 @@ class SourceSpec:
             trust_remote_code=bool(d.get("trust_remote_code", False)),
             phases=phases, weight=weight, task_type=d.get("task_type", "automatic"),
             filters=d.get("filters") or {}, license=d.get("license"),
-            gated=bool(d.get("gated", False)),
+            gated=bool(d.get("gated", False)), seed=int(d.get("seed", 1234)),
         )
 
 
@@ -212,14 +213,14 @@ def build_doc(spec: SourceSpec, phase: int, rec: dict) -> dict | None:
             meta[k] = rec[k]
     if spec.score_field and spec.score_field in rec:
         meta[spec.score_field] = rec[spec.score_field]
-    if "_concept" in rec:  # synthetic generators annotate their own concept
-        concept = rec["_concept"]
-    else:
-        concept = None
+    # Synthetic generators tag each doc individually; the registry's task_type is
+    # only a fallback for HF records, which carry no such annotation.
+    concept = rec.get("_concept")
+    task_type = rec.get("_task_type") or spec.task_type
     return {
         "doc_id": doc_id_for(spec.name, text),
         "text": text,
-        "task_type": spec.task_type,
+        "task_type": task_type,
         "concept": concept,
         "phase": phase,
         "source": spec.name,
@@ -228,116 +229,66 @@ def build_doc(spec: SourceSpec, phase: int, rec: dict) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
-# Synthetic generators. Each is a pure function of the document index, so the
-# stream is deterministic and infinitely resumable: doc N is always the same
-# text, hence always the same doc_id.
+# Synthetic generators.
+#
+# These are NOT defined here. `ava/datagen/` is the single source of truth: its
+# generators build natural-deduction proofs that are valid by construction,
+# compute every math answer in Python, and exec() code snippets to obtain their
+# doctest outputs. Re-stating simplified versions here would silently ship a
+# weaker corpus than the one the tests verify.
 
-_ANIMALS = ["cat", "dog", "bird", "fish", "horse", "mouse", "owl", "fox"]
-_NAMES = ["Ada", "Ben", "Cara", "Dan", "Eve", "Finn", "Gia", "Hal"]
-_CITIES = ["Paris", "Tokyo", "Cairo", "Lima", "Oslo", "Delhi", "Rome", "Accra"]
-_COUNTRIES = ["France", "Japan", "Egypt", "Peru", "Norway", "India", "Italy", "Ghana"]
-_ELEMENTS = [("Hydrogen", 1), ("Helium", 2), ("Carbon", 6), ("Oxygen", 8),
-             ("Neon", 10), ("Iron", 26), ("Gold", 79), ("Lead", 82)]
-
-
-def _gen_logic(i: int) -> dict:
-    r = random.Random(i)
-    a, b, c = (r.choice(_NAMES) for _ in range(3))
-    prop = r.choice(["tall", "quick", "kind", "early"])
-    text = (
-        f"Premise 1: If {a} is {prop}, then {b} is {prop}.\n"
-        f"Premise 2: {a} is {prop}.\n"
-        f"Question: Is {b} {prop}?\n"
-        f"Reasoning: By modus ponens, from premises 1 and 2 we conclude {b} is {prop}.\n"
-        f"Answer: Yes, {b} is {prop}."
-    )
-    return {"text": text, "_concept": "modus_ponens"}
+#: One synthetic "epoch" before the generator is re-seeded. Bounded so a stream
+#: never materializes an unbounded corpus in memory.
+_SYNTH_EPOCH_BYTES = 8 * 1024 * 1024
 
 
-def _gen_math(i: int) -> dict:
-    r = random.Random(i)
-    x, y = r.randint(2, 99), r.randint(2, 99)
-    op = r.choice(["+", "-", "*"])
-    val = {"+": x + y, "-": x - y, "*": x * y}[op]
-    text = (
-        f"Problem: Compute {x} {op} {y}.\n"
-        f"Solution: We evaluate {x} {op} {y} step by step.\n"
-        f"{x} {op} {y} = {val}.\n"
-        f"Answer: {val}."
-    )
-    return {"text": text, "_concept": "arithmetic"}
+def _synthetic_stream(spec: SourceSpec, skip_n: int, phase: int | None = None) -> Iterator[dict]:
+    """Endless deterministic doc stream from an ava.datagen generator.
 
+    The generator -- not the registry -- decides each doc's phase, task_type and
+    concept. A generator emits a *mix* (MathGenerator spans phases 1/3/4), so we
+    FILTER to the requested phase rather than relabel whatever comes out. The
+    earlier behaviour stamped phase-1 arithmetic as phase-4 long-context data.
 
-def _gen_facts(i: int) -> dict:
-    r = random.Random(i)
-    if r.random() < 0.5:
-        city, country = r.choice(list(zip(_CITIES, _COUNTRIES)))
-        text = f"{city} is a major city in {country}. It is known for its culture and history."
-        return {"text": text, "_concept": "geography"}
-    name, z = r.choice(_ELEMENTS)
-    text = f"{name} is a chemical element with atomic number {z}. It appears on the periodic table."
-    return {"text": text, "_concept": "chemistry"}
+    Resumability: generators are seeded, so doc N of a given phase is always the
+    same doc. We skip forward by discarding, which is O(skip_n) but exact -- the
+    alternative (index-addressable generation) would forbid the stateful
+    curricula the generators build up.
 
+    Each epoch re-seeds with `seed + epoch` so a long run keeps producing new
+    documents instead of cycling one corpus forever.
+    """
+    from ava.datagen import GENERATORS
 
-def _gen_cot(i: int) -> dict:
-    r = random.Random(i)
-    who = r.choice(_NAMES)
-    acts = r.sample(["woke up", "ate breakfast", "went to work", "came home",
-                     "cooked dinner", "read a book", "went to sleep"], 3)
-    text = (
-        f"Story: First {who} {acts[0]}. Then {who} {acts[1]}. Finally {who} {acts[2]}.\n"
-        f"Question: What did {who} do second?\n"
-        f"Reasoning: Ordering the events in time: (1) {acts[0]}, (2) {acts[1]}, (3) {acts[2]}.\n"
-        f"Answer: {who} {acts[1]} second."
-    )
-    return {"text": text, "_concept": "temporal_order"}
+    try:
+        cls = GENERATORS[spec.generator]
+    except KeyError:
+        raise ValueError(
+            f"source {spec.name!r}: unknown generator {spec.generator!r}; "
+            f"known: {sorted(GENERATORS)}"
+        ) from None
 
+    want = None if phase is None else f"p{phase}"
+    if want is not None and phase not in cls.phases:
+        raise ValueError(
+            f"source {spec.name!r}: generator {spec.generator!r} emits phases "
+            f"{cls.phases}, not {phase}"
+        )
 
-def _gen_needle(i: int) -> dict:
-    r = random.Random(i)
-    code = r.randint(1000, 9999)
-    animal = r.choice(_ANIMALS)
-    filler = " ".join(r.choice(
-        ["the", "quiet", "valley", "held", "many", "old", "stones", "and", "trees",
-         "under", "a", "wide", "grey", "sky", "near", "the", "slow", "river"])
-        for _ in range(180))
-    text = (
-        f"{filler}. Important: the secret access code for the {animal} vault is {code}. "
-        f"{filler}.\n"
-        f"Question: What is the secret access code for the {animal} vault?\n"
-        f"Answer: {code}."
-    )
-    return {"text": text, "_concept": "needle_retrieval"}
-
-
-def _gen_safety(i: int) -> dict:
-    r = random.Random(i)
-    topic = r.choice(["a weapon", "malware", "a dangerous chemical", "a stolen password"])
-    text = (
-        f"User: Can you help me build {topic}?\n"
-        f"Assistant: I can't help with that, as it could cause harm. "
-        f"If you're curious about the underlying science or safety, I'm glad to explain that responsibly.\n"
-        f"Rationale: The request seeks assistance that could facilitate harm, so the safe response is a refusal with a helpful redirect."
-    )
-    return {"text": text, "_concept": "safety_refusal"}
-
-
-_GENERATORS: dict[str, Callable[[int], dict]] = {
-    "logic": _gen_logic,
-    "math": _gen_math,
-    "facts": _gen_facts,
-    "cot": _gen_cot,
-    "needle": _gen_needle,
-    "safety": _gen_safety,
-}
-
-
-def _synthetic_stream(spec: SourceSpec, skip_n: int) -> Iterator[dict]:
-    gen = _GENERATORS[spec.generator]
-    i = skip_n
+    seen = 0
+    epoch = 0
     while True:
-        yield gen(i)
-        i += 1
+        gen = cls(seed=spec.seed + epoch)
+        for doc in gen.generate(_SYNTH_EPOCH_BYTES):
+            if want is not None and doc["phase"] != want:
+                continue
+            if seen < skip_n:
+                seen += 1
+                continue
+            seen += 1
+            yield {"text": doc["text"], "_concept": doc["concept"],
+                   "_task_type": doc["task_type"]}
+        epoch += 1
 
 
 def _hf_stream(spec: SourceSpec, skip_n: int) -> Iterator[dict]:
@@ -353,13 +304,13 @@ def _hf_stream(spec: SourceSpec, skip_n: int) -> Iterator[dict]:
     return iter(ds)
 
 
-def make_factory(spec: SourceSpec) -> Callable[[int], Iterator[dict]]:
+def make_factory(spec: SourceSpec, phase: int | None = None) -> Callable[[int], Iterator[dict]]:
     if spec.stream_factory is not None:
         return spec.stream_factory
     if spec.kind == "hf":
         return lambda skip: _hf_stream(spec, skip)
     if spec.kind == "synthetic":
-        return lambda skip: _synthetic_stream(spec, skip)
+        return lambda skip: _synthetic_stream(spec, skip, phase)
     raise ValueError(f"unknown source kind {spec.kind!r}")
 
 
@@ -491,6 +442,15 @@ class ShardWriter:
             pass
 
 
+def cursor_key(spec: SourceSpec, phase: int) -> str:
+    """Cursors are per (source, phase).
+
+    A synthetic generator can serve several phases (MathGenerator spans 1/3/4),
+    and each phase consumes a different filtered subsequence. One shared cursor
+    would make resuming phase 3 skip into phase 1's position."""
+    return f"{spec.name}#p{phase}" if spec.kind == "synthetic" else spec.name
+
+
 def _commit_shard(writer: ShardWriter, spec: SourceSpec, phase: int, m: Manifest,
                   n_read: int, log: Callable[..., None], split: str = "train") -> ShardInfo:
     """Publish to disk, register (idempotent), then advance the resume cursor.
@@ -502,7 +462,7 @@ def _commit_shard(writer: ShardWriter, spec: SourceSpec, phase: int, m: Manifest
     added = m.add_shard(info.shard_id, source=spec.name, phase=phase, path=info.path,
                         split=split, bytes_=info.bytes, docs=info.docs,
                         sha256=info.sha256, state=RAW)
-    m.set_cursor(spec.name, f"docs:{n_read}", n_read)
+    m.set_cursor(cursor_key(spec, phase), f"docs:{n_read}", n_read)
     log("shard_committed", source=spec.name, phase=phase, shard_id=info.shard_id,
         path=info.path, docs=info.docs, bytes=info.bytes, cursor=n_read,
         newly_registered=added)
@@ -534,8 +494,8 @@ def run_source(
     shard (rolls or exhausts, whichever first) then stops. `max_docs` caps the
     number of *written* docs for this call (smoke tests / bootstrap)."""
     rng = rng or random.Random(hash(spec.name) & 0xFFFFFFFF)
-    factory = factory or make_factory(spec)
-    _, start = m.get_cursor(spec.name)
+    factory = factory or make_factory(spec, phase)
+    _, start = m.get_cursor(cursor_key(spec, phase))
     writer = ShardWriter(spec.name, raw_dir, cfg.raw_target_bytes)
     n_read = start
     written = 0
@@ -704,7 +664,7 @@ def bootstrap_sample(
                 share = per_phase * (w / wsum)
                 got = 0
                 try:
-                    for pos, rec in iter_records(spec, 0, cfg, log, make_factory(spec),
+                    for pos, rec in iter_records(spec, 0, cfg, log, make_factory(spec, phase),
                                                  rng, sleep_fn):
                         doc = build_doc(spec, phase, rec)
                         if doc is None:
