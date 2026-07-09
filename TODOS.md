@@ -1,71 +1,99 @@
-# TODOS — Ava v6.4 End-to-End Pilot
-> Live tracker. The **foreman updates this file after every dispatch, verification, and phase transition**, and commits it with each status change.
-> Status values: `todo` → `dispatched` → `review` → **`done`** (acceptance command passed) / `blocked(reason)`
-> Tier: 🟦 Sonnet (mechanical) · 🟪 Opus (complex) · 👷 foreman-executed
+# TODOS — Continuous Pipeline
 
-Legend for checkboxes: `[ ]` todo/dispatched/review · `[x]` done (acceptance verified by foreman)
+Foreman updates after every dispatch and verification. A task is `done` only when the foreman has
+**run its acceptance command and seen it pass** — never on a worker's word.
 
----
-
-## Phase P0 — Environment & scaffolding · spec `specs/01_environment.md`
-- [ ] **A1** 🟦 `scripts/setup_env.sh` + pinned CPU deps installed — *accept:* `bash scripts/setup_env.sh && python -c "import torch, tokenizers, fastapi; print(torch.__version__)"` · status: `todo`
-- [ ] **A2** 🟦 `ava/__init__.py` + `ava/config.py` (AvaConfig, `load(preset)`, `--count-params` CLI) + `configs/nano.yaml`, `nano_quick.yaml` — *accept:* `python -m ava.config --preset nano --count-params` prints 13–16M · status: `todo` · deps: A1
-- [ ] **A3** 🟦 `Makefile`, `pytest.ini`, `.gitignore` additions, `ava/datagen/base.py` ABC — *accept:* `make -n` lists all targets; `pytest --collect-only` clean · status: `todo` · deps: A1
-
-## Phase P1 — Synthetic data generators (4 parallel) · spec `specs/02_data_generation.md`
-- [ ] **B1** 🟦 `ava/datagen/logic.py` (P0 corpus ≥30MB: truth tables, valid ND proofs, syllogisms, FOL, critique pairs) — *accept:* size + double-run sha256 identical + `pytest tests/test_datagen.py -k logic` · status: `todo` · deps: A3
-- [ ] **B2** 🟦 `ava/datagen/math_gen.py` (P1+P3 ≥40MB: staged arithmetic→probability, CoT, temporal workflow logs) — *accept:* same pattern, `-k math` · status: `todo` · deps: A3
-- [ ] **B3** 🟦 `ava/datagen/encyclopedia.py` + `code_gen.py` (P2 ≥50MB: canonical fact corpus [spider/ant, France/China, soccer/rugby, Spanish/French] + exec-verified Python) — *accept:* same pattern + canonical-entity coverage check · status: `todo` · deps: A3
-- [ ] **B4** 🟦 `ava/datagen/chat_safety.py` (≥20MB: dialogues, safety/refusal + benign twins, delegation/temporal, counterfactual) — *accept:* same pattern, `-k chat` · status: `todo` · deps: A3
-- [ ] **B5** 🟦 `scripts/gen_all_data.py --seed 1234` (runs all four) — *accept:* full corpus regenerated, manifest with per-file sha256 written · status: `todo` · deps: B1–B4
-
-## Phase P1' — Model bug fixes + parameterization · spec `specs/04_model_and_configs.md`
-- [ ] **D1** 🟪 Surgical fixes in `model_1b.py`: causal mask (SDPA), rotate_half layout, vision-fusion precedence, `_prev_workspaces` detach + `use_memory` gate, size parameterization, shared per-forward RoPE — *accept:* `pytest tests/test_model.py` green <60s · status: `todo` · deps: A2
-- [ ] **D2** 🟪 Fixes in `multi_jspace_module.py`: `JacobianLens.top_concepts`, verbalizer tied to lm_head, batch-size guard, configurable slots/hl/heads — *accept:* top_concepts returns real ids, mass ∈ (0,1) input-dependent · status: `todo` · deps: A2 (same worker as D1)
-
-## Phase P2 — Tokenizer · spec `specs/03_tokenizer.md`
-- [ ] **C1** 🟦 `ava/tokenizer.py` + BPE-8192 artifact `data/nano/tokenizer/ava_nano_bpe.json` — *accept:* 1k-doc round-trip exact; ≥3.0 chars/token heldout; `pytest tests/test_tokenizer.py` · status: `todo` · deps: B1–B4 (partial ok)
-
-## Phase P3 — Packing pipeline · spec `specs/05_training.md` §packing
-- [ ] **E1** 🟦 `ava/data.py` + `scripts/build_dataset.py` (per-phase uint16 memmaps + idx sidecars + 200k heldout/phase; task_type-pure batches) — *accept:* per-phase token counts ±10% of budget; `pytest tests/test_data.py` · status: `todo` · deps: C1
-
-## Phase P4 — Trainer + J-losses · spec `specs/05_training.md`
-- [ ] **F1** 🟪 `ava/jlosses.py` (combined loss exactly per blueprint weights; reuses `MultiJSpaceLosses`) — *accept:* unit test: all loss terms finite, nonzero, correct weighting · status: `todo` · deps: D1, D2
-- [ ] **F2** 🟪 `ava/train.py` (WSD, phase manager + RoPE transitions, ckpt/resume, JSONL metrics, `--branch chat --init` real state_dict load + freeze) — *accept:* `pytest tests/test_train_smoke.py`: 50-step loss strictly ↓, kill@30 + `--resume` identical step-50 loss ±1e-4 · status: `todo` · deps: F1 (E1 for real data; stub tensors ok before)
-
-## Phase P5 — Bench + budget lock
-- [ ] **G1** 🟦 `scripts/bench_throughput.py` → `runs/bench.json`; budget rule `clamp(tok_s×6h, 15M, 40M)` picks nano vs nano_quick — *accept:* projected base-run ≤12h · status: `todo` · deps: E1, F2
-- [ ] **G2** 👷 `scripts/smoke_e2e.sh` full rehearsal (~5 min) — *accept:* exits 0: tiny-train → mini-eval → server boot → curls → teardown · status: `todo` · deps: G1, J1 (server skeleton)
-
-## Phase P6 — Nano training run (foreman-monitored background)
-- [ ] **H1** 👷 Base run `python -m ava.train --preset nano --run runs/base` (bg, poll metrics.jsonl, `--resume` on crash) — *accept:* `ava_nano_stable.pt` (step 3369) + `ava_nano_final.pt`; smoothed loss ↓; no NaNs · status: `todo` · deps: G2
-- [ ] **H2** 👷 Chat branch `--preset branch_chat --init runs/base/ava_nano_stable.pt` — *accept:* `runs/chat/ava_nano_chat.pt`; log proves stable ckpt hash loaded; frozen spaces unchanged (param-hash check) · status: `todo` · deps: H1
-
-## Phase P7 — Real eval harness (build during P6) · spec `specs/06_evaluation.md`
-- [ ] **I1** 🟪 `evals/perplexity.py`, `evals/probes.py`, `evals/jspace_tests.py` (5 canonical tests as real hook-based measurements), `evals/needle.py`, `evals/run_harness.py` — *accept:* runs on smoke ckpt without error; anti-mock grep clean · status: `todo` · deps: D1, D2 (not H)
-- [ ] **I2** 👷 Run harness on base + chat finals → `reports/branch_eval_results_real.json` + `REPORT_REAL.md` — *accept:* completes <20 min; all values measured; PASS/FAIL/MEASURED table present · status: `todo` · deps: H1, H2, I1
-
-## Phase P8 — Serving (build during P6) · spec `specs/07_serving_deployment.md`
-- [ ] **J1** 🟪 `ava/serve_engine.py` + `server.py` fixes (Optional import, pydantic v2, real backend for all endpoints + new `/health`, `/generate`, `/report`) — *accept:* boots with smoke ckpt; endpoints return input-dependent data; intervene 403-gated · status: `todo` · deps: D1, D2
-- [ ] **J2** 🟦 `scripts/make_report.py` → self-contained `reports/index.html` (no CDN) — *accept:* renders all metric series from a sample metrics.jsonl; file works offline · status: `todo` · deps: A3
-- [ ] **J3** 🟦 `scripts/smoke_live.sh` curl suite — *accept:* all checks scripted per spec · status: `todo` · deps: J1
-- [ ] **J4** 🟦 `Dockerfile` (CPU + CUDA-variant build-arg) + `run.sh` self-host package — *accept:* `docker build` succeeds (or documented dry-run if docker unavailable in container) · status: `todo` · deps: J1
-
-## Phase P9 — Conversion & release · spec `specs/09_conversion_release.md`
-- [ ] **K1** 🟦 `scripts/convert_checkpoint.py` → `export/ava-nano/` (safetensors + honest config + tokenizer + modeling files) — *accept:* reload-equivalence: logits match original atol 1e-5 on 10 prompts · status: `todo` · deps: H2
-
-## Phase P10 — LIVE DEPLOY
-- [ ] **L1** 👷 Container live: `AVA_CKPT=runs/chat/ava_nano_chat.pt uvicorn server:app --host 0.0.0.0 --port 8000` + `bash scripts/smoke_live.sh` — *accept:* every smoke check green · status: `todo` · deps: H2, I2, J1–J3
-- [ ] **L2** 🟦 Vercel static dashboard from `reports/` — *accept:* public URL serves index.html + eval JSON · status: `todo` · deps: I2, J2
-- [ ] **L3** 👷 Final results summary appended to README ("Nano pilot results") — *accept:* real numbers, links to reports · status: `todo` · deps: L1
-
-## Phase P11 — Alienware GPU handoff · spec `specs/08_alienware_runbook.md`
-- [ ] **M1** 🟦 Runbook complete + `configs/mini.yaml` + `configs/base1b.yaml` — *accept:* foreman review: WSL2 steps, VRAM/throughput math, milestone schedule, ops section all present · status: `todo` · deps: A2
-- [ ] **M2** 👷 USER: execute runbook on Alienware — nano sanity → mini (GO/NO-GO) → base1b milestones M1 2B / M2 10B / M3 30B+ · status: `todo` · deps: M1, L1
+Tiers: 🟦 Sonnet (mechanical) · 🟪 Opus (correctness-critical) · 👷 foreman/human
 
 ---
 
-## Foreman log
-| When (UTC) | Event |
-|---|---|
-| 2026-07-09 | Plan approved; specs authored; tracker initialized. All tasks `todo`. |
+## Stage 0 — Host prep ✅
+- [x] **T0.1** Identify the 1.8GB GPU process — **NOT stray**: it is `vector-hoops/pipeline/sweep_v5.py --epochs 40 --seeds 7,13,21 --device cuda --resume`, a live sweep. Left running. nano/mini (~5-7GB) coexist; base1b needs it gone.
+- [x] **T0.2** `docker builder prune -a` → **reclaimed 25.06GB** (est. was 14GB). Volumes untouched.
+- [x] **T0.3** Re-measure. C: shows 26.8GB free; Docker freed 25GB *inside* its 45GB ext4 VHDX, which it reuses before growing. Effective headroom ≈ 50GB. `image prune` not needed.
+- [x] **T0.4** `.wslconfig` written (`memory=10GB`, `processors=24`, `swap=8GB`, `sparseVhd=true`). ⚠️ Needs `wsl --shutdown` + Docker Desktop restart to apply — **deferred, requires your OK** (stops all distros).
+- [x] **T0.5** Volumes `ava_{raw,packed,ckpt,state,reports}` created **and chowned to uid 1000** (docker creates them root-owned; the manifest could not create its DB).
+
+## Stage 1 — Docker infrastructure ✅
+- [x] **T1.1** 🟦 `docker/Dockerfile.cpu` — *accept:* streams 2 TinyStories rows in-container ✅
+- [x] **T1.2** 🟦 `docker/Dockerfile.gpu` — based on `python:3.11-slim` + cu124 wheels (not `nvidia/cuda:*-runtime`: the wheels vendor their own CUDA libs, saving ~5GB). *accept:* `torch.cuda.is_available()` + bf16 matmul on the 4080 ✅
+- [x] **T1.3** 🟦 `docker-compose.yml` (collector×4, curator×6, trainer, server, janitor; named volumes; GPU reservations) — *accept:* `docker compose config` valid ✅
+- [x] **T1.4** 🟦 `Makefile`, `.dockerignore`, `.env.example`, `.gitattributes` (CRLF breaks make recipes and shebangs in Linux containers) ✅
+
+## Stage 2 — Manifest + shard flow ✅
+- [x] **T2.1** 🟪 `ava/pipeline/manifest.py` — WAL SQLite, `BEGIN IMMEDIATE` atomic claims, leases + requeue, state-machine guards, tokenizer freeze gate, resumable cursors, structural val/test protection
+- [x] **T2.2** 🟪 `ava/pipeline/flow.py` — backpressure predicates, `DATA_STARVED`, phase prefetch
+- [x] **T2.3** 🟦 `configs/pipeline.yaml` — watermarks sized for this host
+- [x] *accept:* **28 tests** — 12 threads + 4 processes over 1000 shards: zero double-claims, zero lost shards. **Negative control:** downgrading to `BEGIN DEFERRED` makes it fail, so the test is not vacuous ✅
+
+## Stage 3 — Collector 🟡
+- [x] **T3.1** 🟪 `ava/pipeline/collector.py` — HF streaming, backoff+jitter, resumable cursors, 256MB zstd shards, atomic publish (`.tmp`→fsync→`os.replace`→register), backpressure-aware. *accept:* 15 offline tests ✅ + **live**: streamed 500 TinyStories docs, restarted, resumed at cursor 500 with no duplicate doc_ids ✅
+- [x] **T3.3** 🟦 `configs/sources.yaml` — 11 sources, all verified `200` + `gated:false` against the HF API. `bigcode/the-stack-smol` excluded (`gated:"auto"`). Per-phase weights sum to 1.0 (asserted)
+- [ ] **T3.2** 🟦 `ava/datagen/*` — deterministic seeded generators *(agent in flight)*
+- [ ] **T3.4** 👷 **Reconcile**: the collector agent inlined its own synthetic generators. `ava/datagen/` is the source of truth; collector must import from it. *accept:* no duplicate generator logic; `pytest tests/` green
+
+## Stage 4 — Curator ✅
+- [x] **T4.1** 🟪 `clean.py` — normalize / is_english / Gopher heuristics / edu_score / PII scrub (conservative: leaves `0xDEADBEEF`, bare digit runs)
+- [x] **T4.2** 🟪 `dedup.py` — sha256 exact + MinHash LSH (9×13 bands @ 0.8) in its own WAL DB; `add_if_new` is check-and-insert in one `BEGIN IMMEDIATE` for cross-replica safety
+- [x] **T4.3** 🟪 `decontaminate.py` — 13-gram + short-phrase floor (≥5 words). **Both directions tested**: every eval prompt is removed; "Spiders possess eight legs." is kept
+- [x] **T4.4** 🟪 `split.py` — `bucket(sha1(doc_id))`, order-invariant, rerun-stable
+- [x] **T4.5** 🟪 `pack.py` — uint16 `.bin` + `.idx.json`, vocab≤65535 asserted, frozen-tokenizer gate
+- [x] **T4.6** 🟦 `curator.py` service loop; SIGTERM-graceful; `fail()` never crashes the container
+- [x] *accept:* 19 curator tests, **62/62 suite** ✅
+- [x] **Deviation accepted:** `complete()` **before** deleting raw. Spec said the reverse; the worker was right — deleting first then crashing would requeue a row whose raw file is gone, losing data. Worst case now is an inert orphaned file.
+
+## Stage 5 — Tokenizer bootstrap + throughput gate
+- [ ] **T5.1** 🟦 Collect a 2GB stratified bootstrap sample (collector `--bootstrap-sample`)
+- [ ] **T5.2** 🟦 `ava/tokenizer.py` — byte-level BPE 32k (nano 8k) + specials; freeze + sha256 into manifest
+- [ ] **T5.3** 👷 Freeze gate live-check: curator refuses to pack against a mismatched tokenizer hash *(already enforced in manifest; needs an end-to-end assertion)*
+- [ ] **T5.4** 🟦 `scripts/bench_pipeline.py` — *accept:* curation tok/s ≥ 3× trainer tok/s
+
+## Stage 6 — Model + trainer 🟡
+- [x] **T6.1** 🟪 Model fixes — **the big one.** *accept:* 28 tests ✅
+  - [x] Causal mask (SDPA). Bare transformer stack now measures **exactly 0.0** logit change at positions < t
+  - [x] **J-Space was non-causal**: it mean-pooled the whole sequence and broadcast it everywhere (measured leak ~0.20). Now **chunk-recurrent** — broadcast into chunk *c* comes only from chunks < *c*
+  - [x] `rotate_half` half-split (was interleaved, disagreeing with cos/sin → garbage rotation)
+  - [x] `_prev_workspaces` detach + batch guard (backward-through-freed-graph on step 2)
+  - [x] `JacobianLens.top_concepts` implemented (was dead → `verbalizable_mass` constant 0.06)
+  - [x] Verbalizer tied to lm_head (was allocating 2×[V,D] per workspace, discarding one)
+  - [x] **Initialization** wired: init loss 196 → **9.07** vs ln(8192)=9.011. Overfits one batch to 0.05/30 steps
+  - [x] GQA + SwiGLU + gradient checkpointing (config-gated, causality-tested)
+  - [x] Param counts corrected: nano 13.8M, mini 171.3M (was 270M — `tie_verbalizer` must stay true), base1b **1409M** (spec said 1.17B)
+- [x] **T6.2** 🟪 `ava/jlosses.py` — combined objective with blueprint weights
+- [ ] **T6.3** 🟪 `ava/data.py` — `StreamingShardSampler`: claims PACKED shards, mixes by curriculum weight, `task_type`-pure batches, blocks with `DATA_STARVED` not a crash
+- [ ] **T6.4** 🟪 `ava/train.py` — WSD, phase manager + RoPE transitions, grad-accum, bf16, AdamW8bit, ckpt/resume bit-exact, `metrics.jsonl`, `--branch chat --init` real `load_state_dict`
+- [ ] **T6.5** 🟦 `ava/pipeline/janitor.py` — watermarks, delete CONSUMED (never val/test), ckpt rotation
+
+## Stage 7 — Real evaluation harness
+- [ ] **T7.1** 🟪 `evals/perplexity.py` — val (in-training) / test (milestones only)
+- [ ] **T7.2** 🟪 `evals/probes.py` — exact-match greedy; **no PASS bars inherited from the 14M synthetic assumptions**
+- [ ] **T7.3** 🟪 `evals/jspace_tests.py` + `interventions.py` — the 5 canonical tests as real forward-hook measurements on live workspaces, concept vectors from **real tokenizer ids**
+- [ ] **T7.4** 🟪 `evals/needle.py` — native ctx + eval-time YaRN
+- [ ] **T7.5** 🟪 `evals/run_harness.py` → `reports/eval_real.json`. *accept:* `tests/test_no_mock.py` fails if any mock literal (`0.82`, `0.983`, `0.91`) appears unconditionally
+
+## Stage 8 — Live serving
+- [ ] **T8.1** 🟪 `ava/serve_engine.py` — real `generate` / `inspect` / `intervene` (+ `runs/serve_audit.jsonl`)
+- [ ] **T8.2** 🟪 `server.py` — fix `from typing import Optional` (import-time `NameError`), pydantic-v2 `Field(alias="from")`, wire to engine, keep the 403 gate, add `/health` `/generate` `/report`
+- [ ] **T8.3** 🟪 Hot-reload `ckpt/latest` — experiment against the model *while it trains*
+- [ ] **T8.4** 🟦 `scripts/make_report.py` → self-contained `reports/index.html` (no CDN)
+- [ ] **T8.5** 🟦 `scripts/smoke_live.sh`
+
+## Stage 9 — Scale ladder
+- [ ] **T9.1** 👷 nano smoke: all five services, ~10 min. Gate = *the loop works*
+- [ ] **T9.2** 👷 mini (171M, ~2.5B tokens, 3–5 days). Watch `hl_est → target`, `route_probs` separating by `task_type`, val PPL ↓. Serve throughout
+- [ ] **T9.3** 👷 **GO/NO-GO** for base1b, on mini's `reports/eval_real.json`. Also decide the base1b trim: 1409M × (bf16 weights + grads + AdamW8bit) = 8.4GB before activations, against ~11.6GB. Options: drop `n_fusion_layers` 28→24 (−92M), or narrow the workspaces
+- [ ] **T9.4** 👷 base1b milestones M1 2B → M2 10B → M3 30B+
+- [ ] **T9.5** 👷 Branch fine-tunes (code/math/chat) from any stable checkpoint
+
+## Docs
+- [x] `PLAN.md`, `TODOS.md`, `ORCHESTRATION.md` rewritten for the continuous pipeline
+- [ ] `specs/` refresh — `specs/04` is still accurate; `specs/08` param math needs the J-Space correction
+
+---
+
+## Open risks
+1. **base1b VRAM.** 1409M is 20% over spec. Not yet proven to fit. Decided at T9.3.
+2. **`trust_remote_code` sources.** `proof-pile-2` and `github-code` fetch a loader script from HF at runtime; an upstream change can break collection mid-run.
+3. **Only `tinystories` was live-streamed.** The other 5 HF sources are API-verified but not yet pulled. `fineweb-edu`'s `score` field name is taken from the spec, not observed.
+4. **Decontamination coupling.** `evals/eval_sets.py` and `ava/datagen/encyclopedia.py` must keep their phrasings distinct; verbatim matching is what separates prompt-form from fact.
+5. **`.wslconfig` not applied** — needs `wsl --shutdown`.

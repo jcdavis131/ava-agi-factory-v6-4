@@ -130,8 +130,12 @@ def test_gopher_accepts_good_rejects_bad():
     ok, reason = clean.gopher_quality("Too short a document indeed.")
     assert not ok and reason == "too_short"
 
-    # A doc dominated by bullets.
-    bullets = "\n".join(f"- item {i} the of and to be that have with word here now" for i in range(60))
+    # A doc dominated by bullets (real words, so mean word length stays in
+    # range and the bullet rule is what trips).
+    bullets = "\n".join(
+        "- these sentences that describe wonderful things and passing ordinary matters"
+        for _ in range(60)
+    )
     ok, reason = clean.gopher_quality(bullets)
     assert not ok and reason == "bullet_lines"
 
@@ -476,20 +480,18 @@ def test_end_to_end_once(tmp_path, tiny_tokenizer):
         assert train_row["split"] == "train"
 
         # Packed files exist for every split that got docs, and the manifest
-        # train token count matches the train shard's idx.json.
+        # train token count matches the train shard's idx.json. The packed file
+        # is named by the raw shard id under the split directory; the manifest
+        # row id for val/test additionally carries a :split suffix.
         for split in present_splits:
-            bin_path = packed_dir / "p1" / split / (
-                "e2e_0000.bin" if split == "train" else f"e2e_0000:{split}.bin"
-            )
-            assert bin_path.exists(), f"missing packed file for split {split}"
+            row_id = "e2e_0000" if split == "train" else f"e2e_0000:{split}"
+            row = m.db.execute("SELECT * FROM shards WHERE id=?", (row_id,)).fetchone()
+            assert row is not None and row["state"] == PACKED and row["split"] == split
+            bin_path = Path(row["path"])
+            assert bin_path.exists(), f"missing packed file for split {split}: {bin_path}"
+            assert bin_path == packed_dir / "p1" / split / "e2e_0000.bin"
             arr, idx = pack.read_shard(bin_path)
             assert idx["tokens"] == arr.size > 0
             if split == "train":
                 assert train_row["tokens"] == idx["tokens"], "manifest train tokens mismatch"
                 assert m.tokens_ready(1, split="train") == idx["tokens"]
-
-        # val/test rows registered as PACKED (tokens intentionally 0 in manifest;
-        # idx.json is authoritative — see curator docstring).
-        for split in present_splits - {"train"}:
-            row = m.db.execute("SELECT * FROM shards WHERE id=?", (f"e2e_0000:{split}",)).fetchone()
-            assert row is not None and row["state"] == PACKED and row["split"] == split

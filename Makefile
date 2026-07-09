@@ -66,9 +66,21 @@ report:
 	docker run --rm -v ava_reports:/reports -v ava_ckpt:/ckpt ava/cpu:latest \
 		python scripts/make_report.py --out /reports/index.html
 
-test:
-	docker run --rm -v "$(CURDIR)/tests:/app/tests:ro" ava/cpu:latest \
-		python -m pytest tests/ -x -q
+# The two images carry disjoint deps on purpose (see tests/conftest.py), so the
+# full suite is the union of both runs.
+test: test-cpu test-gpu
+
+test-cpu:
+	docker run --rm -v "$(CURDIR)/tests:/app/tests:ro" -v "$(CURDIR)/ava:/app/ava:ro" \
+		-v "$(CURDIR)/evals:/app/evals:ro" -v "$(CURDIR)/configs:/app/configs:ro" \
+		ava/cpu:latest python -m pytest tests/ -q
+
+test-gpu:
+	docker run --rm --gpus all -v "$(CURDIR)/tests:/app/tests:ro" -v "$(CURDIR)/ava:/app/ava:ro" \
+		-v "$(CURDIR)/evals:/app/evals:ro" -v "$(CURDIR)/configs:/app/configs:ro" \
+		-v "$(CURDIR)/model_1b.py:/app/model_1b.py:ro" \
+		-v "$(CURDIR)/multi_jspace_module.py:/app/multi_jspace_module.py:ro" \
+		ava/gpu:latest python -m pytest tests/ -q
 
 smoke:
 	bash scripts/smoke_e2e.sh

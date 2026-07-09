@@ -255,9 +255,11 @@ _IPV6_RE = re.compile(
     r"|::(?:[0-9A-Fa-f]{1,4}:){0,5}[0-9A-Fa-f]{1,4}"
     r")(?![:.\w])"
 )
-# Phone: require separators so we do NOT match bare 10-digit ids or math.
+# Phone: require separators so we do NOT match bare 10-digit ids or math. The
+# boundaries are digit/word based (not ".") so a trailing sentence period does
+# not defeat the match, while a longer digit run still does.
 _PHONE_RE = re.compile(
-    r"(?<![\w.])(?:\+?\d{1,3}[-.\s])?(?:\(\d{3}\)\s?|\d{3}[-.\s])\d{3}[-.\s]\d{4}(?![\w.])"
+    r"(?<!\w)(?:\+?\d{1,3}[-.\s])?(?:\(\d{3}\)\s?|\d{3}[-.\s])\d{3}[-.\s]\d{4}(?!\d)"
 )
 
 

@@ -115,10 +115,28 @@ class MinHashDeduper:
 
         self.db = sqlite3.connect(self.db_path, timeout=timeout, isolation_level=None)
         self.db.row_factory = sqlite3.Row
-        self.db.execute("PRAGMA journal_mode=WAL")
-        self.db.execute("PRAGMA synchronous=NORMAL")
+        # busy_timeout first, so the WAL-mode switch below waits out a peer
+        # replica that happens to be mid-transaction when we open concurrently
+        # (a WAL journal_mode change can return SQLITE_BUSY without honoring the
+        # connect timeout in some sqlite builds; retry it explicitly).
         self.db.execute(f"PRAGMA busy_timeout={int(timeout * 1000)}")
+        self._set_wal(timeout)
+        self.db.execute("PRAGMA synchronous=NORMAL")
         self.db.executescript(_SCHEMA)
+
+    def _set_wal(self, timeout: float) -> None:
+        import sqlite3
+        import time as _time
+
+        deadline = _time.time() + max(timeout, 1.0)
+        while True:
+            try:
+                self.db.execute("PRAGMA journal_mode=WAL")
+                return
+            except sqlite3.OperationalError:
+                if _time.time() >= deadline:
+                    raise
+                _time.sleep(0.05)
 
     def close(self) -> None:
         self.db.close()
