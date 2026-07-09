@@ -1,12 +1,17 @@
 __pycache__/
+*.pyc
 *.pt
-*.safetensors
 *.bin
-data/
-wandb/
-hf_model/
-.DS_Store
-*.log
+*.safetensors
 checkpoints/
- Dolma/
-.deepspeed/
+hf_model/
+wandb/
+logs/
+.dolma/
+.jupyter/
+data/synthetic*/
+*.log
+.DS_Store
+.env
+venv/
+.venv/
