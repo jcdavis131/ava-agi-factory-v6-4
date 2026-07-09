@@ -15,3 +15,14 @@ data/synthetic*/
 .env
 venv/
 .venv/
+
+# ava pipeline
+.env
+data/
+runs/
+ckpt/
+export/
+reports/*.html
+*.pt
+*.bin
+*.safetensors

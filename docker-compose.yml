@@ -1,0 +1,139 @@
+# Ava continuous pipeline: gather -> clean -> train -> serve, all concurrent.
+#
+# Coordination is via a SQLite WAL manifest on the shared `ava_state` volume.
+# Named volumes (not bind mounts to C:) on purpose: bind mounts cross the
+# Windows/WSL 9p boundary and are ~10x slower for the many-small-file I/O the
+# curator does.
+#
+#   docker compose up -d                 # whole pipeline
+#   docker compose up -d collector curator   # data plane only
+#   docker compose logs -f trainer
+
+x-cpu-image: &cpu-image
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.cpu
+  image: ava/cpu:latest
+
+x-gpu-image: &gpu-image
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.gpu
+  image: ava/gpu:latest
+
+x-common-env: &common-env
+  AVA_PRESET: ${AVA_PRESET:-nano}
+  AVA_STATE_DB: /state/manifest.db
+  AVA_RAW_DIR: /raw
+  AVA_PACKED_DIR: /packed
+  AVA_CKPT_DIR: /ckpt
+  AVA_REPORTS_DIR: /reports
+  AVA_PIPELINE_CONFIG: /app/configs/pipeline.yaml
+  HF_TOKEN: ${HF_TOKEN:-}
+
+x-gpu-reservation: &gpu-reservation
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
+services:
+  # ---- data plane -----------------------------------------------------------
+  collector:
+    <<: *cpu-image
+    command: ["python", "-m", "ava.pipeline.collector"]
+    environment: *common-env
+    volumes:
+      - ava_raw:/raw
+      - ava_state:/state
+    deploy:
+      replicas: 4
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-m", "ava.pipeline.healthcheck", "--role", "collector"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  curator:
+    <<: *cpu-image
+    command: ["python", "-m", "ava.pipeline.curator"]
+    environment: *common-env
+    volumes:
+      - ava_raw:/raw
+      - ava_packed:/packed
+      - ava_state:/state
+    deploy:
+      replicas: 6
+    depends_on:
+      - collector
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-m", "ava.pipeline.healthcheck", "--role", "curator"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Enforces disk watermarks; deletes CONSUMED shards (never val/test); rotates ckpts.
+  janitor:
+    <<: *cpu-image
+    command: ["python", "-m", "ava.pipeline.janitor"]
+    environment: *common-env
+    volumes:
+      - ava_raw:/raw
+      - ava_packed:/packed
+      - ava_ckpt:/ckpt
+      - ava_state:/state
+    restart: unless-stopped
+
+  # ---- compute plane --------------------------------------------------------
+  trainer:
+    <<: [*gpu-image, *gpu-reservation]
+    command: ["python", "-m", "ava.train", "--preset", "${AVA_PRESET:-nano}", "--resume"]
+    environment:
+      <<: *common-env
+      # Keep the trainer off the cores the curator needs to stay ahead of it.
+      OMP_NUM_THREADS: "4"
+    volumes:
+      - ava_packed:/packed
+      - ava_ckpt:/ckpt
+      - ava_state:/state
+      - ava_reports:/reports
+    depends_on:
+      - curator
+    restart: unless-stopped
+    shm_size: "2gb"
+
+  # Hot-reloads ckpt/latest so you can experiment against the model mid-training.
+  server:
+    <<: [*gpu-image, *gpu-reservation]
+    command: ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      <<: *common-env
+      AVA_CKPT: /ckpt/latest
+      ENABLE_JSPACE_WRITE: ${ENABLE_JSPACE_WRITE:-0}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ava_ckpt:/ckpt
+      - ava_state:/state
+      - ava_reports:/reports
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  ava_raw:     { external: true }
+  ava_packed:  { external: true }
+  ava_ckpt:    { external: true }
+  ava_state:   { external: true }
+  ava_reports: { external: true }
