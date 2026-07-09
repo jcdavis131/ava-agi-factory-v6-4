@@ -19,9 +19,16 @@ help:
 	@echo "  make test           run the full test suite (in the cpu image)"
 	@echo "  make smoke          end-to-end nano smoke test"
 
+# Docker creates named volumes root-owned; our containers run as uid 1000 (ava).
+# Without the chown the manifest cannot create /state/manifest.db. Idempotent.
 volumes:
 	@for v in ava_raw ava_packed ava_ckpt ava_state ava_reports; do \
-		docker volume create $$v >/dev/null && echo "ok $$v"; done
+		docker volume create $$v >/dev/null; done
+	@docker run --rm --user 0 \
+		-v ava_raw:/raw -v ava_packed:/packed -v ava_ckpt:/ckpt \
+		-v ava_state:/state -v ava_reports:/reports \
+		busybox:latest sh -c 'chown -R 1000:1000 /raw /packed /ckpt /state /reports' \
+		&& echo "volumes ready (owned by uid 1000)"
 
 images:
 	$(COMPOSE) build
