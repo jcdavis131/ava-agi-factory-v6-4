@@ -1,0 +1,137 @@
+"""Combined training objective: LM loss + the Multi-J-Space auxiliary losses.
+
+Weights come from configs/*.yaml (`jspace:`), which mirror dolma_config.yaml:
+
+    loss = lm
+         + (report*1.0 + broadcast*0.5 + selectivity*0.3 + modulation*0.5) * j_weight
+         + sum_space  half_life_loss(space)      * hl_weight[space]
+         + inter_mi(cos(S1,S2), 0.45)            * 0.3
+         + routing_KL(route_probs | task_type)   * 0.4
+
+j_weight is 0.08 for phases 0-2 and 0.15 for 3-5.
+
+Reuses MultiJSpaceLosses from multi_jspace_module.py rather than reimplementing
+its formulas.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+from typing import Mapping
+
+import torch
+import torch.nn.functional as F
+
+from ava.config import SPACES, AvaConfig
+from multi_jspace_module import MultiJSpaceLosses
+
+
+@dataclasses.dataclass
+class LossBreakdown:
+    total: torch.Tensor
+    lm: torch.Tensor
+    report: torch.Tensor
+    broadcast: torch.Tensor
+    selectivity: torch.Tensor
+    modulation: torch.Tensor
+    half_life: torch.Tensor
+    inter_mi: torch.Tensor
+    routing: torch.Tensor
+
+    def as_floats(self) -> dict[str, float]:
+        return {f.name: float(getattr(self, f.name)) for f in dataclasses.fields(self)}
+
+
+class JSpaceObjective(torch.nn.Module):
+    def __init__(self, cfg: AvaConfig) -> None:
+        super().__init__()
+        self.cfg = cfg
+        self.j = cfg.jspace
+        self.losses = MultiJSpaceLosses()
+
+    # -- pieces --------------------------------------------------------------
+
+    def _lm_loss(self, logits: torch.Tensor, input_ids: torch.Tensor) -> torch.Tensor:
+        # next-token prediction; float() so bf16 autocast doesn't degrade the CE
+        return F.cross_entropy(
+            logits[:, :-1].reshape(-1, logits.shape[-1]).float(),
+            input_ids[:, 1:].reshape(-1),
+        )
+
+    def _report_loss(self, model, jm: Mapping, concept_ids: torch.Tensor | None) -> torch.Tensor:
+        """CE(verbalizer(S2 workspace mean) -> concept token). Zero when untagged."""
+        if concept_ids is None:
+            return torch.zeros((), device=jm["route_probs"].device)
+        ws = jm["workspaces"]["system2"]
+        jlens = model.multi_jspace.system2.jlens
+        return self.losses.reportability_loss(ws, concept_ids, jlens)
+
+    def _broadcast_loss(self, jm: Mapping) -> torch.Tensor:
+        # per-space broadcast strength toward its configured target
+        terms = [
+            self.losses.broadcast_loss(jm[s]["broadcast_strength"], self.j.broadcast_target[s])
+            for s in SPACES
+        ]
+        return torch.stack(terms).mean()
+
+    def _selectivity_loss(self, jm: Mapping, task_type: str) -> torch.Tensor:
+        """automatic -> low workspace variance (habitual), deliberate -> high."""
+        s = "system1" if task_type == "automatic" else "system2"
+        ws_var = jm["workspaces"][s].var(dim=1).mean()
+        return self.losses.selectivity_loss(ws_var, task_type)
+
+    def _modulation_loss(self, jm: Mapping) -> torch.Tensor:
+        """Hinge: the broadcast must move the residual stream more than nothing does.
+
+        sim_with  = cos(fused + broadcast, broadcast)
+        sim_without = cos(fused, broadcast)
+        """
+        bc = jm["broadcast"]
+        with_bc = F.cosine_similarity(bc, bc.detach(), dim=-1).mean()
+        without = F.cosine_similarity(torch.zeros_like(bc) + 1e-6, bc.detach(), dim=-1).mean()
+        return self.losses.modulation_loss(with_bc, without)
+
+    def _half_life_loss(self, model) -> torch.Tensor:
+        mj = model.multi_jspace
+        terms = [
+            self.losses.half_life_loss(getattr(mj, s), self.j.half_life[s]) * self.j.hl_weight[s]
+            for s in SPACES
+        ]
+        return torch.stack(terms).sum()
+
+    def _inter_mi(self, jm: Mapping) -> torch.Tensor:
+        return self.losses.inter_space_mi_regularizer(
+            jm["workspaces"]["system1"], jm["workspaces"]["system2"], self.j.inter_mi_cos_target
+        )
+
+    def _routing(self, jm: Mapping, task_type: str) -> torch.Tensor:
+        return self.losses.routing_loss(jm["route_probs"], task_type)
+
+    # -- entry point ---------------------------------------------------------
+
+    def forward(self, model, out: Mapping, input_ids: torch.Tensor, *, phase: int,
+                task_type: str, concept_ids: torch.Tensor | None = None) -> LossBreakdown:
+        jm = out["jspace"]
+        w = self.j.base_loss_weights
+        jw = self.j.j_weight_for_phase(phase)
+
+        lm = self._lm_loss(out["lm_logits"], input_ids)
+        report = self._report_loss(model, jm, concept_ids)
+        broadcast = self._broadcast_loss(jm)
+        selectivity = self._selectivity_loss(jm, task_type)
+        modulation = self._modulation_loss(jm)
+        half_life = self._half_life_loss(model)
+        inter_mi = self._inter_mi(jm)
+        routing = self._routing(jm, task_type)
+
+        aux = (report * w["report"] + broadcast * w["broadcast"]
+               + selectivity * w["selectivity"] + modulation * w["modulation"])
+
+        total = (lm + aux * jw
+                 + half_life
+                 + inter_mi * self.j.inter_mi_weight
+                 + routing * self.j.routing_weight)
+
+        return LossBreakdown(total=total, lm=lm, report=report, broadcast=broadcast,
+                             selectivity=selectivity, modulation=modulation,
+                             half_life=half_life, inter_mi=inter_mi, routing=routing)
