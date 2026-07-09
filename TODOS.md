@@ -26,11 +26,11 @@ Tiers: 🟦 Sonnet (mechanical) · 🟪 Opus (correctness-critical) · 👷 fore
 - [x] **T2.3** 🟦 `configs/pipeline.yaml` — watermarks sized for this host
 - [x] *accept:* **28 tests** — 12 threads + 4 processes over 1000 shards: zero double-claims, zero lost shards. **Negative control:** downgrading to `BEGIN DEFERRED` makes it fail, so the test is not vacuous ✅
 
-## Stage 3 — Collector 🟡
+## Stage 3 — Collector ✅
 - [x] **T3.1** 🟪 `ava/pipeline/collector.py` — HF streaming, backoff+jitter, resumable cursors, 256MB zstd shards, atomic publish (`.tmp`→fsync→`os.replace`→register), backpressure-aware. *accept:* 15 offline tests ✅ + **live**: streamed 500 TinyStories docs, restarted, resumed at cursor 500 with no duplicate doc_ids ✅
 - [x] **T3.3** 🟦 `configs/sources.yaml` — 11 sources, all verified `200` + `gated:false` against the HF API. `bigcode/the-stack-smol` excluded (`gated:"auto"`). Per-phase weights sum to 1.0 (asserted)
-- [ ] **T3.2** 🟦 `ava/datagen/*` — deterministic seeded generators *(agent in flight)*
-- [ ] **T3.4** 👷 **Reconcile**: the collector agent inlined its own synthetic generators. `ava/datagen/` is the source of truth; collector must import from it. *accept:* no duplicate generator logic; `pytest tests/` green
+- [x] **T3.2** 🟦 `ava/datagen/*` — logic / math / encyclopedia / code / chat_safety. 35 tests that check **content**: an independent proof checker re-derives each natural-deduction proof; every math answer is recomputed; every code snippet is re-exec'd; spider→8 / ant→6 / France→Paris never contradicted with ≥40 paraphrases each. Byte-deterministic.
+- [x] **T3.4** 👷 **Reconciled.** Deleted the collector's inline toy generators (a stub logic doc, a hardcoded refusal) in favour of `ava/datagen`. Three bugs surfaced: the registry was **relabelling** generator output (needle docs were phase-1 arithmetic stamped phase-4); needle actually lives in `EncyclopediaGenerator`, not `MathGenerator`; and cursors keyed by source alone would make a multi-phase generator resume into the wrong subsequence (now per `(source, phase)`). `synth_code` had no registry entry at all. *accept:* cpu 97 / gpu 56 ✅ + live shard written and inspected ✅
 
 ## Stage 4 — Curator ✅
 - [x] **T4.1** 🟪 `clean.py` — normalize / is_english / Gopher heuristics / edu_score / PII scrub (conservative: leaves `0xDEADBEEF`, bare digit runs)
@@ -94,6 +94,6 @@ Tiers: 🟦 Sonnet (mechanical) · 🟪 Opus (correctness-critical) · 👷 fore
 ## Open risks
 1. **base1b VRAM.** 1409M is 20% over spec. Not yet proven to fit. Decided at T9.3.
 2. **`trust_remote_code` sources.** `proof-pile-2` and `github-code` fetch a loader script from HF at runtime; an upstream change can break collection mid-run.
-3. **Only `tinystories` was live-streamed.** The other 5 HF sources are API-verified but not yet pulled. `fineweb-edu`'s `score` field name is taken from the spec, not observed.
+3. **Only `tinystories` (HF) and `synth_logic` (synthetic) were live-run.** The other 5 HF sources are API-verified but not yet pulled. `fineweb-edu`'s `score` field name is taken from the spec, not observed.
 4. **Decontamination coupling.** `evals/eval_sets.py` and `ava/datagen/encyclopedia.py` must keep their phrasings distinct; verbatim matching is what separates prompt-form from fact.
 5. **`.wslconfig` not applied** — needs `wsl --shutdown`.
