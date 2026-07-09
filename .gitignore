@@ -15,3 +15,5 @@ data/synthetic*/
 .env
 venv/
 .venv/
+data/
+manifest.jsonl
