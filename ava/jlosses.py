@@ -87,21 +87,38 @@ class JSpaceObjective(torch.nn.Module):
         return torch.stack(terms).mean()
 
     def _selectivity_loss(self, jm: Mapping, task_type: str) -> torch.Tensor:
-        """automatic -> low workspace variance (habitual), deliberate -> high."""
+        """automatic -> low workspace variance (habitual), deliberate -> high.
+
+        Normalized by the workspace's own scale. Raw variance is meaningless as a
+        target: at init the workspace activations are ~1e-3, so var ~1e-6 and the
+        term rounds to zero regardless of what the slots are doing. The model
+        could also trivially minimize it by shrinking every activation.
+        """
         s = "system1" if task_type == "automatic" else "system2"
-        ws_var = jm["workspaces"][s].var(dim=1).mean()
+        ws = jm["workspaces"][s]
+        scale = ws.pow(2).mean() + 1e-8
+        ws_var = ws.var(dim=1).mean() / scale
         return self.losses.selectivity_loss(ws_var, task_type)
 
-    def _modulation_loss(self, jm: Mapping) -> torch.Tensor:
-        """Hinge: the broadcast must move the residual stream more than nothing does.
+    def _modulation_loss(self, out: Mapping, jm: Mapping) -> torch.Tensor:
+        """Hinge: the broadcast must actually modulate the residual stream.
 
-        sim_with  = cos(fused + broadcast, broadcast)
-        sim_without = cos(fused, broadcast)
+        sim_with    = cos(fused + broadcast, broadcast)
+        sim_without = cos(fused,             broadcast)
+
+        A workspace that broadcasts a vector the stream already points at, or a
+        vanishingly small one, gets no credit.
+
+        (Written first as `cos(bc, bc.detach())` vs `cos(0, bc)`. cos(x, x) is
+        identically 1, so the hinge was `relu(0.5 - 1.0) == 0` for every input --
+        a loss term that could never fire. Exactly the defect class this project
+        exists to remove.)
         """
         bc = jm["broadcast"]
-        with_bc = F.cosine_similarity(bc, bc.detach(), dim=-1).mean()
-        without = F.cosine_similarity(torch.zeros_like(bc) + 1e-6, bc.detach(), dim=-1).mean()
-        return self.losses.modulation_loss(with_bc, without)
+        fused = out["fused"]
+        sim_with = F.cosine_similarity(fused + bc, bc, dim=-1).mean()
+        sim_without = F.cosine_similarity(fused, bc, dim=-1).mean()
+        return self.losses.modulation_loss(sim_with, sim_without)
 
     def _half_life_loss(self, model) -> torch.Tensor:
         mj = model.multi_jspace
@@ -131,7 +148,7 @@ class JSpaceObjective(torch.nn.Module):
         report = self._report_loss(model, jm, concept_ids)
         broadcast = self._broadcast_loss(jm)
         selectivity = self._selectivity_loss(jm, task_type)
-        modulation = self._modulation_loss(jm)
+        modulation = self._modulation_loss(out, jm)
         half_life = self._half_life_loss(model)
         inter_mi = self._inter_mi(jm)
         routing = self._routing(jm, task_type)

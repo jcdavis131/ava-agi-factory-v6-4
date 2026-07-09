@@ -266,3 +266,38 @@ def test_cursor_roundtrip_and_idempotent_add(db_path):
 
         assert m.add_shard("dup", source="s", phase=0, path="/p") is True
         assert m.add_shard("dup", source="s", phase=0, path="/p") is False  # no duplicate
+
+
+# --------------------------------------------------------------------------
+# release_claim: a clean handback is not a failure
+
+def test_release_claim_does_not_burn_attempts(db_path):
+    """A trainer restarting mid-shard hands the shard back. Doing that through
+    fail() would park a perfectly good shard in FAILED after three restarts."""
+    _seed(db_path, n=1)
+    with Manifest(db_path, max_attempts=3) as m:
+        for _ in range(5):
+            s = m.claim("curate", by="w")
+            assert s is not None, "shard was parked as FAILED by repeated releases"
+            assert m.release_claim(s.id, by="w") == RAW
+
+        assert m.counts_by_state() == {RAW: 1}
+
+
+def test_release_claim_rejects_non_holder(db_path):
+    _seed(db_path, n=1)
+    with Manifest(db_path) as m:
+        s = m.claim("curate", by="owner")
+        with pytest.raises(StateError, match="not held by"):
+            m.release_claim(s.id, by="someone-else")
+
+
+def test_release_claim_returns_train_shard_to_packed(db_path):
+    with Manifest(db_path) as m:
+        m.freeze_tokenizer("t", 8192)
+        m.add_shard("p", source="x", phase=0, path="/p/p.bin", state=PACKED)
+        m.db.execute("UPDATE shards SET tokens=100 WHERE id='p'")
+        s = m.claim("train", by="trainer-1")
+        assert m.tokens_ready(0) == 0                 # locked while claimed
+        assert m.release_claim(s.id, by="trainer-1") == PACKED
+        assert m.tokens_ready(0) == 100              # available again
