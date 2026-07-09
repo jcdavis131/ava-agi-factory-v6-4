@@ -16,3 +16,7 @@ nemo-curator
 safetensors
 einops
 websockets
+chonkie>=1.4.1
+tiktoken>=0.6.0
+psutil>=5.9.0
+webdataset>=0.2.62

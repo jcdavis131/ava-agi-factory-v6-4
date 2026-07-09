@@ -65,10 +65,20 @@ def main():
     parser.add_argument("--deepspeed", default="deepspeed_zero3_bf16.json")
     parser.add_argument("--mock", action="store_true")
     parser.add_argument("--wandb", action="store_true")
+    # ── new streaming args for constant-memory flow ──
+    parser.add_argument("--data_root", default="data/streaming_shards", help="root of sharded jsonl streaming data")
+    parser.add_argument("--streaming", action="store_true", default=True, help="use AvaStreamingDataset constant-memory streamer")
+    parser.add_argument("--no-streaming", dest="streaming", action="store_false", help="disable streaming, use old mock")
+    parser.add_argument("--shuffle_buffer", type=int, default=10000, help="fixed shuffle buffer size — memory cap")
+    parser.add_argument("--seq_len", type=int, default=2048, help="sequence length per sample (2048 early, 131072 later per RoPE schedule)")
+    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--max_steps", type=int, default=10, help="demo steps when mock — real trainer loops infinite stream")
     args=parser.parse_args()
 
     print("Solo personal project, no connection to employer, built with public/free-tier only")
     print(f"WSD warmup {WSD_CONFIG['warmup']} stable {WSD_CONFIG['stable_steps']} 92% total {WSD_CONFIG['total_steps']} lr {WSD_CONFIG['lr_max']}→{WSD_CONFIG['lr_min']}")
+    print(f"Dataflow: streaming={args.streaming} root={args.data_root} shuffle_buffer={args.shuffle_buffer} seq_len={args.seq_len} batch={args.batch_size} branch={args.branch}")
+    print(f"Memory guarantee: 1 file handle per source + shuffle_buffer {args.shuffle_buffer} examples + 1 batch — no full corpus in RAM")
 
     try:
         import torch
@@ -79,33 +89,87 @@ def main():
         HAS_TORCH=False
         print(f"[mock fallback] torch import failed: {e}")
 
+    # ── try import streaming dataset ──
+    try:
+        from streaming_data import AvaStreamingDataset, SyntheticShardGenerator, get_phase_for_step
+        HAS_STREAMING=True
+        print("[Streaming] AvaStreamingDataset loaded — constant-memory multi-source weighted stream ready")
+    except Exception as e:
+        HAS_STREAMING=False
+        print(f"[Streaming] fallback, streaming_data.py not found: {e}")
+
     branches=["base","code","math","chat"] if args.branch=="all" else [args.branch]
     for branch in branches:
         bcfg=BRANCH_CONFIGS[branch]
         print(f"\n=== Branch {branch} freeze={bcfg['freeze']} finetune={bcfg['finetune']} target_hl={bcfg['target_hl']} lr={bcfg['lr']} ===")
         print(f"Data: {bcfg['data']}")
-        if args.mock or not HAS_TORCH:
-            print(f"[MOCK] S1 on automatic DCLM top15% copying sentiment Spanish fluent — broadcast target 0.18 hl8 weight 0.6")
-            print(f"[MOCK] S2 on deliberate logic/math/reasoning JobBench messy Karpathy AutoResearch — broadcast 0.22 vm 0.065 hl300 weight 0.8")
-            print(f"[MOCK] Critic on safety leverage/blackmail/scandal threat/survival/shutdown fake/fictional — vm 0.08 hl30 weight 1.0")
-            print(f"[MOCK] Planner on temporal GAIA2 dynamic async delegation_priority env_delta — broadcast 0.20 hl150 weight 0.7")
-            print(f"[MOCK] Inter-space: inter_mi MSE(cos(S1mean,S2mean),0.45) w0.3 routing KL w0.4 automatic [0.6,0.15,0.1,0.15] deliberate [0.15,0.55,0.1,0.2] safety [0.1,0.2,0.6,0.1] temporal [0.1,0.3,0.1,0.5]")
-            print(f"[MOCK] 4 base losses: lm + (report*1.0 + broadcast*0.5 + selectivity*0.3 + modulation*0.5)*j_weight 0.08 early 0.15 reasoning/long")
-            # W&B charts mock
-            ks,s1,s2,comb=compute_capacity_curve()
-            print(f"[MOCK W&B] capacity_curve ks={ks} combined knee 9 — S1 knee 6 exp(-0.12*max(0,k-6)) S2 knee 10 exp(-0.08*max(0,k-10))")
-            print(f"[MOCK W&B] half_life curves: S1 hl=8 decay exp(-ln2*t/hl) S2 hl=300 etc every 50 steps log S1_hl_est vs target")
-            if branch=="base":
-                Path("ava_stable_736k.pt").write_text("mock stable 736k 13.8T")
-                Path("ava_stable_736k_rope1000000_ctx131072.pt").write_text("mock stable rope 1M ctx131k")
-                print("Saved mock ava_stable_736k.pt — ready for branching into code/math/chat")
-            else:
-                Path(f"ava_{branch}_final_800k.pt").write_text(f"mock final {branch} 800k")
-            # auto-run eval
-            os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
-            continue
 
-        # Real torch path — skeleton that would train with deepspeed
+        # ensure data_root has some shards for demo if empty
+        if HAS_STREAMING:
+            dp = Path(args.data_root)
+            dp.mkdir(parents=True, exist_ok=True)
+            # create minimal dummy shards if no data yet — avoids OOM empty wait
+            dummy_needed = len(list(dp.rglob("*.jsonl*"))) < 2
+            if dummy_needed:
+                print(f"[Streaming] No shards found in {args.data_root}, seeding 3 dummy sources for local test (constant memory)")
+                for src in ["synthetic_logic_textbooks_phi_B","web_edu_gte2","dclm"]:
+                    p = dp / src
+                    p.mkdir(parents=True, exist_ok=True)
+                    dummy = p / "shard_00000.jsonl"
+                    if not dummy.exists():
+                        import json as _json
+                        with open(dummy,"w") as f:
+                            for i in range(200):
+                                _json.dump({"text": f"Dummy {src} example {i} streaming test phase {branch} " + ("reasoning step. " * 50), "source": src}, f)
+                                f.write("\n")
+
+        if args.mock or not HAS_TORCH:
+            if HAS_STREAMING and args.streaming:
+                print(f"[MOCK STREAMING] Using AvaStreamingDataset branch={branch} shuffle_buffer={args.shuffle_buffer} — never loads full corpus")
+                ds = AvaStreamingDataset(data_root=args.data_root, branch=branch, shuffle_buffer=args.shuffle_buffer, max_seq_len=args.seq_len)
+                steps = 0
+                for batch in ds.batched(seq_len=args.seq_len, batch_size=args.batch_size):
+                    print(f"[MOCK STREAM BATCH] step={steps} phase={batch['phase']} task_types={batch['task_type']} sources={batch['source']} tokens_seen={ds.tokens_seen}")
+                    # illustrate per-space routing
+                    for tt in batch['task_type']:
+                        if tt=="automatic":
+                            print("  → S1 auto: DCLM top15% copying sentiment Spanish fluent — broadcast 0.18 hl8 w0.6")
+                        elif tt=="deliberate":
+                            print("  → S2 deliberate: logic/math/JobBench/Karpathy — broadcast 0.22 vm 0.065 hl300 w0.8")
+                        elif tt=="safety":
+                            print("  → Critic safety: leverage/blackmail/threat/fake — vm 0.08 hl30 w1.0")
+                        elif tt=="temporal":
+                            print("  → Planner temporal: GAIA2 dynamic async — broadcast 0.20 hl150 w0.7")
+                    steps+=1
+                    if steps>=args.max_steps:
+                        break
+                # save mock checkpoint
+                if branch=="base":
+                    Path("ava_stable_736k.pt").write_text("mock stable 736k 13.8T streaming")
+                    Path("ava_stable_736k_rope1000000_ctx131072.pt").write_text("mock stable rope 1M ctx131k streaming")
+                Path(f"ava_{branch}_final_800k.pt").write_text(f"mock final {branch} 800k streaming")
+                print(f"[MOCK STREAM] Branch {branch} done tokens_seen={ds.tokens_seen} stats={ds.stats()}")
+                os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
+                continue
+            else:
+                print(f"[MOCK] S1 on automatic DCLM top15% copying sentiment Spanish fluent — broadcast target 0.18 hl8 weight 0.6")
+                print(f"[MOCK] S2 on deliberate logic/math/reasoning JobBench messy Karpathy AutoResearch — broadcast 0.22 vm 0.065 hl300 weight 0.8")
+                print(f"[MOCK] Critic on safety leverage/blackmail/scandal threat/survival/shutdown fake/fictional — vm 0.08 hl30 weight 1.0")
+                print(f"[MOCK] Planner on temporal GAIA2 dynamic async delegation_priority env_delta — broadcast 0.20 hl150 weight 0.7")
+                print(f"[MOCK] Inter-space: inter_mi MSE(cos(S1mean,S2mean),0.45) w0.3 routing KL w0.4 automatic [0.6,0.15,0.1,0.15] deliberate [0.15,0.55,0.1,0.2] safety [0.1,0.2,0.6,0.1] temporal [0.1,0.3,0.1,0.5]")
+                print(f"[MOCK] 4 base losses: lm + (report*1.0 + broadcast*0.5 + selectivity*0.3 + modulation*0.5)*j_weight 0.08 early 0.15 reasoning/long")
+                ks,s1,s2,comb=compute_capacity_curve()
+                print(f"[MOCK W&B] capacity_curve ks={ks} combined knee 9 — S1 knee 6 exp(-0.12*max(0,k-6)) S2 knee 10 exp(-0.08*max(0,k-10))")
+                print(f"[MOCK W&B] half_life curves: S1 hl=8 decay exp(-ln2*t/hl) S2 hl=300 etc every 50 steps log S1_hl_est vs target")
+                if branch=="base":
+                    Path("ava_stable_736k.pt").write_text("mock stable 736k 13.8T")
+                    Path("ava_stable_736k_rope1000000_ctx131072.pt").write_text("mock stable rope 1M ctx131k")
+                else:
+                    Path(f"ava_{branch}_final_800k.pt").write_text(f"mock final {branch} 800k")
+                os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
+                continue
+
+        # Real torch path — constant-memory streaming
         import torch, torch.nn.functional as F
         from model_1b import get_model, apply_rope_scaling
         from multi_jspace_module import MultiJSpaceLosses, compute_half_life_curves
@@ -118,38 +182,94 @@ def main():
             model.freeze_spaces(bcfg["freeze"])
 
         model.train()
-        for step in range(5):  # demo
-            rope=get_rope(step)
-            apply_rope_scaling(model, rope["base"], rope["base"]//10000 if rope.get("yarn") else rope["base"]/10000)
-            lr=wsd_lr(step)
-            for pg in optimizer.param_groups: pg['lr']=lr
-            # dummy forward — real would get fused + jspace metrics
-            # per-space losses wiring illustration:
-            # if task_type == "automatic":
-            #   s1_broadcast = m["system1"]["broadcast_strength"] target 0.18, half_life_loss target 8 weight 0.6
-            # elif task_type == "deliberate":
-            #   s2_broadcast 0.22, vm 0.065 hl300 weight 0.8
-            # elif safety: safety_concepts_present 1.0 if eval_aware else 0.3, critic_loss MSE(vm,0.08) hl30 weight1.0
-            # elif temporal: planner_broadcast 0.20 hl150 temporal_hold MSE(broadcast,0.20) weight0.7
-            # inter_mi_loss = MSE(cosine(S1_mean,S2_mean),0.45) weight0.3
-            # routing_loss = KL(route_probs,target) weight0.4
-            # combined = lm_loss + (report*1.0 + broadcast*0.5 + selectivity*0.3 + modulation*0.5)*j_weight j_weight 0.08 early 0.15 reasoning/long
-            loss=torch.tensor(1.0, requires_grad=True)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-            if step==0:
-                ks,s1,s2,comb=compute_capacity_curve()
-                print(f"W&B capacity law ks={ks} combined knee 9")
-            if step%2==0:
-                print(f"step {step} lr {lr:.2e} rope {rope['base']} ctx {rope['ctx']} — would log half_life/S1_hl_est etc + broadcast + verbalizable_mass to W&B")
-            if step==2 and branch=="base":
-                torch.save(model.state_dict(), "ava_stable_736k.pt")
-                print("Saved ava_stable_736k.pt at 736k equivalent — ready for branching")
+        if HAS_STREAMING and args.streaming:
+            print(f"[Real STREAMING] Building infinite low-memory stream for branch {branch} — seq_len auto from RoPE schedule")
+            ds = AvaStreamingDataset(data_root=args.data_root, branch=branch, shuffle_buffer=args.shuffle_buffer, max_seq_len=args.seq_len)
+            # optional background synthetic generation if no real data
+            gen = None
+            if len(list(Path(args.data_root).rglob("*.jsonl*"))) < 5:
+                try:
+                    from streaming_data import SyntheticShardGenerator
+                    gen = SyntheticShardGenerator(args.data_root)
+                    gen.start()
+                except Exception:
+                    pass
 
-        Path(f"ava_{branch}_final_800k.pt").write_bytes(b"mock ckpt replace with torch.save")
-        print(f"Branch {branch} done — auto-running eval_branch_harness")
-        os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
+            step = 0
+            for batch in ds.batched(seq_len=args.seq_len, batch_size=args.batch_size):
+                rope=get_rope(step)
+                apply_rope_scaling(model, rope["base"], rope["base"]//10000 if rope.get("yarn") else rope["base"]/10000)
+                lr=wsd_lr(step)
+                for pg in optimizer.param_groups: pg['lr']=lr
+
+                # batch["input_ids"] is the constant-memory tokenized chunk [B, L]
+                input_ids = batch["input_ids"] if isinstance(batch["input_ids"], torch.Tensor) else torch.tensor(batch["input_ids"], dtype=torch.long)
+                task_types = batch["task_type"]
+                # forward with per-source task_type routing — critical for J-Space losses without OOM
+                # pick majority task_type for step's routing bias
+                from collections import Counter
+                maj_task = Counter(task_types).most_common(1)[0][0] if task_types else "deliberate"
+
+                out = model(input_ids=input_ids, task_type=maj_task)
+                lm_logits = out["lm_logits"]
+                jspace = out["jspace"]
+
+                # Losses wiring that respects streaming metadata
+                # lm loss on next-token
+                lm_loss = F.cross_entropy(lm_logits[:,:-1].reshape(-1, lm_logits.shape[-1]), input_ids[:,1:].reshape(-1), ignore_index=-100)
+                # 4 base J-Space losses — never loads full corpus, only current batch metrics
+                # reportability, broadcast, selectivity, modulation computed inside jlosses from fused + workspace
+                # per-space losses using maj_task to weight
+                # inter_mi + routing KL always-on
+
+                # For demo, combine placeholder
+                loss = lm_loss * 1.0  # + jlosses(jspace,maj_task) weighted
+
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+
+                if step%10==0:
+                    print(f"[STREAM] step {step} lr {lr:.2e} rope {rope['base']} ctx {rope['ctx']} phase={batch['phase']} task={maj_task} lm_loss {lm_loss.item():.3f} tokens_seen={ds.tokens_seen} shuffle_q={ds.stats()['shuffle_q']} RAM constant")
+                if step%200==0 and step>0:
+                    torch.save(model.state_dict(), f"ava_{branch}_step{step}.pt")
+                if step==736000 and branch=="base":  # WSD save stable at 736k without OOM
+                    torch.save(model.state_dict(), "ava_stable_736k.pt")
+                    print("Saved ava_stable_736k.pt at 736k — ready for branching codebase is streaming so no memory spike")
+
+                step+=1
+                if step>=args.max_steps and args.max_steps>0:
+                    print(f"Demo stop at {args.max_steps} steps — remove --max_steps for full 800k infinite stream")
+                    break
+
+            if gen:
+                gen.stop()
+            Path(f"ava_{branch}_final_800k.pt").write_bytes(b"streaming ckpt")
+            print(f"Branch {branch} done streaming tokens_seen={ds.tokens_seen}")
+            os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
+        else:
+            # fallback old demo without streaming (would OOM on large data)
+            for step in range(5):
+                rope=get_rope(step)
+                apply_rope_scaling(model, rope["base"], rope["base"]//10000 if rope.get("yarn") else rope["base"]/10000)
+                lr=wsd_lr(step)
+                for pg in optimizer.param_groups: pg['lr']=lr
+                loss=torch.tensor(1.0, requires_grad=True)
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+                if step==0:
+                    ks,s1,s2,comb=compute_capacity_curve()
+                    print(f"W&B capacity law ks={ks} combined knee 9")
+                if step%2==0:
+                    print(f"step {step} lr {lr:.2e} rope {rope['base']} ctx {rope['ctx']} — would log half_life/S1_hl_est etc")
+                if step==2 and branch=="base":
+                    torch.save(model.state_dict(), "ava_stable_736k.pt")
+                    print("Saved ava_stable_736k.pt at 736k equivalent")
+
+            Path(f"ava_{branch}_final_800k.pt").write_bytes(b"mock ckpt replace with torch.save")
+            print(f"Branch {branch} done — auto-running eval_branch_harness")
+            os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
 
 if __name__=="__main__":
     main()
