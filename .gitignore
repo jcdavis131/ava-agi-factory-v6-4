@@ -1,0 +1,12 @@
+__pycache__/
+*.pt
+*.safetensors
+*.bin
+data/
+wandb/
+hf_model/
+.DS_Store
+*.log
+checkpoints/
+ Dolma/
+.deepspeed/
