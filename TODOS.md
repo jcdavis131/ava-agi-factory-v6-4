@@ -53,7 +53,7 @@ Tiers: 🟦 Sonnet (mechanical) · 🟪 Opus (correctness-critical) · 👷 fore
 - Worse, the fallback tagged untagged docs with `<|endofdoc|>`. HF is most of the corpus, so the reportability loss would have learned to "report" end-of-document. Untagged docs now carry `UNTAGGED_CONCEPT = -1` and `ava/jlosses.py` masks them out of the report loss.
 - `decode()` stripped `<|user|>`/`<|assistant|>`, which are real tokens in the chat corpus, not decoration. `skip_special` is now explicit: default on for serving, off for round-trip fidelity.
 
-## Stage 6 — Model + trainer 🟡
+## Stage 6 — Model + trainer ✅
 - [x] **T6.1** 🟪 Model fixes — **the big one.** *accept:* 28 tests ✅
   - [x] Causal mask (SDPA). Bare transformer stack now measures **exactly 0.0** logit change at positions < t
   - [x] **J-Space was non-causal**: it mean-pooled the whole sequence and broadcast it everywhere (measured leak ~0.20). Now **chunk-recurrent** — broadcast into chunk *c* comes only from chunks < *c*
@@ -65,8 +65,17 @@ Tiers: 🟦 Sonnet (mechanical) · 🟪 Opus (correctness-critical) · 👷 fore
   - [x] GQA + SwiGLU + gradient checkpointing (config-gated, causality-tested)
   - [x] Param counts corrected: nano 13.8M, mini 171.3M (was 270M — `tie_verbalizer` must stay true), base1b **1409M** (spec said 1.17B)
 - [x] **T6.2** 🟪 `ava/jlosses.py` — combined objective with blueprint weights
-- [ ] **T6.3** 🟪 `ava/data.py` — `StreamingShardSampler`: claims PACKED shards, mixes by curriculum weight, `task_type`-pure batches, blocks with `DATA_STARVED` not a crash
-- [ ] **T6.4** 🟪 `ava/train.py` — WSD, phase manager + RoPE transitions, grad-accum, bf16, AdamW8bit, ckpt/resume bit-exact, `metrics.jsonl`, `--branch chat --init` real `load_state_dict`
+- [x] **T6.3** 🟪 `ava/data.py` — `StreamingShardSampler`: memmapped shards, `task_type`-pure batches, blocks with `DATA_STARVED` not a crash, hands its claim back on exit. 8 tests
+- [x] **T6.4** 🟪 `ava/train.py` — WSD, phase manager + RoPE transitions, grad-accum, bf16 autocast, AdamW8bit, checkpoint/`--resume`, `metrics.jsonl`, `--branch chat --init` with a real `load_state_dict`. 7 tests
+- [x] **NANO SMOKE PASSED** on the RTX 4080: `lm 9.053 → 3.400` in 30 steps at **~18–20k tok/s**, 13.79M params, checkpoint written, `--resume` verified (run A ends step 10 @ 7.605 → run B resumes and reaches step 20 @ 5.84, matching the single-run 5.947 within data-order variance)
+
+### Bugs found by running it (again, not by reading it)
+- **The sampler starved the trainer forever.** It refused to let a window straddle a document; the synthetic corpus has a **median doc of ~100 tokens**, so at `seq_len=256` phases 1 and 5 produced *zero* windows. Docs are now concatenated with `<|endofdoc|>` separators — but only within one `task_type`, so the routing-KL target stays well defined.
+- **`modulation` was a loss term that could never fire.** It computed `cos(bc, bc.detach())` against `cos(0, bc)`; `cos(x,x) ≡ 1`, so the hinge was `relu(0.5 − 1.0) = 0` for every input that has ever existed. Now compares `cos(fused+bc, bc)` vs `cos(fused, bc)` and is measurably decreasing (0.4965 → 0.4704 over 30 steps).
+- **`selectivity` was gameable and invisible**: raw slot variance can be minimized by shrinking every activation, and at ~2.6e-7 it was being logged as `0.0` by `round(v, 5)`. Now scale-normalized and logged to 4 significant figures.
+- **The trainer leaked its shard lease on every exit.** Four runs locked all 936k phase-0 tokens in `CLAIMED_TRAIN`, and the next run starved on data it already owned. Added `Manifest.release_claim()` — a clean handback that, unlike `fail()`, does **not** burn an attempt (three ordinary restarts would otherwise have parked a good shard in `FAILED`).
+
+> `--resume` is **loss-continuous, not bit-exact**. Model/optimizer/step/phase/RNG restore exactly, but the shard set is live, so data order cannot be reproduced. Bit-exactness needs an as-of manifest watermark (T10.5).
 - [ ] **T6.5** 🟦 `ava/pipeline/janitor.py` — watermarks, delete CONSUMED (never val/test), ckpt rotation
 
 ## Stage 7 — Real evaluation harness
@@ -110,7 +119,7 @@ Nothing here re-implements Stage 2/4; it is the governor, the reproducible view,
 ## Docs
 - [x] `PLAN.md`, `TODOS.md`, `ORCHESTRATION.md` rewritten for the continuous pipeline
 - [ ] `specs/` refresh — `specs/04` is still accurate; `specs/08` param math needs the J-Space correction
-- [ ] `specs/10_continuous_supply.md` — write the contract for Stage 10 (pacer setpoints, watermark semantics, retention/eviction order, bounded-memory invariants)
+- [x] `specs/10_continuous_supply.md` — contract for Stage 10 (pacer setpoints, infinite-generator governor, bounded-memory streaming, as-of watermark, frozen eval snapshots, replay policy, compaction, curriculum-aware eviction, observability). Grounded in the real `Manifest`/`FlowConfig` API; adds `pacing`/`reproducibility`/`storage`/`replay` config blocks and a `Manifest.claim(max_rowid=...)` extension. Each task carries an acceptance command with a negative control.
 
 ---
 

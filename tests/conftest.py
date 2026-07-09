@@ -25,6 +25,7 @@ _MODULE_REQUIREMENTS = {
     "test_curator.py": ["datasketch", "zstandard", "tokenizers"],
     "test_datagen.py": ["zstandard"],
     "test_tokenizer.py": ["tokenizers", "zstandard"],
+    "test_data.py": ["numpy", "tokenizers", "yaml"],
     "test_manifest.py": [],
     "test_flow.py": ["yaml"],
 }

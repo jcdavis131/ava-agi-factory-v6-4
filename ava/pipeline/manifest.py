@@ -394,6 +394,31 @@ class Manifest:
             )
             return target
 
+    def release_claim(self, shard_id: str, *, by: str, note: str = "") -> str:
+        """Hand a claimed shard back, unprocessed. NOT a failure.
+
+        Distinct from `fail()`: releasing does not increment `attempts`, because
+        a clean handback (a trainer shutting down mid-shard) is not evidence the
+        shard is poison. Using fail() here would park a perfectly good shard in
+        FAILED after three ordinary restarts.
+        """
+        with self._immediate() as db:
+            row = db.execute("SELECT * FROM shards WHERE id=?", (shard_id,)).fetchone()
+            if row is None:
+                raise KeyError(shard_id)
+            if row["claimed_by"] != by:
+                raise StateError(f"{shard_id}: not held by {by!r}")
+            origin = {CLAIMED_CURATE: RAW, CLAIMED_TRAIN: PACKED}.get(row["state"])
+            if origin is None:
+                raise StateError(f"{shard_id}: cannot release from {row['state']}")
+            self._assert_legal(row["state"], origin)
+            db.execute(
+                """UPDATE shards SET state=?, claimed_by=NULL, lease_expires_at=NULL,
+                          attempts=MAX(0, attempts-1), error=?, updated_at=? WHERE id=?""",
+                (origin, note or None, time.time(), shard_id),
+            )
+            return origin
+
     def requeue_expired(self) -> list[str]:
         """Return shards whose lease lapsed to their origin state. Returns ids."""
         now = time.time()
