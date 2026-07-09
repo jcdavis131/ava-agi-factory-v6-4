@@ -31,6 +31,10 @@ EOD_TOKEN = "<|endofdoc|>"
 DEFAULT_TOKENIZER_PATH = "/state/tokenizer.json"
 _UINT16_MAX = 0xFFFF
 
+#: Sentinel concept_token_id for docs with no concept tag (all HF sources).
+#: The J-Space reportability loss masks these out; see ava/jlosses.py.
+UNTAGGED_CONCEPT = -1
+
 
 class TokenizerNotFrozen(RuntimeError):
     """No frozen tokenizer file exists where packing expected one."""
@@ -101,8 +105,16 @@ def pack_docs(docs: list[dict], lt: LoadedTokenizer) -> tuple[np.ndarray, dict]:
         end = len(stream)
         stream.append(lt.eod_id)  # separator, not counted in [start, end)
 
-        concept_ids = tok.encode(d.get("concept", "")).ids
-        concept_token_id = concept_ids[0] if concept_ids else lt.eod_id
+        # Only synthetic docs carry a concept; HF records have `concept: null`.
+        # `.get("concept", "")` returns None for an explicit null and blows up in
+        # the tokenizer ("TextInputSequence must be str").
+        #
+        # UNTAGGED (-1) rather than eod_id: HF is most of the corpus, so mapping
+        # every untagged doc onto a real token would teach the reportability loss
+        # that the answer is almost always <|endofdoc|>. ava/jlosses.py masks -1.
+        concept = d.get("concept") or ""
+        concept_ids = tok.encode(concept).ids if concept else []
+        concept_token_id = concept_ids[0] if concept_ids else UNTAGGED_CONCEPT
 
         index.append(
             {
