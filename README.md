@@ -2,6 +2,10 @@
 
 > **Solo personal project, no connection to employer, built with public/free-tier only**
 
+> **🚧 Execution in progress — this repo is being turned from blueprint into a real trained+deployed system.**
+> Master plan: [`PLAN.md`](PLAN.md) · Live tracker: [`TODOS.md`](TODOS.md) · Foreman/worker protocol: [`ORCHESTRATION.md`](ORCHESTRATION.md) · Implementation contracts: [`specs/`](specs/) · Presets: [`configs/`](configs/) · Build workflow: `.claude/workflows/ava-build.js`
+> Scale ladder: **smoke 2M → nano 14M (CPU, live-deployed) → mini ~162M (RTX 4080) → base1b ~1.17B (milestones)**.
+
 Ex Machina Ava blueprint - 1B model with explicit J-Space (Global Workspace) inspired by Anthropic July 2026 J-Space paper.
 
 ## Architecture Overview
