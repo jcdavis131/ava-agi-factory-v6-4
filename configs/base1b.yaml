@@ -1,9 +1,23 @@
 # ava-base1b — 1B-class target (RTX 4080 Laptop 12GB, WSL2)
-# Blueprint depth/width (d2048, 48 layers 12/28/8) with vocab 32k TIED + GQA (4 KV heads)
-# + SwiGLU mlp_ratio 1.0 => ~1.17B params (per-layer ~23.1M x 48; see specs/08 arithmetic).
-# NOTE: the blueprint's literal MHA + 4x MLP + untied 128k vocab is ~2.9B and CANNOT fit 12GB.
-# VRAM: bf16 weights ~2.3GB + grads ~2.3GB + bitsandbytes AdamW8bit ~2.3GB + activations
-# (FULL gradient checkpointing, ctx 2048, micro-batch 1-2) => ~9-10GB, fits 12GB.
+#
+# MEASURED param count: 1409M (`python -m ava.config --preset base1b --count-params`).
+# specs/08 predicted 1.17B; it undercounted the Multi-J-Space, which is NOT just
+# "slots ~0.3M". Each of the 4 workspaces carries 2 MultiheadAttention (4*d^2 each)
+# + mod_gate (d^2) + broad_proj (d^2) = 10*d^2 = 41.9M at d=2048, and there are 4
+# cross-space attentions at 4*d^2 = 16.8M each. J-Space total ~235M.
+#   embed (tied)  65.5M
+#   48 layers   1109M   (GQA attn 10.5M + SwiGLU h=2048 12.6M = 23.1M each)
+#   J-Space      235M
+#                -----
+#                1409M
+# The blueprint's literal MHA + 4x MLP + untied 128k vocab is ~2.9B and cannot fit 12GB.
+#
+# VRAM at 1409M: bf16 weights 2.8GB + bf16 grads 2.8GB + AdamW8bit states ~2.8GB
+# = 8.4GB before activations. With ~11.6GB free that leaves ~3GB for activations,
+# which needs FULL gradient checkpointing at ctx 2048 micro-batch 1.
+# This is TIGHT. Re-measure before the M1 run; if it OOMs, drop n_fusion_layers
+# 28 -> 24 (-92M) or halve the workspace widths. Decided at the Stage 9 GO/NO-GO.
+#
 # Throughput ~1.0-1.5k tok/s => ~100M tokens/day. MILESTONE schedule, stop-anytime via WSD stable ckpts.
 preset: base1b
 

@@ -16,7 +16,10 @@ model:
   n_fusion_layers: 6
   n_reasoning_layers: 3
   tie_lm_head: true
-  tie_verbalizer: false        # untied at mini scale (+24.6M) — richer reportability probe
+  # MUST stay true: each of the 4 workspaces owns a [vocab, d_model] verbalizer,
+  # so untying costs 4 x 32000 x 768 = 98M params (mini would be 270M, not ~171M).
+  # The original spec's "+24.6M" counted one matrix, not four.
+  tie_verbalizer: true
   multimodal: false
   qk_norm: true
   rope_base_init: 10000
