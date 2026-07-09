@@ -42,11 +42,16 @@ Tiers: 🟦 Sonnet (mechanical) · 🟪 Opus (correctness-critical) · 👷 fore
 - [x] *accept:* 19 curator tests, **62/62 suite** ✅
 - [x] **Deviation accepted:** `complete()` **before** deleting raw. Spec said the reverse; the worker was right — deleting first then crashing would requeue a row whose raw file is gone, losing data. Worst case now is an inert orphaned file.
 
-## Stage 5 — Tokenizer bootstrap + throughput gate
-- [ ] **T5.1** 🟦 Collect a 2GB stratified bootstrap sample (collector `--bootstrap-sample`)
-- [ ] **T5.2** 🟦 `ava/tokenizer.py` — byte-level BPE 32k (nano 8k) + specials; freeze + sha256 into manifest
-- [ ] **T5.3** 👷 Freeze gate live-check: curator refuses to pack against a mismatched tokenizer hash *(already enforced in manifest; needs an end-to-end assertion)*
+## Stage 5 — Tokenizer bootstrap + throughput gate 🟡
+- [x] **T5.1** 🟦 Bootstrap corpus collected across phases 0/1/2/5 (synthetic + tinystories)
+- [x] **T5.2** 🟦 `ava/tokenizer.py` — byte-level BPE, specials pinned to ids 0–5, atomic save, sha256 → manifest. **Live:** nano 8192-vocab trained on the real corpus, `roundtrip=ok chars/token=3.28`, frozen as `8f609ef4b82e`. 11 tests
+- [x] **T5.3** 👷 **Data plane proven end-to-end:** collector → curator → 16 PACKED shards, 0 RAW, 0 FAILED, `raw_bytes=0` (raw deleted after packing). 373,438 tokens across train/val/test; packed uint16 decodes back to the source text
 - [ ] **T5.4** 🟦 `scripts/bench_pipeline.py` — *accept:* curation tok/s ≥ 3× trainer tok/s
+
+### Bugs found by running it (not by reading it)
+- **`pack.py` crashed on every HF shard** (`TypeError: TextInputSequence must be str`): `d.get("concept", "")` returns `None` for an explicit JSON null, and only synthetic docs carry a concept.
+- Worse, the fallback tagged untagged docs with `<|endofdoc|>`. HF is most of the corpus, so the reportability loss would have learned to "report" end-of-document. Untagged docs now carry `UNTAGGED_CONCEPT = -1` and `ava/jlosses.py` masks them out of the report loss.
+- `decode()` stripped `<|user|>`/`<|assistant|>`, which are real tokens in the chat corpus, not decoration. `skip_special` is now explicit: default on for serving, off for round-trip fidelity.
 
 ## Stage 6 — Model + trainer 🟡
 - [x] **T6.1** 🟪 Model fixes — **the big one.** *accept:* 28 tests ✅
@@ -85,9 +90,27 @@ Tiers: 🟦 Sonnet (mechanical) · 🟪 Opus (correctness-critical) · 👷 fore
 - [ ] **T9.4** 👷 base1b milestones M1 2B → M2 10B → M3 30B+
 - [ ] **T9.5** 👷 Branch fine-tunes (code/math/chat) from any stable checkpoint
 
+## Stage 10 — Continuous supply, streaming ingestion & storage at scale (cross-cutting; underpins Stages 6–9)
+The primitives already exist — backpressure + `phase_next` prefetch + `DATA_STARVED` (`flow.py`, T2.2),
+`StreamingShardSampler` (T6.3), janitor watermarks (T8.5). This stage turns them into a **curriculum-aware,
+stay-ahead control loop** over **bounded memory** feeding a **bounded, versioned, ever-growing store**.
+Nothing here re-implements Stage 2/4; it is the governor, the reproducible view, and the retention policy on top.
+
+- [ ] **T10.1** 🟪 `ava/pipeline/pacer.py` — **curriculum pacing controller.** Reads the trainer's live phase + consumption rate from the manifest and holds a target **lead buffer** of PACKED tokens per phase (≥ `lead_steps × global_batch_tokens`, for `phase_current` **and** `phase_next`), continuously reweighting collector + datagen effort toward the phase the trainer will reach next. A setpoint on runway, not the existing on/off backpressure. *accept:* a simulated trainer draining P0→P5 at varying tok/s never sees `DATA_STARVED` > a few s at any transition; per-phase runway stays in `[lead, high-water]` across a replayed trace. Deps: T2.2, T6.3.
+- [ ] **T10.2** 🟪 **Infinite-generator governor** — `ava/datagen/*` emit unbounded data; gate production per `(source, phase)` on that phase's runway *deficit* so P0 can't overproduce and evict P5's disk budget. Deterministic resume (extends the per-`(source,phase)` cursor from T3.4). *accept:* under a tight disk cap all six phases still reach their lead target, no phase starves another, byte-deterministic across restart. Deps: T3.2, T3.4, T10.1.
+- [ ] **T10.3** 🟪 **Bounded-memory streaming ingestion** — trainer/curator RSS stays flat regardless of corpus size: `np.memmap` the uint16 `.bin` (no full-shard loads), fixed-size prefetch queues across claim→decompress→collate, a bounded shuffle buffer (shard-shuffle + intra-buffer), pinned-memory + async H2D double-buffering to overlap load with compute, and no-padding sequence packing at each phase's seq-len. Extends T6.3. *accept:* trainer RSS bounded across a 100k-step run over a corpus ≥ 50× RAM; GPU util ≥ target at prefetch depth 2; **zero** pad tokens in `task_type`-pure batches. Deps: T6.3, T4.5.
+- [ ] **T10.4** 🟪 **Live throughput invariant** (makes T5.4 continuous) — `curation_tok/s ≥ trainer_tok/s` **and** `production_tok/s ≥ trainer_tok/s` enforced as a *running* gauge; the pacer scales curator/collector replicas (compose) or trips backpressure when the ratio dips. *accept:* an injected trainer speedup auto-triggers more curator concurrency and the ratio recovers within N min. Deps: T5.4, T10.1.
+- [ ] **T10.5** 🟪 **Reproducible dataset view / as-of watermark** — an expanding store makes "resume" ambiguous. Pin each run to a manifest **watermark** (monotonic shard-registration id) so resume and re-run see a deterministic, replayable data order; record `watermark + tokenizer_hash + curriculum_weights` in the checkpoint. *accept:* kill+resume at step K reads the identical next-shard sequence bit-for-bit; a fresh run at the same watermark+seed reproduces `metrics.jsonl` order. Deps: T2.1, T6.4.
+- [ ] **T10.6** 🟪 **Frozen eval snapshots vs. growing train** — val/test buckets grow too as generation continues; freeze a **named val/test snapshot** (shard-id set) per scale rung so PPL/probe numbers are comparable across M1→M2→M3 while train keeps expanding. Structural val/test protection (T2.1) already prevents leakage; this adds comparability. *accept:* two milestones evaluate on byte-identical val/test token streams; new data never silently changes a past milestone's eval set. Deps: T2.1, T7.1.
+- [ ] **T10.7** 🟪 **Unique-token accounting + replay policy** — define epoch semantics under single-pass delete-after-consume when a phase's *unique* supply < what the trainer needs (likely for base1b's ~20B). Track unique-tokens-seen per phase via the dedup DB (T4.2); on exhaustion either block for fresh collection or do **controlled** replay with a re-shuffle and a logged `replay_epoch` — never silent back-to-back re-showing of the same synthetic docs (memorization). *accept:* a phase forced into replay shows re-shuffled order + `replay_epoch`, and dedup confirms no doc repeats within window W. Deps: T4.2, T10.1.
+- [ ] **T10.8** 🟦 **Shard compaction + addressable index** — many small shards hurt open/seek and manifest bloat; a compactor merges undersized PACKED shards per `(phase, split, seq_len)` and maintains a compact index so any `(phase, task_type, split)` subset is directly addressable without a full scan. Respects the frozen-tokenizer + val/test gates. *accept:* post-compaction shard count ↓, mean shard ≈ target size, sampler reads an unchanged token stream (sha256 of concatenated tokens per subset stable). Deps: T4.5, T2.1.
+- [ ] **T10.9** 🟦 **Storage retention + disk high-water eviction** — on a single 28GB drive an ever-growing corpus needs more than delete-CONSUMED: high-water eviction that sheds the *least-curriculum-useful* RAW/PACKED first (over-supplied phases, oldest, lowest `edu_score`), **never** val/test, **never** a phase under its lead target. Extends the janitor (T8.5). *accept:* under a synthetic disk-fill, eviction keeps free-disk in band and never drops a phase below lead; no val/test byte ever deleted. Deps: T8.5, T10.1.
+- [ ] **T10.10** 🟦 **Supply observability** — `metrics.jsonl` + `/report` expose per-phase runway (steps & tokens), lead/lag vs setpoint, `DATA_STARVED` counters, production/curation/train tok/s + ratios, unique-tokens-per-phase, disk headroom, and `replay_epoch`s. This is how a human confirms "steady state = success" (PLAN.md). *accept:* a nano smoke shows all six phases' runway live; a forced starvation is visible within one scrape interval. Deps: T8.4, T10.1.
+
 ## Docs
 - [x] `PLAN.md`, `TODOS.md`, `ORCHESTRATION.md` rewritten for the continuous pipeline
 - [ ] `specs/` refresh — `specs/04` is still accurate; `specs/08` param math needs the J-Space correction
+- [ ] `specs/10_continuous_supply.md` — write the contract for Stage 10 (pacer setpoints, watermark semantics, retention/eviction order, bounded-memory invariants)
 
 ---
 
@@ -97,3 +120,7 @@ Tiers: 🟦 Sonnet (mechanical) · 🟪 Opus (correctness-critical) · 👷 fore
 3. **Only `tinystories` (HF) and `synth_logic` (synthetic) were live-run.** The other 5 HF sources are API-verified but not yet pulled. `fineweb-edu`'s `score` field name is taken from the spec, not observed.
 4. **Decontamination coupling.** `evals/eval_sets.py` and `ava/datagen/encyclopedia.py` must keep their phrasings distinct; verbatim matching is what separates prompt-form from fact.
 5. **`.wslconfig` not applied** — needs `wsl --shutdown`.
+6. **Supply may not outrun the GPU at base1b** (~100M tok/day). If `production_tok/s < trainer_tok/s`, T10.7 replay engages; unmitigated it is silent overfitting. This is *the* risk of the continuous premise — measured, not assumed, at Stage 9. Decontam and dedup throughput (T10.4) are the second-order version: if they lag they become the true bottleneck.
+7. **Reproducibility of a moving dataset.** Until T10.5's as-of watermark lands, "resume" reads a non-deterministic data order and eval numbers aren't comparable run-to-run.
+8. **Eval-set drift.** Continuous generation grows val/test too; without T10.6's frozen snapshots, M1 and M3 PPL are measured on different token streams and can't be compared.
+9. **Disk is the binding constraint (28GB) and the store only grows.** Compaction (T10.8) and curriculum-aware eviction (T10.9) are load-bearing, not optional — delete-after-consume alone does not bound a corpus that must stay a few steps ahead across six phases simultaneously.

@@ -59,12 +59,24 @@ class JSpaceObjective(torch.nn.Module):
         )
 
     def _report_loss(self, model, jm: Mapping, concept_ids: torch.Tensor | None) -> torch.Tensor:
-        """CE(verbalizer(S2 workspace mean) -> concept token). Zero when untagged."""
+        """CE(verbalizer(S2 workspace mean) -> concept token), over TAGGED docs only.
+
+        Only synthetic docs carry a concept; HF records arrive as
+        UNTAGGED_CONCEPT (-1). Those rows are dropped rather than mapped onto a
+        real token -- HF dominates the corpus, so a placeholder target would
+        teach the workspace to report that placeholder.
+        """
+        device = jm["route_probs"].device
         if concept_ids is None:
-            return torch.zeros((), device=jm["route_probs"].device)
-        ws = jm["workspaces"]["system2"]
+            return torch.zeros((), device=device)
+
+        tagged = concept_ids >= 0
+        if not bool(tagged.any()):
+            return torch.zeros((), device=device)
+
+        ws = jm["workspaces"]["system2"][tagged]
         jlens = model.multi_jspace.system2.jlens
-        return self.losses.reportability_loss(ws, concept_ids, jlens)
+        return self.losses.reportability_loss(ws, concept_ids[tagged], jlens)
 
     def _broadcast_loss(self, jm: Mapping) -> torch.Tensor:
         # per-space broadcast strength toward its configured target
