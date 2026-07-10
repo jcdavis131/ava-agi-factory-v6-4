@@ -44,6 +44,13 @@ retention:
   keep_stable_checkpoints: true        # one per phase boundary; these are the
                                        # branch-fork points and stop-anytime saves
 
+# T10.9 — curriculum-aware high-water eviction (janitor). When free disk falls
+# below evict_high_water_gb, shed oversupplied / behind-phase RAW+PACKED train
+# shards. Lead floor = backpressure.packed_min_tokens. Never val/test.
+storage:
+  evict_high_water_gb: 15
+  evict_batch_limit: 20
+
 collector:
   prefetch_phases: 2       # current + next, so phase transitions don't stall the GPU
   http_retries: 8
