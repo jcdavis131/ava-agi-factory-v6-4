@@ -3,9 +3,11 @@
 Responsibilities:
   1. When free disk falls below ``disk.janitor_trigger_gb``, delete CONSUMED
      train shards (files + manifest ``CONSUMED -> DELETED``).
-  2. Rotate ``ckpt/step_*.pt`` to ``retention.keep_last_checkpoints``, always
+  2. When free disk falls below ``storage.evict_high_water_gb``, curriculum-aware
+     eviction of oversupplied / behind-phase RAW and PACKED train shards (T10.9).
+  3. Rotate ``ckpt/step_*.pt`` to ``retention.keep_last_checkpoints``, always
      preserving ``stable_p*.pt`` (and ``latest`` / ``*_final.pt``).
-  3. Never delete ``val`` / ``test`` shards — structural protection in
+  4. Never delete ``val`` / ``test`` shards — structural protection in
      ``manifest.consumed_shards`` / ``mark_deleted``, plus an explicit refuse
      here so a bad row cannot slip through.
 
@@ -29,7 +31,8 @@ from pathlib import Path
 
 import yaml
 
-from ava.pipeline.flow import FlowConfig, free_gb, janitor_should_collect
+from ava.pipeline.eviction import StorageConfig, evict_oversupplied, should_evict
+from ava.pipeline.flow import FlowConfig, current_training_phase, free_gb, janitor_should_collect
 from ava.pipeline.manifest import PROTECTED_SPLITS, Manifest, worker_id
 from ava.pipeline.pack import idx_path_for
 
@@ -189,13 +192,16 @@ class Janitor:
         db_path: str | None = None,
         packed_dir: str | None = None,
         ckpt_dir: str | None = None,
+        raw_dir: str | None = None,
     ) -> None:
         self.config_path = config_path or os.environ.get("AVA_PIPELINE_CONFIG", DEFAULT_CONFIG)
         self.flow = FlowConfig.load(self.config_path)
         self.retention = RetentionConfig.load(self.config_path)
+        self.storage = StorageConfig.load(self.config_path)
         self.db_path = db_path or os.environ.get("AVA_STATE_DB", "/state/manifest.db")
         self.packed_dir = packed_dir or os.environ.get("AVA_PACKED_DIR", "/packed")
         self.ckpt_dir = ckpt_dir or os.environ.get("AVA_CKPT_DIR", "/ckpt")
+        self.raw_dir = raw_dir or os.environ.get("AVA_RAW_DIR", "/raw")
         self.worker = worker_id()
         self._stop = False
 
@@ -208,14 +214,17 @@ class Janitor:
         signal.signal(signal.SIGINT, handler)
 
     def run_once(self, m: Manifest) -> dict:
-        """One janitor pass: optional CONSUMED reclaim + checkpoint rotation."""
+        """One janitor pass: CONSUMED reclaim, curriculum eviction, ckpt rotation."""
+        disk_path = self.packed_dir
+        free = free_gb(disk_path)
         result: dict = {
-            "disk_free_gb": round(free_gb(self.packed_dir), 3),
+            "disk_free_gb": round(free, 3),
             "reclaimed": None,
+            "evicted": None,
             "ckpts_removed": [],
         }
 
-        pressure = janitor_should_collect(self.flow, disk_path=self.packed_dir)
+        pressure = janitor_should_collect(self.flow, disk_path=disk_path)
         result["pressure"] = bool(pressure)
         result["pressure_reason"] = pressure.reason
 
@@ -224,6 +233,26 @@ class Janitor:
             _log("reclaim", **result["reclaimed"], reason=pressure.reason)
         elif pressure and not self.retention.delete_consumed:
             _log("reclaim_skipped", reason="delete_consumed=false", pressure=pressure.reason)
+
+        if should_evict(free, self.storage):
+            try:
+                cur = current_training_phase(m)
+                result["evicted"] = evict_oversupplied(
+                    m, self.flow, self.storage, current_phase=cur
+                )
+                _log(
+                    "evict",
+                    **result["evicted"],
+                    free_gb=result["disk_free_gb"],
+                    high_water_gb=self.storage.evict_high_water_gb,
+                )
+            except Exception as exc:  # noqa: BLE001
+                _log(
+                    "evict_failed",
+                    level="warn",
+                    error=f"{type(exc).__name__}: {exc}",
+                    tb=traceback.format_exc()[-1500:],
+                )
 
         try:
             removed = rotate_checkpoints(
@@ -253,6 +282,7 @@ class Janitor:
             packed_dir=self.packed_dir,
             ckpt_dir=self.ckpt_dir,
             janitor_trigger_gb=self.flow.janitor_trigger_gb,
+            evict_high_water_gb=self.storage.evict_high_water_gb,
             delete_consumed=self.retention.delete_consumed,
             keep_last_checkpoints=self.retention.keep_last_checkpoints,
         )

@@ -64,7 +64,7 @@ STAGES = {
 }
 
 _LEGAL_TRANSITIONS: dict[str, frozenset[str]] = {
-    RAW: frozenset({CLAIMED_CURATE, FAILED}),
+    RAW: frozenset({CLAIMED_CURATE, FAILED, DELETED}),  # DELETED: T10.9 janitor eviction
     CLAIMED_CURATE: frozenset({PACKED, RAW, FAILED}),  # -> RAW on lease requeue
     PACKED: frozenset({CLAIMED_TRAIN, FAILED, DELETED}),
     CLAIMED_TRAIN: frozenset({CONSUMED, PACKED, FAILED}),  # -> PACKED on requeue
@@ -440,7 +440,7 @@ class Manifest:
             return ids
 
     def mark_deleted(self, shard_ids: Sequence[str]) -> int:
-        """Janitor: CONSUMED -> DELETED. Refuses protected splits."""
+        """Janitor: RAW|PACKED|CONSUMED -> DELETED. Refuses protected splits."""
         if not shard_ids:
             return 0
         with self._immediate() as db:
