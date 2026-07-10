@@ -59,6 +59,7 @@ import zstandard as zstd
 from ava.pipeline import clean, decontaminate
 from ava.pipeline.dedup import MinHashDeduper
 from ava.pipeline.decontaminate import Decontaminator
+from ava.pipeline.flow import FlowConfig, curator_claim_phases
 from ava.pipeline.manifest import Manifest, worker_id
 from ava.pipeline.pack import load_tokenizer, pack_docs, write_shard
 from ava.pipeline.split import assign_split
@@ -123,6 +124,7 @@ class Curator:
         self.tokenizer_path = tokenizer_path or os.environ.get("AVA_TOKENIZER")
         self.report_path = os.path.join(self.packed_dir, "decontam_report.json")
 
+        self.flow = FlowConfig.load(self.config_path)
         self.worker = worker_id()
         self._stop = False
         # Loaded lazily on first shard so `--help` / construction never touch the
@@ -279,8 +281,17 @@ class Curator:
     # -- loops --------------------------------------------------------------
 
     def run_once(self, m: Manifest) -> bool:
-        """Claim and process one shard. Returns False if nothing was ready."""
-        shard = m.claim("curate", by=self.worker)
+        """Claim and process one shard. Returns False if nothing was ready.
+
+        Claims only within the trainer's prefetch window (starved phase first),
+        so a mountain of phase-0 RAW cannot monopolize every curator while the
+        GPU is DATA_STARVED on phase 3.
+        """
+        shard = None
+        for phase in curator_claim_phases(m, self.flow):
+            shard = m.claim("curate", by=self.worker, phases=[phase])
+            if shard is not None:
+                break
         if shard is None:
             return False
         _log("claimed", shard=shard.id, source=shard.source, phase=shard.phase, bytes=shard.bytes)

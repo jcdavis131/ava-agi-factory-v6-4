@@ -49,6 +49,7 @@ services:
     volumes:
       - ava_raw:/raw
       - ava_state:/state
+      - ava_reports:/reports
     deploy:
       replicas: 4
     restart: unless-stopped
@@ -67,6 +68,7 @@ services:
       - ava_raw:/raw
       - ava_packed:/packed
       - ava_state:/state
+      - ava_reports:/reports
     deploy:
       replicas: 6
     depends_on:

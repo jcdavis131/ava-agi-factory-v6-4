@@ -422,8 +422,14 @@ def _write_raw_shard(path: Path, docs: list[dict]) -> None:
     path.write_bytes(compressed)
 
 
-def test_end_to_end_once(tmp_path, tiny_tokenizer):
+def test_end_to_end_once(tmp_path, tiny_tokenizer, monkeypatch):
     from ava.pipeline.curator import Curator
+
+    # Isolate from any live metrics_{preset}.jsonl that would redirect claims
+    # to the trainer's current phase.
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    monkeypatch.setenv("AVA_REPORTS_DIR", str(reports))
 
     raw_dir = tmp_path / "raw"
     packed_dir = tmp_path / "packed"
@@ -458,6 +464,7 @@ def test_end_to_end_once(tmp_path, tiny_tokenizer):
         m.add_shard("e2e_0000", source="e2e", phase=1, path=str(raw_path),
                     bytes_=raw_path.stat().st_size, docs=len(docs))
         m.freeze_tokenizer(lt.sha256, lt.vocab_size)
+        m.upsert_run("e2e", preset="nano", step=0, phase=1, status="running")
 
     curator = Curator(
         config_path="configs/pipeline.yaml",
