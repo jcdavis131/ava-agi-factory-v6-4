@@ -29,6 +29,7 @@ x-common-env: &common-env
   AVA_CKPT_DIR: /ckpt
   AVA_REPORTS_DIR: /reports
   AVA_PIPELINE_CONFIG: /app/configs/pipeline.yaml
+  AVA_TOKENIZER: /state/tokenizer.json
   HF_TOKEN: ${HF_TOKEN:-}
 
 x-gpu-reservation: &gpu-reservation

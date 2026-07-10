@@ -522,6 +522,59 @@ class Manifest:
                 (sha256, vocab_size, time.time()),
             )
 
+    def abandon_claims(self) -> list[str]:
+        """Maintenance: release all live claims (workers must be stopped).
+
+        CLAIMED_CURATE → RAW, CLAIMED_TRAIN → PACKED. Returns released ids.
+        """
+        now = time.time()
+        with self._immediate() as db:
+            rows = db.execute(
+                "SELECT id, state FROM shards WHERE state IN (?,?)",
+                (CLAIMED_CURATE, CLAIMED_TRAIN),
+            ).fetchall()
+            ids: list[str] = []
+            for r in rows:
+                origin = RAW if r["state"] == CLAIMED_CURATE else PACKED
+                db.execute(
+                    """UPDATE shards SET state=?, claimed_by=NULL, lease_expires_at=NULL,
+                              error='abandoned for tokenizer cutover', updated_at=? WHERE id=?""",
+                    (origin, now, r["id"]),
+                )
+                ids.append(r["id"])
+            return ids
+
+    def clear_tokenizer_for_retrain(self) -> dict[str, int]:
+        """Drop the freeze after invalidating every tokenized shard.
+
+        Marks PACKED + CONSUMED → DELETED (including val/test — old token ids
+        are not hash-compatible with a new vocab). RAW is kept. Raises if any
+        CLAIMED_* rows remain (call ``abandon_claims`` first). Caller must
+        delete packed files on disk before ``freeze_tokenizer`` of a new sha.
+        """
+        with self._immediate() as db:
+            claimed = db.execute(
+                "SELECT COUNT(*) c FROM shards WHERE state IN (?,?)",
+                (CLAIMED_CURATE, CLAIMED_TRAIN),
+            ).fetchone()["c"]
+            if claimed:
+                raise StateError(
+                    f"{claimed} CLAIMED_* shard(s) still live; stop workers and "
+                    f"call abandon_claims() before clear_tokenizer_for_retrain()"
+                )
+            rows = db.execute(
+                "SELECT id FROM shards WHERE state IN (?,?)",
+                (PACKED, CONSUMED),
+            ).fetchall()
+            now = time.time()
+            for r in rows:
+                db.execute(
+                    "UPDATE shards SET state=?, path=NULL, updated_at=? WHERE id=?",
+                    (DELETED, now, r["id"]),
+                )
+            db.execute("DELETE FROM tokenizer")
+            return {"deleted_tokenized": len(rows), "tokenizer_cleared": 1}
+
     def tokenizer_sha(self) -> str | None:
         r = self.db.execute("SELECT sha256 FROM tokenizer WHERE id=1").fetchone()
         return r["sha256"] if r else None
