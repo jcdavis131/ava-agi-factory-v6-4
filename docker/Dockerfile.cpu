@@ -18,6 +18,7 @@ COPY docker/requirements.cpu.txt /tmp/requirements.cpu.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.cpu.txt
 
 COPY ava/ /app/ava/
+COPY evals/ /app/evals/
 COPY configs/ /app/configs/
 
 # Unprivileged: volumes are chowned by compose init or created world-writable.

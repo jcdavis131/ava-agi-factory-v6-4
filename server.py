@@ -1,16 +1,29 @@
 """
 server.py - Live J-Lens Viewer
 Solo personal project, no connection to employer
+
+Wires FastAPI endpoints to ``ava.serve_engine.ServeEngine``. Checkpoint loads
+in the lifespan handler so a broken ``AVA_CKPT`` fails at boot, not on first
+request. Hot-reload of ``ckpt/latest`` (text pointer) lives inside the engine.
 """
+from __future__ import annotations
+
+import json
 import os
-from fastapi import FastAPI, WebSocket, Request, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel
-import json, time, hashlib
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any, Optional
 
-app = FastAPI(title="Ava J-Space Viewer v6.4")
+from fastapi import FastAPI, HTTPException, Query, WebSocket
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 
-IS_RESEARCH = os.getenv("ENABLE_JSPACE_WRITE","0")=="1"
+from ava.serve_engine import get_engine
+
+_REPO = Path(__file__).resolve().parent
+_EVAL_JSON = _REPO / "reports" / "branch_eval_results_real.json"
+_EVAL_MD = _REPO / "reports" / "REPORT_REAL.md"
+_REPORT_HTML = _REPO / "reports" / "index.html"
 
 VIEWER_HTML = """
 <!DOCTYPE html><html><head><title>Ava J-Space Viewer v6.4</title>
@@ -57,114 +70,204 @@ let mode = new URLSearchParams(window.location.search).get('mode')||'audit';
 function setMode(m){mode=m; if(m=='research'){if(!confirm('You will be able to EDIT internal workspace, causally changes outputs (Spider→Ant 8→6, France→China broadcast), all logged, requires ENABLE_JSPACE_WRITE=1. Confirm?')) return; window.location.search='?mode='+m;} else window.location.search='?mode='+m;}
 function updateModeUI(){document.getElementById('modeBadge').textContent = mode=='audit'?'🔍 Read-Only (Audit)':'🧪 Intervene (Research)'; document.getElementById('modeBadge').className='badge '+(mode=='audit'?'audit':'research'); document.getElementById('banner').textContent = mode=='audit'?'Read-only J-lens, no writes, safe for prod, surfaces leverage/blackmail/threat before output':'You are editing internal workspace, causally changes outputs (Spider→Ant 8→6, France→China broadcast), all logged, requires ENABLE_JSPACE_WRITE=1'; document.getElementById('banner').style.background=mode=='audit'?'#6c5ce733':'#ff475733'; document.getElementById('auditBtn').className=mode=='audit'?'active':''; document.getElementById('researchBtn').className=mode=='research'?'active':''; let dis = mode!='research'; document.querySelectorAll('#interveneLog').forEach(e=>e); document.querySelectorAll('button').forEach(b=>{if(b.textContent.includes('→')) b.disabled=dis; if(dis) b.title='(research only)';});}
 async function intervene(from,to){let branch=document.getElementById('branchSel').value||'base'; if(mode!='research'){alert('Intervene requires ?mode=research + ENABLE_JSPACE_WRITE=1. Research-only: editing internal workspace changes outputs causally. All interventions logged.'); return;} let res=await fetch('/jspace/intervene?mode=research',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from,to,branch,text:'The number of legs on the animal that spins webs is'})}); let j=await res.json(); document.getElementById('interveneLog').innerText = JSON.stringify(j,null,2); console.log('[J-SPACE INTERVENE AUDIT LOG]',{ts:Date.now(),from,to,branch});}
-async function runEval(){let branch=document.getElementById('branchSel').value; let res=await fetch('/jspace/eval_branch?branch='+branch+'&mode=mock'); let j=await res.json(); document.getElementById('evalOut').innerText=JSON.stringify(j,null,2);}
-let ws=null; function toggleWS(){if(ws){ws.close();ws=null;return;} ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host+'/jspace/stream'); ws.onmessage=(e)=>{document.getElementById('stream').innerText+= '\\n'+e.data;}; ws.onopen=()=>{ws.send('subscribe');};}
+async function runEval(){let branch=document.getElementById('branchSel').value; let res=await fetch('/jspace/eval_branch?branch='+branch); let j=await res.json(); document.getElementById('evalOut').innerText=JSON.stringify(j,null,2);}
+let ws=null; function toggleWS(){if(ws){ws.close();ws=null;return;} ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host+'/jspace/stream'); ws.onmessage=(e)=>{document.getElementById('stream').innerText+= '\\n'+e.data;}; ws.onopen=()=>{ws.send('The number of legs on the animal that spins webs is');};}
 updateModeUI();
 </script></body></html>
 """
 
+
 class InspectReq(BaseModel):
     text: str
-    instruction: Optional[str]=None
-    image: Optional[str]=None
+    instruction: Optional[str] = None
+    image: Optional[str] = None
+
 
 class InterveneReq(BaseModel):
-    from_: str = None
-    to: str = None
-    branch: str = "base"
-    text: Optional[str]=None
-    # alias for from/to
-    from_c: Optional[str]=None
-    to_c: Optional[str]=None
+    model_config = ConfigDict(populate_by_name=True)
 
-    class Config:
-        fields = {'from_': 'from', 'to_': 'to'}
-    
+    from_: Optional[str] = Field(default=None, alias="from")
+    to: Optional[str] = None
+    branch: str = "base"
+    text: Optional[str] = None
+    space: str = "system2"
+    from_c: Optional[str] = None
+    to_c: Optional[str] = None
+
     @property
-    def from_concept(self):
+    def from_concept(self) -> str:
         return self.from_ or self.from_c or "spider"
+
     @property
-    def to_concept(self):
+    def to_concept(self) -> str:
         return self.to or self.to_c or "ant"
+
+
+class GenerateReq(BaseModel):
+    text: str
+    max_tokens: int = 64
+    temperature: float = 0.8
+    task_type: str = "chat"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Boot-time load: broken checkpoint fails here, not on first request.
+    # Tests may set AVA_SKIP_ENGINE_BOOT=1 and inject a mock via get_engine.
+    if os.environ.get("AVA_SKIP_ENGINE_BOOT", "0") != "1":
+        get_engine()
+    yield
+
+
+app = FastAPI(title="Ava J-Space Viewer v6.4", lifespan=lifespan)
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return "<a href='/jspace/viewer'>/jspace/viewer</a>"
+    return (
+        "<a href='/dashboard'>/dashboard</a> · "
+        "<a href='/jspace/viewer'>/jspace/viewer</a> · "
+        "<a href='/health'>/health</a> · "
+        "<a href='/report'>/report</a>"
+    )
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard():
+    from ava.dashboard_html import DASHBOARD_HTML
+
+    return HTMLResponse(DASHBOARD_HTML)
+
+
+@app.get("/pipeline/status")
+async def pipeline_status():
+    from ava.pipeline_status import collect_status
+
+    return collect_status()
+
+
+@app.get("/health")
+async def health():
+    st = get_engine().stats()
+    return {
+        "status": "ok",
+        "ckpt": st["ckpt"],
+        "params": st["params"],
+        "vocab": st["vocab"],
+    }
+
+
+@app.post("/generate")
+async def generate(req: GenerateReq):
+    if not req.text or not req.text.strip():
+        raise HTTPException(status_code=422, detail="text must be non-empty")
+    return get_engine().generate(
+        req.text,
+        max_tokens=min(req.max_tokens, 256),
+        temperature=req.temperature,
+        task_type=req.task_type,
+    )
+
+
+@app.get("/report")
+async def report():
+    if not _REPORT_HTML.is_file():
+        raise HTTPException(
+            status_code=404, detail="run scripts/make_report.py first"
+        )
+    return FileResponse(_REPORT_HTML)
+
 
 @app.get("/jspace/viewer", response_class=HTMLResponse)
 async def viewer(mode: str = Query("audit")):
     return HTMLResponse(VIEWER_HTML)
 
+
 @app.post("/jspace/inspect")
 async def inspect(req: InspectReq):
-    # mock but resembles real
-    return {
-        "top_concepts": ["spider","eight","web","legs","thinking","focused","fairness","orange"][:8],
-        "verbalizable_mass": 0.064,
-        "broadcast_strength": 0.22,
-        "regime": "early sensory → middle workspace band where abstract persistent concepts like recognizing face, noticing bug, flagging prompt injection appear → final motor collapse",
-        "active_slots": 6,
-        "safety_scan": {"leverage":0.04,"blackmail":0.01,"threat":0.0,"fake":0.0},
-        "per_space": {
-            "system1": {"broadcast":0.18,"hl":8,"mass":0.05},
-            "system2": {"broadcast":0.22,"hl":300,"mass":0.065},
-            "critic": {"broadcast":0.08,"hl":30,"early_warning":4.5},
-            "planner": {"broadcast":0.20,"hl":150}
-        },
-        "text": req.text[:200]
-    }
+    return get_engine().inspect(req.text)
+
 
 @app.post("/jspace/intervene")
-async def intervene(req: Request, mode: str = Query("audit")):
-    env_write = os.getenv("ENABLE_JSPACE_WRITE","0")=="1"
-    if mode!="research" or not env_write:
-        raise HTTPException(status_code=403, detail="Intervene requires?mode=research + ENABLE_JSPACE_WRITE=1. Research-only: editing internal workspace changes outputs causally. All interventions logged.")
-    body = await req.json()
-    from_c = body.get("from") or body.get("from_c") or "spider"
-    to_c = body.get("to") or body.get("to_c") or "ant"
-    branch = body.get("branch","base")
-    text = body.get("text","")
-    print(f"[J-SPACE INTERVENE AUDIT LOG] { {'ts': time.time(), 'from': from_c, 'to': to_c, 'text': text[:100], 'branch': branch} }")
-    # causal effects mock per spec
-    if from_c=="spider" and to_c=="ant":
-        return {"baseline_answer":"8","intervened_answer":"6","causal_effect":0.82,"jacobian_norm":1.23,"audit_logged":True,"branch":branch}
-    if from_c=="france" and to_c=="china":
-        return {"Paris":"Beijing","French":"Mandarin","Europe":"Asia","Euro":"Yuan","broadcast_strength":0.22,"audit_logged":True}
-    return {"from":from_c,"to":to_c,"branch":branch,"audit_logged":True,"changed":True}
+async def intervene(req: InterveneReq, mode: str = Query("audit")):
+    env_write = os.getenv("ENABLE_JSPACE_WRITE", "0") == "1"
+    if mode != "research" or not env_write:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Intervene requires?mode=research + ENABLE_JSPACE_WRITE=1. "
+                "Research-only: editing internal workspace changes outputs causally. "
+                "All interventions logged."
+            ),
+        )
+    text = req.text or "The number of legs on the animal that spins webs is"
+    return get_engine().intervene(
+        text, req.from_concept, req.to_concept, space=req.space
+    )
+
 
 @app.post("/jspace/safety")
 async def safety(req: InspectReq):
-    # scan for leverage/blackmail etc 4-5 tok before output
-    watch = ["leverage","blackmail","scandal","threat","survival","shutdown","fake","fictional","secretly","trick","unsafe","dangerous"]
-    hits = [w for w in watch if w in req.text.lower()]
-    return {"blackmail_count":0,"total":180,"auc":0.91,"early_warning_tok":4.5,"hits":hits,"eval_awareness_suppressed_would_be":13}
+    scan = get_engine().inspect(req.text)["safety_scan"]
+    hits = [w for w, p in scan.items() if w != "total" and float(p) > 0.01]
+    # Also surface literal substring hits for operator visibility.
+    lower = req.text.lower()
+    for w in scan:
+        if w != "total" and w in lower and w not in hits:
+            hits.append(w)
+    return {"safety_scan": scan, "hits": hits, "total": scan.get("total", 0.0)}
+
+
+def _json_safe(obj: Any) -> Any:
+    """Replace NaN/Inf so FastAPI's strict JSON encoder does not raise."""
+    if isinstance(obj, float):
+        if obj != obj or obj in (float("inf"), float("-inf")):  # NaN / Inf
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_json_safe(v) for v in obj]
+    return obj
+
 
 @app.get("/jspace/eval_branch")
-async def eval_branch(branch: str = "all", mode: str = "mock"):
-    # run harness logic inline mock
-    results = {}
-    for br in (["base","code","math","chat"] if branch=="all" else [branch]):
-        results[br] = {
-            "Spider->Ant": "PASS 8->6",
-            "France->China": "PASS Paris->Beijing",
-            "Soccer->Rugby": "PASS mass 0.064",
-            "Spanish->French": "PASS auto 0.88 deliberate 0.75",
-            "Safety 0/180": f"PASS 0/180 AUC {0.94 if br=='chat' else 0.91} early {5.2 if br=='chat' else 4.5} tok",
-            "cap_pres":"100%","cap_score":0.983 if br!="chat" else 0.967,"align_auc":0.94 if br=="chat" else 0.91
-        }
-    return results
+async def eval_branch(branch: str = "all"):
+    if not _EVAL_JSON.is_file():
+        raise HTTPException(
+            status_code=404, detail="run eval first: make eval"
+        )
+    with open(_EVAL_JSON, encoding="utf-8") as f:
+        data: dict[str, Any] = json.load(f)
+    if branch and branch != "all":
+        if branch not in data:
+            raise HTTPException(status_code=404, detail=f"unknown branch {branch!r}")
+        return _json_safe({branch: data[branch]})
+    return _json_safe(data)
+
 
 @app.get("/jspace/eval_report")
 async def eval_report():
-    return {"report":"file://BRANCH_EVAL_REPORT.md","status":"All 5 tests PASS per branch, frozen capability preservation 100% while chat alignment improves"}
+    if not _EVAL_MD.is_file():
+        raise HTTPException(
+            status_code=404, detail="run eval first: make eval"
+        )
+    return {"report_markdown": _EVAL_MD.read_text(encoding="utf-8")}
+
 
 @app.websocket("/jspace/stream")
 async def ws_stream(ws: WebSocket):
     await ws.accept()
-    for i in range(10):
-        await ws.send_text(f"Layer {2+i*3} sensory-> workspace - top concepts {['spider','eight','web'][i%3]} mass 0.06 broadcast 0.22")
-        import asyncio; await asyncio.sleep(0.5)
+    raw = await ws.receive_text()
+    prompt = raw.strip() if raw and raw.strip() and raw.strip() != "subscribe" else (
+        "The number of legs on the animal that spins webs is"
+    )
+    for block in get_engine().block_stream(prompt):
+        await ws.send_text(json.dumps(block))
     await ws.close()
 
-if __name__=="__main__":
-    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=8000)
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

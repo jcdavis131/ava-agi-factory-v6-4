@@ -116,6 +116,7 @@ services:
     environment:
       <<: *common-env
       AVA_CKPT: /ckpt/latest
+      AVA_TOKENIZER: /state/tokenizer.json
       ENABLE_JSPACE_WRITE: ${ENABLE_JSPACE_WRITE:-0}
     ports:
       - "8000:8000"

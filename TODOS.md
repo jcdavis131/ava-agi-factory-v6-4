@@ -46,7 +46,7 @@ Tiers: 🟦 Sonnet (mechanical) · 🟪 Opus (correctness-critical) · 👷 fore
 - [x] **T5.1** 🟦 Bootstrap corpus collected across phases 0/1/2/5 (synthetic + tinystories)
 - [x] **T5.2** 🟦 `ava/tokenizer.py` — byte-level BPE, specials pinned to ids 0–5, atomic save, sha256 → manifest. **Live:** nano 8192-vocab trained on the real corpus, `roundtrip=ok chars/token=3.28`, frozen as `8f609ef4b82e`. 11 tests
 - [x] **T5.3** 👷 **Data plane proven end-to-end:** collector → curator → 16 PACKED shards, 0 RAW, 0 FAILED, `raw_bytes=0` (raw deleted after packing). 373,438 tokens across train/val/test; packed uint16 decodes back to the source text
-- [ ] **T5.4** 🟦 `scripts/bench_pipeline.py` — *accept:* curation tok/s ≥ 3× trainer tok/s
+- [x] **T5.4** 🟦 `scripts/bench_pipeline.py` — *accept:* curation tok/s ≥ 3× trainer tok/s. **Measured (nano, host CUDA):** collector ~438k tok/s, curator **62.4k tok/s**, trainer **10.1k tok/s**, ratio **6.15×** → GATE PASS. JSON: `reports/bench_pipeline.json`
 
 ### Bugs found by running it (not by reading it)
 - **`pack.py` crashed on every HF shard** (`TypeError: TextInputSequence must be str`): `d.get("concept", "")` returns `None` for an explicit JSON null, and only synthetic docs carry a concept.
@@ -76,21 +76,21 @@ Tiers: 🟦 Sonnet (mechanical) · 🟪 Opus (correctness-critical) · 👷 fore
 - **The trainer leaked its shard lease on every exit.** Four runs locked all 936k phase-0 tokens in `CLAIMED_TRAIN`, and the next run starved on data it already owned. Added `Manifest.release_claim()` — a clean handback that, unlike `fail()`, does **not** burn an attempt (three ordinary restarts would otherwise have parked a good shard in `FAILED`).
 
 > `--resume` is **loss-continuous, not bit-exact**. Model/optimizer/step/phase/RNG restore exactly, but the shard set is live, so data order cannot be reproduced. Bit-exactness needs an as-of manifest watermark (T10.5).
-- [ ] **T6.5** 🟦 `ava/pipeline/janitor.py` — watermarks, delete CONSUMED (never val/test), ckpt rotation
+- [x] **T6.5** 🟦 `ava/pipeline/janitor.py` — watermarks, delete CONSUMED (never val/test), ckpt rotation ✅
 
-## Stage 7 — Real evaluation harness
-- [ ] **T7.1** 🟪 `evals/perplexity.py` — val (in-training) / test (milestones only)
-- [ ] **T7.2** 🟪 `evals/probes.py` — exact-match greedy; **no PASS bars inherited from the 14M synthetic assumptions**
-- [ ] **T7.3** 🟪 `evals/jspace_tests.py` + `interventions.py` — the 5 canonical tests as real forward-hook measurements on live workspaces, concept vectors from **real tokenizer ids**
-- [ ] **T7.4** 🟪 `evals/needle.py` — native ctx + eval-time YaRN
-- [ ] **T7.5** 🟪 `evals/run_harness.py` → `reports/eval_real.json`. *accept:* `tests/test_no_mock.py` fails if any mock literal (`0.82`, `0.983`, `0.91`) appears unconditionally
+## Stage 7 — Real evaluation harness ✅
+- [x] **T7.1** 🟪 `evals/perplexity.py` — val/test PPL on heldout bins (`scripts/build_eval_data.py` builds tokenizer + heldout) ✅
+- [x] **T7.2** 🟪 `evals/probes.py` + `evals/probe_items/*.jsonl` (200 items/set, seed 1234) ✅
+- [x] **T7.3** 🟪 `evals/jspace_tests.py` + `evals/interventions.py` — real `_emit` hooks; `concept_vector` uses `concept_token()` fallback for multi-piece BPE (deviation from spec 06 single-token assert) ✅
+- [x] **T7.4** 🟪 `evals/needle.py` — native 1024 + YaRN 2048 pass-key retrieval ✅
+- [x] **T7.5** 🟪 `evals/run_harness.py` → `reports/branch_eval_results_real.json` + `REPORT_REAL.md`. *accept:* eval tests **6 passed**; harness smoke **37–56s** wall; full suite **120 cpu + 89 gpu** ✅
 
 ## Stage 8 — Live serving
-- [ ] **T8.1** 🟪 `ava/serve_engine.py` — real `generate` / `inspect` / `intervene` (+ `runs/serve_audit.jsonl`)
-- [ ] **T8.2** 🟪 `server.py` — fix `from typing import Optional` (import-time `NameError`), pydantic-v2 `Field(alias="from")`, wire to engine, keep the 403 gate, add `/health` `/generate` `/report`
-- [ ] **T8.3** 🟪 Hot-reload `ckpt/latest` — experiment against the model *while it trains*
-- [ ] **T8.4** 🟦 `scripts/make_report.py` → self-contained `reports/index.html` (no CDN)
-- [ ] **T8.5** 🟦 `scripts/smoke_live.sh`
+- [x] **T8.1** 🟪 `ava/serve_engine.py` — real `generate` / `inspect` / `intervene` (+ `runs/serve_audit.jsonl`) ✅
+- [x] **T8.2** 🟪 `server.py` — fix `from typing import Optional` (import-time `NameError`), pydantic-v2 `Field(alias="from")`, wire to engine, keep the 403 gate, add `/health` `/generate` `/report` ✅
+- [x] **T8.3** 🟪 Hot-reload `ckpt/latest` — experiment against the model *while it trains* ✅
+- [x] **T8.4** 🟦 `scripts/make_report.py` → self-contained `reports/index.html` (no CDN). *accept:* 18040 bytes; `cdn|https://fonts` count 0; also writes `report_real.html`
+- [x] **T8.5** 🟦 `scripts/smoke_live.sh` (+ `smoke_live_checks.py`, root `Dockerfile`/`run.sh`) — *accept (partial):* `AVA_SMOKE_DRY_RUN=1` → **SMOKE PASS** (health/generate/inspect/intervene-403/eval_branch/report/intervene-write via ASGI fake engine); missing ckpt → clear **SMOKE FAIL ckpt** (non-zero). **Full live** `AVA_CKPT=runs/chat/ava_nano_chat.pt bash scripts/smoke_live.sh` **deferred to T9.1** (ckpt absent). Also: minimal Stage-8 `Dockerfile` + `run.sh` (compose remains primary).
 
 ## Stage 9 — Scale ladder
 - [ ] **T9.1** 👷 nano smoke: all five services, ~10 min. Gate = *the loop works*

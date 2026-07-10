@@ -51,8 +51,20 @@ ps:
 	@docker run --rm -v ava_state:/state ava/cpu:latest \
 		python -m ava.pipeline.manifest --summary
 
+# scripts/ is not baked into the images (Dockerfile copies ava/configs/evals only).
+# Bind-mount scripts + data so the bench runs without a rebuild.
+# NOTE: ava/gpu currently lacks datasketch (CPU-image dep). Until the GPU image
+# is rebuilt with datasketch, prefer host:
+#   python scripts/bench_pipeline.py --preset nano --device cuda
 bench:
-	docker run --rm --gpus all -v ava_packed:/packed -v ava_state:/state \
+	docker run --rm --gpus all \
+		-v "$(CURDIR)/scripts:/app/scripts:ro" \
+		-v "$(CURDIR)/data:/app/data:ro" \
+		-v "$(CURDIR)/ava:/app/ava:ro" \
+		-v "$(CURDIR)/configs:/app/configs:ro" \
+		-v "$(CURDIR)/reports:/app/reports" \
+		-e AVA_TOKENIZER=/app/data/$(AVA_PRESET)/tokenizer/ava_$(AVA_PRESET)_bpe.json \
+		-e PYTHONPATH=/app \
 		ava/gpu:latest python scripts/bench_pipeline.py --preset $(AVA_PRESET)
 
 train:
@@ -63,8 +75,12 @@ serve:
 	echo "serving on http://localhost:8000  (viewer: /jspace/viewer, report: /report)"
 
 report:
-	docker run --rm -v ava_reports:/reports -v ava_ckpt:/ckpt ava/cpu:latest \
-		python scripts/make_report.py --out /reports/index.html
+	docker run --rm \
+		-v "$(CURDIR)/scripts:/app/scripts:ro" \
+		-v "$(CURDIR)/configs:/app/configs:ro" \
+		-v "$(CURDIR)/reports:/reports" \
+		-e PYTHONPATH=/app \
+		ava/cpu:latest python scripts/make_report.py --runs /reports --out /reports/index.html --eval /reports/branch_eval_results_real.json
 
 # The two images carry disjoint deps on purpose (see tests/conftest.py), so the
 # full suite is the union of both runs.
@@ -78,6 +94,7 @@ test-cpu:
 test-gpu:
 	docker run --rm --gpus all -v "$(CURDIR)/tests:/app/tests:ro" -v "$(CURDIR)/ava:/app/ava:ro" \
 		-v "$(CURDIR)/evals:/app/evals:ro" -v "$(CURDIR)/configs:/app/configs:ro" \
+		-v "$(CURDIR)/data:/app/data:ro" -v "$(CURDIR)/reports:/app/reports:ro" \
 		-v "$(CURDIR)/model_1b.py:/app/model_1b.py:ro" \
 		-v "$(CURDIR)/multi_jspace_module.py:/app/multi_jspace_module.py:ro" \
 		ava/gpu:latest python -m pytest tests/ -q
