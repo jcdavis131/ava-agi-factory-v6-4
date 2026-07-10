@@ -245,6 +245,20 @@ def test_refreeze_with_different_sha_rejected(db_path):
             m.freeze_tokenizer("sha-b", 8192)
 
 
+def test_complete_to_packed_resets_attempts(db_path):
+    """Curator claim attempts must not exhaust the trainer's claim budget."""
+    _seed(db_path, n=1)
+    with Manifest(db_path) as m:
+        m.freeze_tokenizer("sha", 8192)
+        s = m.claim("curate", by="c")
+        assert s.attempts == 1
+        m.complete(s.id, by="c", tokens=100, path="/packed/a.bin",
+                   tokenizer_sha="sha", split="train")
+        row = m.db.execute("SELECT attempts, state FROM shards WHERE id=?", (s.id,)).fetchone()
+        assert row["state"] == PACKED
+        assert row["attempts"] == 0
+
+
 def test_clear_tokenizer_for_retrain_allows_new_freeze(db_path):
     _seed(db_path, n=2)
     with Manifest(db_path) as m:

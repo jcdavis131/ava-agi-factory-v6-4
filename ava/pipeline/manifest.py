@@ -367,9 +367,11 @@ class Manifest:
                           path=COALESCE(?, path), tokens=COALESCE(NULLIF(?,0), tokens),
                           docs=COALESCE(NULLIF(?,0), docs), split=COALESCE(?, split),
                           tokenizer_sha=COALESCE(?, tokenizer_sha),
-                          bytes=COALESCE(?, bytes), error=NULL, updated_at=?
+                          bytes=COALESCE(?, bytes), error=NULL, updated_at=?,
+                          attempts=CASE WHEN ?=? THEN 0 ELSE attempts END
                     WHERE id=?""",
-                (target, path, tokens, docs, split, tokenizer_sha, bytes_, time.time(), shard_id),
+                (target, path, tokens, docs, split, tokenizer_sha, bytes_, time.time(),
+                 target, PACKED, shard_id),
             )
 
     def fail(self, shard_id: str, *, by: str, error: str) -> str:
