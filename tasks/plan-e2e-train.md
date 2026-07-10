@@ -16,7 +16,7 @@ Mode: auto — advance until budget / GO-NO-GO gates.
 | Rung | Scope | Auto-mode |
 |------|--------|-----------|
 | **T9.1 nano** | Close loop: stop done-loop, serve `base_final`, chat fork + `smoke_live`, mark TODOS | **Execute** |
-| **T9.2 mini** | 171M, ~2.5B tokens, **3–5 days**, vocab 32k | **Budget gate** — confirm before start |
+| **T9.2 mini** | 171M, ~2.5B tokens, **3–5 days**, vocab 32k | **Launched** 2026-07-10 (stepping ~12.7k tok/s) |
 | **T9.3+** | base1b GO/NO-GO + milestones | **Hard stop** — user decision |
 
 ## T9.1 work
