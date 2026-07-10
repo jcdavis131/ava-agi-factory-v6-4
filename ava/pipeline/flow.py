@@ -10,14 +10,20 @@ enough to fill the disk. Three predicates enforce that:
   trainer_data_state()      READY | STARVED | CRITICAL_DISK
   janitor_should_collect()  disk pressure
 
-Nothing here touches the network or the filesystem beyond a statvfs, so it is
-cheap to poll every loop iteration.
+Phase coordination (pacer):
+  current_training_phase()  trainer heartbeat in `runs`, else metrics tail
+  pick_target_phase()       starved runway in the prefetch window wins
+  curator_claim_phases()    curators pack trainer-current before older RAW
+
+Nothing here touches the network or the filesystem beyond a cheap stat / tail,
+so it is safe to poll every loop iteration.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import enum
+import json
 import os
 import shutil
 import time
@@ -29,6 +35,7 @@ import yaml
 from ava.pipeline.manifest import Manifest
 
 _DEFAULT_CONFIG = "/app/configs/pipeline.yaml"
+N_PHASES = 6
 
 
 class DataState(enum.Enum):
@@ -97,24 +104,38 @@ def collector_should_pause(
 
     Ordered cheapest-first, and disk before queue depth: running out of disk is
     unrecoverable mid-write, a deep queue merely wastes time.
+
+    Starved-phase exception: when the target phase is below ``packed_min_tokens``,
+    raw-backlog and packed-ahead pauses are skipped so collectors can refill the
+    phase the trainer is actually on. Without this, a 30GB pile of phase-0 RAW
+    permanently blocks phase-3 collection and the GPU stays DATA_STARVED.
+    Disk low-water still always wins.
     """
     fg = free_gb(disk_path)
     if fg < cfg.low_water_gb:
         return PauseReason(True, f"disk {fg:.1f}GB < low_water {cfg.low_water_gb}GB")
 
-    raw = manifest.raw_bytes()
-    if raw >= cfg.raw_max_bytes:
-        return PauseReason(True, f"raw backlog {raw/1e9:.1f}GB >= max {cfg.raw_max_bytes/1e9:.1f}GB")
-
     ahead = manifest.tokens_ready(phase)
-    if ahead >= cfg.packed_ahead_max_tokens:
-        return PauseReason(True, f"packed runway {ahead/1e9:.2f}B tokens >= max "
-                                 f"{cfg.packed_ahead_max_tokens/1e9:.2f}B")
+    phase_starved = ahead < cfg.packed_min_tokens
+
+    if not phase_starved:
+        raw = manifest.raw_bytes()
+        if raw >= cfg.raw_max_bytes:
+            return PauseReason(
+                True,
+                f"raw backlog {raw/1e9:.1f}GB >= max {cfg.raw_max_bytes/1e9:.1f}GB",
+            )
+        if ahead >= cfg.packed_ahead_max_tokens:
+            return PauseReason(
+                True,
+                f"packed runway {ahead/1e9:.2f}B tokens >= max "
+                f"{cfg.packed_ahead_max_tokens/1e9:.2f}B",
+            )
 
     return PauseReason(False)
 
 
-def prefetch_phases(current_phase: int, cfg: FlowConfig, n_phases: int = 6) -> list[int]:
+def prefetch_phases(current_phase: int, cfg: FlowConfig, n_phases: int = N_PHASES) -> list[int]:
     """Phases the collector should work on: current, then lookahead.
 
     Prefetching the next phase is what prevents a GPU stall at a phase boundary,
@@ -129,6 +150,90 @@ def starved_phase(manifest: Manifest, cfg: FlowConfig, phases: Sequence[int]) ->
         if manifest.tokens_ready(p) < cfg.packed_min_tokens:
             return p
     return None
+
+
+def _phase_from_metrics(
+    reports_dir: str | Path | None = None,
+    preset: str | None = None,
+) -> int | None:
+    """Best-effort phase from the trainer's metrics jsonl tail."""
+    reports = Path(reports_dir or os.environ.get("AVA_REPORTS_DIR", "/reports"))
+    preset = preset or os.environ.get("AVA_PRESET", "nano")
+    path = reports / f"metrics_{preset}.jsonl"
+    if not path.is_file():
+        return None
+    try:
+        size = path.stat().st_size
+        with open(path, "rb") as f:
+            f.seek(max(0, size - 131_072))
+            raw = f.read().decode("utf-8", errors="replace")
+    except OSError:
+        return None
+    phase: int | None = None
+    for ln in raw.splitlines():
+        if not ln.strip():
+            continue
+        try:
+            row = json.loads(ln)
+        except json.JSONDecodeError:
+            continue
+        if row.get("event") in ("step", "phase_enter", "data_starved", "checkpoint"):
+            p = row.get("phase")
+            if isinstance(p, int):
+                phase = p
+            elif isinstance(p, float):
+                phase = int(p)
+    return phase
+
+
+def current_training_phase(
+    manifest: Manifest,
+    *,
+    reports_dir: str | Path | None = None,
+    preset: str | None = None,
+) -> int:
+    """Phase the trainer is on.
+
+    Preference order:
+      1. latest ``runs`` heartbeat (written by ``ava.train``)
+      2. tail of ``metrics_{preset}.jsonl`` (works before a trainer restart)
+      3. ``$AVA_PHASE``, else 0
+    """
+    try:
+        row = manifest.db.execute(
+            "SELECT phase FROM runs ORDER BY updated_at DESC LIMIT 1"
+        ).fetchone()
+        if row is not None and row["phase"] is not None:
+            return int(row["phase"])
+    except Exception:
+        pass
+    from_metrics = _phase_from_metrics(reports_dir, preset)
+    if from_metrics is not None:
+        return from_metrics
+    return int(os.environ.get("AVA_PHASE", "0"))
+
+
+def pick_target_phase(manifest: Manifest, cfg: FlowConfig) -> int:
+    """A starved phase (below min runway) beats the trainer's current phase."""
+    cur = current_training_phase(manifest)
+    phases = prefetch_phases(cur, cfg, N_PHASES)
+    starved = starved_phase(manifest, cfg, phases)
+    return starved if starved is not None else cur
+
+
+def curator_claim_phases(manifest: Manifest, cfg: FlowConfig) -> list[int]:
+    """Phases a curator should try to claim, in priority order.
+
+    Starved runway first, then the rest of the prefetch window. Older phases
+    outside the window are intentionally omitted so curators do not keep packing
+    phase-0 while the trainer is starved on phase-3.
+    """
+    cur = current_training_phase(manifest)
+    window = prefetch_phases(cur, cfg, N_PHASES)
+    starved = starved_phase(manifest, cfg, window)
+    if starved is None:
+        return list(window)
+    return [starved] + [p for p in window if p != starved]
 
 
 # ---------------------------------------------------------------------------
