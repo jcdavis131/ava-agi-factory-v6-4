@@ -108,7 +108,9 @@ services:
       - ava_reports:/reports
     depends_on:
       - curator
-    restart: unless-stopped
+    # on-failure: a finished run exits 0 (see ava.train already_done) and must
+    # not restart-loop; real crashes (non-zero) still come back.
+    restart: on-failure
     shm_size: "2gb"
 
   # Hot-reloads ckpt/latest so you can experiment against the model mid-training.

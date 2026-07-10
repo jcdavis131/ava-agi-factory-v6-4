@@ -21,9 +21,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from ava.serve_engine import get_engine
 
 _REPO = Path(__file__).resolve().parent
-_EVAL_JSON = _REPO / "reports" / "branch_eval_results_real.json"
-_EVAL_MD = _REPO / "reports" / "REPORT_REAL.md"
-_REPORT_HTML = _REPO / "reports" / "index.html"
+# Compose mounts the shared reports volume at AVA_REPORTS_DIR (/reports);
+# fall back to repo-local reports/ for bare-metal / smoke boots.
+_REPORTS = Path(os.environ.get("AVA_REPORTS_DIR", str(_REPO / "reports")))
+_EVAL_JSON = _REPORTS / "branch_eval_results_real.json"
+_EVAL_MD = _REPORTS / "REPORT_REAL.md"
+_REPORT_HTML = _REPORTS / "index.html"
 
 VIEWER_HTML = """
 <!DOCTYPE html><html><head><title>Ava J-Space Viewer v6.4</title>

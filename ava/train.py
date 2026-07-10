@@ -229,6 +229,15 @@ def main(argv=None) -> int:
             log("resumed", ckpt=str(target), step=step, tokens_done=tokens_done)
 
         total_steps = args.max_steps or cfg.total_steps()
+        # Finished run + compose `restart: unless-stopped` used to spin forever
+        # (load base_final → done → exit 0 → restart). Exit cleanly instead.
+        if step >= total_steps:
+            phase = phase_for_step(cfg, tokens_done)
+            heartbeat(step, phase, status="done")
+            log("already_done", step=step, tokens=tokens_done,
+                total_steps=total_steps, final=str(ckpt_dir / f"{args.branch or 'base'}_final.pt"))
+            mfile.close()
+            return 0
         phase = phase_for_step(cfg, tokens_done)
         pc = apply_phase(model, cfg, phase, log)
         heartbeat(step, phase)
