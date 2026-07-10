@@ -30,7 +30,16 @@ x-common-env: &common-env
   AVA_REPORTS_DIR: /reports
   AVA_PIPELINE_CONFIG: /app/configs/pipeline.yaml
   AVA_TOKENIZER: /state/tokenizer.json
+  # Docker Desktop VHDX free ≠ host free; probe the Windows drive via bind mount.
+  AVA_DISK_PROBE: /host_disk
   HF_TOKEN: ${HF_TOKEN:-}
+
+# Read-only host-drive probe for free_gb() (stat only; not for data I/O).
+x-host-disk: &host-disk
+  type: bind
+  source: C:/
+  target: /host_disk
+  read_only: true
 
 x-gpu-reservation: &gpu-reservation
   deploy:
@@ -51,6 +60,7 @@ services:
       - ava_raw:/raw
       - ava_state:/state
       - ava_reports:/reports
+      - *host-disk
     deploy:
       replicas: 4
     restart: unless-stopped
@@ -70,6 +80,7 @@ services:
       - ava_packed:/packed
       - ava_state:/state
       - ava_reports:/reports
+      - *host-disk
     deploy:
       replicas: 6
     depends_on:
@@ -92,6 +103,7 @@ services:
       - ava_packed:/packed
       - ava_ckpt:/ckpt
       - ava_state:/state
+      - *host-disk
     restart: unless-stopped
 
   # ---- compute plane --------------------------------------------------------
@@ -107,6 +119,7 @@ services:
       - ava_ckpt:/ckpt
       - ava_state:/state
       - ava_reports:/reports
+      - *host-disk
     depends_on:
       - curator
     # on-failure: a finished run exits 0 (see ava.train already_done) and must
@@ -114,14 +127,19 @@ services:
     restart: on-failure
     shm_size: "2gb"
 
-  # Hot-reloads ckpt/latest so you can experiment against the model mid-training.
+  # Pipeline monitor (/dashboard). Use AVA_SKIP_ENGINE_BOOT=1 during training so
+  # this service does not load a second model. No GPU reservation in that mode —
+  # sharing the 4080 with the trainer caused CUBLAS / silent shutdowns.
+  # For J-Space viewer: set AVA_SKIP_ENGINE_BOOT=0, point AVA_CKPT at a .pt, and
+  # add the gpu-reservation anchor back (stop trainer first on this host).
   server:
-    <<: [*gpu-image, *gpu-reservation]
+    <<: *gpu-image
     command: ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       <<: *common-env
-      AVA_CKPT: /ckpt/latest
+      AVA_CKPT: ${AVA_CKPT:-/ckpt/latest}
       AVA_TOKENIZER: /state/tokenizer.json
+      AVA_SKIP_ENGINE_BOOT: ${AVA_SKIP_ENGINE_BOOT:-0}
       ENABLE_JSPACE_WRITE: ${ENABLE_JSPACE_WRITE:-0}
     ports:
       - "8000:8000"
@@ -131,11 +149,11 @@ services:
       - ava_reports:/reports
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/pipeline/status"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 30s
 
 volumes:
   ava_raw:     { external: true }
