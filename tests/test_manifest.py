@@ -245,6 +245,25 @@ def test_refreeze_with_different_sha_rejected(db_path):
             m.freeze_tokenizer("sha-b", 8192)
 
 
+def test_clear_tokenizer_for_retrain_allows_new_freeze(db_path):
+    _seed(db_path, n=2)
+    with Manifest(db_path) as m:
+        m.freeze_tokenizer("sha-a", 8192)
+        s = m.claim("curate", by="c")
+        m.complete(s.id, by="c", tokens=100, path="/packed/a.bin",
+                   tokenizer_sha="sha-a", split="train")
+        s2 = m.claim("train", by="t")
+        with pytest.raises(StateError, match="CLAIMED_"):
+            m.clear_tokenizer_for_retrain()
+        released = m.abandon_claims()
+        assert s2.id in released
+        stats = m.clear_tokenizer_for_retrain()
+        assert stats["deleted_tokenized"] >= 1
+        assert m.tokenizer_sha() is None
+        m.freeze_tokenizer("sha-b", 32000)
+        assert m.tokenizer_sha() == "sha-b"
+
+
 def test_pack_before_tokenizer_frozen_rejected(db_path):
     _seed(db_path, n=1)
     with Manifest(db_path) as m:
