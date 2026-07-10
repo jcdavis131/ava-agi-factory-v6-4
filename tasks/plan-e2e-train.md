@@ -16,8 +16,15 @@ Mode: auto — advance until budget / GO-NO-GO gates.
 | Rung | Scope | Auto-mode |
 |------|--------|-----------|
 | **T9.1 nano** | Close loop: stop done-loop, serve `base_final`, chat fork + `smoke_live`, mark TODOS | **Execute** |
-| **T9.2 mini** | 171M, ~2.5B tokens, **3–5 days**, vocab 32k | **Launched** 2026-07-10 (stepping ~12.7k tok/s) |
+| **T9.2 mini** | 171M, ~2.5B tokens, **3–5 days**, vocab 32k | **Running** — babysit; disk backpressure fixed 2026-07-10 |
 | **T9.3+** | base1b GO/NO-GO + milestones | **Hard stop** — user decision |
+
+## Auto-mode note (2026-07-10 afternoon)
+
+- Mini healthy: step **150+**, ~5.5–8k tok/s steady (early peak ~12.7k), RestartCount=0, P0 runway ~304M tokens.
+- **Bug fixed:** Docker Desktop `free_gb(/raw)` reported ~987GB while host C: was ~8GB; prefetch of empty P1 also bypassed `raw_max`. Collectors filled ~40GB RAW. Fix: host bind-mount probe (`/host_disk` + `AVA_DISK_PROBE`) + only skip raw-cap when *trainer* phase is starved. Janitor eviction now sees real host free.
+- Collectors paused at low_water until host ≥12GB; curators+janitor continue; server kept stopped (GPU).
+- **Do not start T9.3 / base1b** without explicit user GO.
 
 ## T9.1 work
 

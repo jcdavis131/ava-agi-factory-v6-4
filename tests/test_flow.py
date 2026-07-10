@@ -112,15 +112,43 @@ def test_starved_phase_picks_earliest_hungry(m, cfg):
     assert flow.starved_phase(m, cfg, [0, 1, 2]) == 1
 
 
-def test_collector_skips_raw_pause_when_phase_starved(m, cfg, monkeypatch):
-    """Wrong-phase RAW backlog must not block collecting for a starved phase."""
+def test_collector_skips_raw_pause_when_trainer_starved(m, cfg, monkeypatch):
+    """Wrong-phase RAW backlog must not block collecting when the GPU is starved."""
     monkeypatch.setattr(flow, "free_gb", lambda _p: 100.0)
     m.add_shard("r1", source="s", phase=0, path="/r", bytes_=cfg.raw_max_bytes)
-    # phase 3 has no packed tokens -> starved -> raw pause skipped
+    # Trainer defaults to phase 0 with no packed -> starved -> raw pause skipped
+    # even when collecting a later empty phase.
     assert not flow.collector_should_pause(m, cfg, phase=3)
-    # phase 0 has deep runway -> still pauses on raw
+    # Once the trainer's phase has lead, raw backlog pauses again.
     _packed(m, "p0", phase=0, tokens=cfg.packed_min_tokens)
     assert flow.collector_should_pause(m, cfg, phase=0)
+
+
+def test_prefetch_respects_raw_cap_when_trainer_has_lead(m, cfg, monkeypatch):
+    """Empty next-phase prefetch must not bypass raw_max while current has lead."""
+    monkeypatch.setattr(flow, "free_gb", lambda _p: 100.0)
+    m.upsert_run("r1", preset="mini", step=100, phase=0, status="running")
+    _packed(m, "p0", phase=0, tokens=cfg.packed_min_tokens + 1)
+    m.add_shard("r1", source="s", phase=0, path="/r", bytes_=cfg.raw_max_bytes)
+    # Targeting starved phase 1 (prefetch) with trainer fed on phase 0 -> pause.
+    r = flow.collector_should_pause(m, cfg, phase=1)
+    assert r and "raw backlog" in r.reason
+
+
+def test_free_gb_prefers_host_disk_probe(tmp_path, monkeypatch):
+    host = tmp_path / "host_disk"
+    host.mkdir()
+    calls: list[str] = []
+
+    def fake_usage(p: str):
+        calls.append(str(p))
+        free = 5 * 10**9 if str(host) in str(p) else 900 * 10**9
+        return type("U", (), {"total": 1000 * 10**9, "used": 0, "free": free})()
+
+    monkeypatch.setenv("AVA_DISK_PROBE", str(host))
+    monkeypatch.setattr(flow.shutil, "disk_usage", fake_usage)
+    assert flow.free_gb("/raw") == 5.0
+    assert calls and str(host) in calls[0]
 
 
 def test_pick_target_follows_runs_heartbeat(m, cfg, tmp_path, monkeypatch):

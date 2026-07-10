@@ -86,7 +86,30 @@ class FlowConfig:
 
 
 def free_gb(path: str | Path = "/") -> float:
-    """Free space on the filesystem holding `path`, in GB (1e9 bytes)."""
+    """Free space in GB (1e9 bytes).
+
+    Docker Desktop's Linux VM reports the *virtual* disk free space (often
+    hundreds of GB) even when the Windows host is nearly full. Prefer an
+    explicit host probe path when present: ``$AVA_DISK_PROBE`` or ``/host_disk``
+    (compose bind-mount of the host drive, read-only). Fall back to ``path``.
+    """
+    probes: list[str] = []
+    env_probe = os.environ.get("AVA_DISK_PROBE")
+    if env_probe:
+        probes.append(env_probe)
+    probes.append("/host_disk")
+    probes.append(str(path))
+    last_err: OSError | None = None
+    for probe in probes:
+        try:
+            if probe == "/host_disk" and not Path(probe).exists():
+                continue
+            return shutil.disk_usage(probe).free / 1e9
+        except OSError as exc:
+            last_err = exc
+            continue
+    if last_err is not None:
+        raise last_err
     return shutil.disk_usage(str(path)).free / 1e9
 
 
@@ -105,10 +128,11 @@ def collector_should_pause(
     Ordered cheapest-first, and disk before queue depth: running out of disk is
     unrecoverable mid-write, a deep queue merely wastes time.
 
-    Starved-phase exception: when the target phase is below ``packed_min_tokens``,
-    raw-backlog and packed-ahead pauses are skipped so collectors can refill the
-    phase the trainer is actually on. Without this, a 30GB pile of phase-0 RAW
-    permanently blocks phase-3 collection and the GPU stays DATA_STARVED.
+    Starved-phase exception: when the *trainer's current phase* is below
+    ``packed_min_tokens``, raw-backlog and packed-ahead pauses are skipped so
+    collectors can refill the phase the GPU is actually on. Prefetch of an
+    empty *next* phase must still respect ``raw_max_bytes`` — otherwise
+    collectors fill the disk while the current phase already has lead.
     Disk low-water still always wins.
     """
     fg = free_gb(disk_path)
@@ -117,8 +141,12 @@ def collector_should_pause(
 
     ahead = manifest.tokens_ready(phase)
     phase_starved = ahead < cfg.packed_min_tokens
+    trainer_phase = current_training_phase(manifest)
+    trainer_starved = manifest.tokens_ready(trainer_phase) < cfg.packed_min_tokens
+    # Only bypass queue pauses when the GPU itself needs data now.
+    skip_queue_pauses = phase_starved and trainer_starved
 
-    if not phase_starved:
+    if not skip_queue_pauses:
         raw = manifest.raw_bytes()
         if raw >= cfg.raw_max_bytes:
             return PauseReason(
