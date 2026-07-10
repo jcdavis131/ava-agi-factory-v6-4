@@ -43,11 +43,11 @@ from typing import Callable, Iterator
 import yaml
 
 from ava.pipeline.flow import (
+    N_PHASES,
     FlowConfig,
     collector_should_pause,
     free_gb,
-    prefetch_phases,
-    starved_phase,
+    pick_target_phase,
 )
 from ava.pipeline.manifest import RAW, Manifest, worker_id
 
@@ -57,7 +57,6 @@ except Exception:  # pragma: no cover
     zstd = None
 
 _DEFAULT_PIPELINE_CONFIG = "/app/configs/pipeline.yaml"
-N_PHASES = 6
 
 
 # ---------------------------------------------------------------------------
@@ -552,27 +551,6 @@ def sources_for_phase(sources: list[SourceSpec], phase: int) -> list[tuple[str, 
     return sorted(out)  # sort -> deterministic RR ordering
 
 
-def current_training_phase(m: Manifest) -> int:
-    """Phase the trainer is on: latest `runs` row, else $AVA_PHASE, else 0."""
-    try:
-        row = m.db.execute(
-            "SELECT phase FROM runs ORDER BY updated_at DESC LIMIT 1").fetchone()
-        if row is not None and row["phase"] is not None:
-            return int(row["phase"])
-    except Exception:
-        pass
-    return int(os.environ.get("AVA_PHASE", "0"))
-
-
-def pick_target_phase(m: Manifest, fcfg: FlowConfig) -> int:
-    """A starved phase (below min runway) beats the trainer's current phase, so
-    we backfill the hungriest phase first."""
-    cur = current_training_phase(m)
-    phases = prefetch_phases(cur, fcfg, N_PHASES)
-    starved = starved_phase(m, fcfg, phases)
-    return starved if starved is not None else cur
-
-
 # ---------------------------------------------------------------------------
 # Service loop.
 
@@ -590,16 +568,26 @@ def serve(
     sleep_fn: Callable[[float], None] = time.sleep,
     seed: int = 1234,
 ) -> None:
+    """One shard per loop iteration so pause + phase re-pick stay responsive.
+
+    ``once=True`` on ``run_source`` is load-bearing: without it a synthetic
+    generator never returns, so collectors ignore raw-backlog pauses and never
+    notice the trainer has moved to a later phase.
+    """
     by_name = {s.name: s for s in sources}
     rr_by_phase: dict[int, WeightedRR] = {}
     rng = random.Random(seed)
     last_pause_reason: str | None = None
+    last_phase: int | None = None
     it = 0
     log("collector_boot", raw_dir=str(raw_dir), sources=len(sources))
 
     while max_iterations is None or it < max_iterations:
         it += 1
         phase = pick_target_phase(m, fcfg)
+        if phase != last_phase:
+            log("collector_target_phase", phase=phase, prev=last_phase)
+            last_phase = phase
 
         pause = collector_should_pause(m, fcfg, phase=phase, disk_path=raw_dir)
         if pause:
@@ -624,7 +612,7 @@ def serve(
 
         try:
             run_source(by_name[name], phase, m, cfg, raw_dir, log,
-                       rng=rng, sleep_fn=sleep_fn)
+                       once=True, rng=rng, sleep_fn=sleep_fn)
         except GiveUp:
             continue  # move to the next source rather than crashing the container
 

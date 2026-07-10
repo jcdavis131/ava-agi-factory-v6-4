@@ -7,6 +7,7 @@ crashing on an empty queue.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -53,6 +54,8 @@ def test_collector_pauses_on_low_disk(m, cfg, monkeypatch):
 
 def test_collector_pauses_on_raw_backlog(m, cfg, monkeypatch):
     monkeypatch.setattr(flow, "free_gb", lambda _p: 100.0)
+    # Phase must not be starved, or raw-backlog pause is intentionally skipped.
+    _packed(m, "warm", phase=0, tokens=cfg.packed_min_tokens)
     m.add_shard("r1", source="s", phase=0, path="/r", bytes_=cfg.raw_max_bytes)
     r = flow.collector_should_pause(m, cfg, phase=0)
     assert r and "raw backlog" in r.reason
@@ -107,6 +110,45 @@ def test_starved_phase_picks_earliest_hungry(m, cfg):
     _packed(m, "a", phase=0, tokens=cfg.packed_min_tokens + 1)
     _packed(m, "b", phase=1, tokens=10)  # hungry
     assert flow.starved_phase(m, cfg, [0, 1, 2]) == 1
+
+
+def test_collector_skips_raw_pause_when_phase_starved(m, cfg, monkeypatch):
+    """Wrong-phase RAW backlog must not block collecting for a starved phase."""
+    monkeypatch.setattr(flow, "free_gb", lambda _p: 100.0)
+    m.add_shard("r1", source="s", phase=0, path="/r", bytes_=cfg.raw_max_bytes)
+    # phase 3 has no packed tokens -> starved -> raw pause skipped
+    assert not flow.collector_should_pause(m, cfg, phase=3)
+    # phase 0 has deep runway -> still pauses on raw
+    _packed(m, "p0", phase=0, tokens=cfg.packed_min_tokens)
+    assert flow.collector_should_pause(m, cfg, phase=0)
+
+
+def test_pick_target_follows_runs_heartbeat(m, cfg, tmp_path, monkeypatch):
+    monkeypatch.setenv("AVA_REPORTS_DIR", str(tmp_path))
+    m.upsert_run("r1", preset="nano", step=100, phase=3, status="running")
+    # P3 empty -> starved wins inside prefetch [3,4]
+    assert flow.pick_target_phase(m, cfg) == 3
+
+
+def test_pick_target_falls_back_to_metrics(m, cfg, tmp_path, monkeypatch):
+    monkeypatch.setenv("AVA_REPORTS_DIR", str(tmp_path))
+    monkeypatch.setenv("AVA_PRESET", "nano")
+    metrics = tmp_path / "metrics_nano.jsonl"
+    metrics.write_text(
+        json.dumps({"event": "step", "step": 3000, "phase": 3, "lm_loss": 0.1}) + "\n",
+        encoding="utf-8",
+    )
+    assert flow.current_training_phase(m) == 3
+    assert flow.pick_target_phase(m, cfg) == 3
+
+
+def test_curator_claim_phases_prefers_starved_window(m, cfg, tmp_path, monkeypatch):
+    monkeypatch.setenv("AVA_REPORTS_DIR", str(tmp_path))
+    m.upsert_run("r1", preset="nano", step=1, phase=3, status="running")
+    _packed(m, "p3", phase=3, tokens=0)  # still starved (0 < min)
+    assert flow.curator_claim_phases(m, cfg) == [3, 4]
+    # older phases must not appear
+    assert 0 not in flow.curator_claim_phases(m, cfg)
 
 
 def test_starvation_tracker_warns_only_after_threshold(cfg, monkeypatch):

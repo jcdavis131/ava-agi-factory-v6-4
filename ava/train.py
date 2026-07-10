@@ -208,8 +208,17 @@ def main(argv=None) -> int:
     # `with sampler` guarantees the in-flight shard is handed back on any exit
     # path. Without it every run leaks its claim and the next one starves on data
     # it already owns.
+    run_id = f"{args.preset}:{args.branch or 'base'}:{int(time.time())}"
     with Manifest() as manifest, StreamingShardSampler(
             cfg, manifest, flow, seed=args.seed, packed_dir=args.packed) as sampler:
+
+        def heartbeat(step: int, phase: int, status: str = "running") -> None:
+            """Publish phase so collectors/curators track the trainer."""
+            try:
+                manifest.upsert_run(run_id, preset=args.preset, step=step,
+                                    phase=phase, status=status)
+            except Exception as exc:  # never let bookkeeping kill the GPU loop
+                log("heartbeat_failed", error=str(exc))
 
         step, tokens_done = 0, 0
         latest = ckpt_dir / "latest"
@@ -222,6 +231,7 @@ def main(argv=None) -> int:
         total_steps = args.max_steps or cfg.total_steps()
         phase = phase_for_step(cfg, tokens_done)
         pc = apply_phase(model, cfg, phase, log)
+        heartbeat(step, phase)
         mb, accum = micro_batch_for(pc.seq, cfg.training.tokens_per_step)
         stream = sampler.batches(phase, pc.seq, mb, log=lambda m: log("data_starved", msg=m))
 
@@ -239,6 +249,7 @@ def main(argv=None) -> int:
                 log("stable_ckpt", path=str(stable), phase=phase, step=step)
                 phase = new_phase
                 pc = apply_phase(model, cfg, phase, log)
+                heartbeat(step, phase)
                 mb, accum = micro_batch_for(pc.seq, cfg.training.tokens_per_step)
                 stream = sampler.batches(phase, pc.seq, mb,
                                          log=lambda m: log("data_starved", msg=m))
@@ -290,6 +301,7 @@ def main(argv=None) -> int:
                     verbalizable_mass=round(float(mj["system2"]["verbalizable_mass"]), 5),
                     broadcast_strength=round(float(mj["broadcast_strength"]), 5),
                     route_probs=[round(x, 4) for x in mj["route_probs"].mean(0).tolist()])
+                heartbeat(step, phase)
                 t0 = time.time()
 
             if step % cfg.training.checkpoint_every_steps == 0 or step == total_steps:
@@ -298,11 +310,13 @@ def main(argv=None) -> int:
                           tokens_done=tokens_done, cfg=cfg, sampler=sampler)
                 _point_latest_at(ckpt_dir, p)
                 log("checkpoint", path=str(p), step=step)
+                heartbeat(step, phase)
 
         final = ckpt_dir / f"{args.branch or 'base'}_final.pt"
         save_ckpt(final, model=model, opt=opt, step=step, phase=phase,
                   tokens_done=tokens_done, cfg=cfg, sampler=sampler)
         _point_latest_at(ckpt_dir, final)
+        heartbeat(step, phase, status="done")
         log("done", step=step, tokens=tokens_done, final=str(final))
     mfile.close()
     return 0
