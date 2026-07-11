@@ -18,22 +18,36 @@ Solo personal project, no connection to employer, built with public/free-tier on
 
 ### Hatch Cron Jobs (Created)
 
-| ID | Schedule | What |
-|---|---|---|
-| `ava-data-gather-daily` | daily 08:00 UTC | logic_textbook_pipeline p0-p3 100M tokens, tokenizer build, pack shards |
-| `ava-eval-distill-daily` | daily 09:00 UTC | branch harness + frontier rubric via Ollama + distill dry-run |
-| `vector-dumb-models-daily` | daily 12:00 UTC (06:00 CDT) | nflverse/StatsBomb/ESPN ingest -> per-100 z-score -> PCA embeddings -> Vercel deploy |
-| `ava-training-weekly` | weekly Sun 03:00 UTC | torchrun nano/mini/base1b incremental WSD 736k stable 92% |
+| ID | Schedule | What | Tokens / Note |
+|---|---|---|---|
+| `ava-data-gather-daily` | daily 08:00 UTC | logic_textbook_pipeline p0-p3 100M tokens, tokenizer build, pack shards | 100M legacy, use expansion now |
+| `ava-data-gather-4h` | interval 4h (00,04,08,12,16,20 UTC) | **dataset_expansion.py** incremental shards simhash dedup threshold 3, quality alpha>0.6 reward>0.8, content-addressable sha12, 50MB gzipped | **500K per run in Hatch VM** (35s ~5k docs, 150KB gz), 10M on Alienware = 60M/day 1.8B/month |
+| `dataset-discovery-daily` | daily 14:00 UTC | **dataset_discovery.py** reads branch_eval_results weak domains -> HF candidates search public API, license filter MIT/Apache2/CC0 | No download in VM, writes candidates json + download sh for Alienware |
+| `ava-eval-distill-daily` | daily 09:00 UTC | branch harness + frontier rubric via Ollama + distill dry-run | Ollama qwen3:32b fallback mock |
+| `vector-dumb-models-daily` | daily 12:00 UTC (06:00 CDT) | nflverse/StatsBomb/ESPN ingest -> per-100 z-score -> PCA embeddings -> Vercel deploy | + deploy hook |
+| `ava-training-weekly` | weekly Sun 03:00 UTC | torchrun nano/mini/base1b incremental WSD 736k stable 92% | Deepspeed Zero3 bf16 |
 
-Plus existing: cash-drag-watcher 02:00, fidelity screenshot Mon 09:00 CT
+Live tested 2026-07-11: 500K tokens run succeeded in 35s, 5048 docs, 13.5k dup filtered, 10.8k qual filtered, 150KB gzipped shard + 1.7M manifest. Guard correctly blocked work Drive @meta.com (gchak_health.json, lockedunn_health.json owners).
+
+Plus existing: cash-drag-watcher 02:00, fidelity screenshot Mon 09:00 CT, hatch-backup-daily 02:00
 
 ### For your Alienware (RTX 4090 24GB + Docker + Ollama)
 
 Local crontab to add (`crontab -e`):
 
 ```cron
-# Ava data - 2am Central daily
+# Ava data - 2am Central daily legacy
 0 2 * * * cd ~/ava-agi-factory-v6-4 && ./scripts/local_train.sh python logic_textbook_pipeline.py --phases all --out data/daily/raw --tokens 100M >> logs/cron-data.log 2>&1
+
+# Ava expansion - every 4h 10M tokens (10M = ~50k docs, use 10M on 4090, 500K in Hatch VM)
+0 */4 * * * cd ~/ava-agi-factory-v6-4 && python3 scripts/dataset_expansion.py --tokens 10M --phases p0_logic p1_math p2_foundation p3_code --out data/daily_expanded --upload-mode local >> logs/cron-expansion.log 2>&1
+# Optional R2 upload if creds set: --upload-mode r2
+# Optional GDrive check: && python3 scripts/gdrive_uploader.py --check
+
+# Dataset discovery - daily 2pm UTC / 9am Central - read eval weak domains -> HF candidates
+0 9 * * * cd ~/ava-agi-factory-v6-4 && python3 scripts/dataset_discovery.py --domains finance bio code math safety --out your_files/ava-agi/dataset_discovery/ >> logs/cron-discovery.log 2>&1
+# Then manual review: cat your_files/ava-agi/dataset_discovery/candidates_*.json | grep license_ok true
+# Download on Alienware: bash your_files/ava-agi/dataset_discovery/download_candidates_*.sh
 
 # Ava train - Sun 3am Central weekly incremental
 0 3 * * 0 cd ~/ava-agi-factory-v6-4 && ./scripts/local_train.sh torchrun --nproc_per_node=1 train_1b_deepspeed.py --preset mini --tokens_total 2500000000 --resume-if-exists >> logs/cron-train.log 2>&1
@@ -44,6 +58,22 @@ Local crontab to add (`crontab -e`):
 # Vector models - 6am Central daily
 0 6 * * * cd ~/ava-agi-factory-v6-4 && python prefect_flows.py --run vector --leagues all >> logs/cron-vector.log 2>&1
 ```
+
+**Drive upload (efficient downstream, HOME/Work guard):**
+- Current Hatch VM Drive is **WORK** `camd@meta.com` detected via `gchak_health.json` owner `gchak@meta.com` + `lockedunn_health.json` → **BLOCKED** correctly per AGENTS.md absolute separation
+- Guard: `python scripts/gdrive_uploader.py --check` → aborts if work indicators
+- To enable: connect personal Drive `jcdavis131@gmail.com` in Hatch (not work) OR set R2 env `CLOUDFLARE_R2_ACCESS_KEY/SECRET/ENDPOINT/BUCKET=ava-datasets`
+- Then: `python scripts/gdrive_uploader.py --upload data/daily_expanded/ --folder Ava-Datasets-Expansion --dry-run` then real
+- Efficient: content-addressable filename = sha12, incremental manifest.jsonl append-only, 50MB gzipped shards, batch 2 workers retry 3x
+- Fallback local: `data/for_upload/upload_manifest_*.json` copy via `rsync -avz data/daily_expanded/ alienware:~/ava-agi-factory-v6-4/data/daily_expanded/`
+
+**Discovery → Ingestion Loop (new):**
+- Run on Alienware (not Hatch VM disk-limited): `python scripts/dataset_discovery.py --domains finance bio code`
+- Review `your_files/ava-agi/dataset_discovery/candidates_*.json` for `license_ok:true` (MIT/Apache2/CC0/CC-BY)
+- Candidates include: financial_phrasebank, convfinqa, finqa, pubmed_qa, medmcqa, the_stack, code_search_net, metamath-qa, gsm8k, open-web-math
+- Download script `download_candidates_*.sh` has `datasets.load_dataset` commands for offline inspection
+- Ingest: `./scripts/local_train.sh python streaming_data.py --use_raw data/raw/finance/ --pack --seq 2048`
+- Tested 2026-07-11: forced domains finance,bio,code,math,safety → 58 candidates, download sh generated
 
 ### Prefect Deployment Commands (Alternative to cron)
 
