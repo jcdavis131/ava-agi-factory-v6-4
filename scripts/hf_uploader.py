@@ -41,11 +41,24 @@ def main():
         if fm:
             print(f"Using for_upload manifests: {fm[-1]}")
             try:
-                print(Path(fm[-1]).read_text()[:2000])
+                data = json.loads(Path(fm[-1]).read_text())
+                # normalize mixed formats: if data is dict with shards list, treat as mfiles
+                if isinstance(data, dict):
+                    print(json.dumps(data, indent=2)[:2000])
+                    # entries remain empty, but we have manifest for downstream
+                    mfiles = fm
+                else:
+                    mfiles = fm
+            except Exception as e:
+                print(f"read for_upload failed: {e}")
                 mfiles = fm
-            except: pass
 
-    total_tokens = sum(e.get("tokens",0) for e in entries) if entries else 0
+    total_tokens = 0
+    if entries:
+        try:
+            total_tokens = sum(e.get("tokens",0) if isinstance(e, dict) else 0 for e in entries)
+        except:
+            total_tokens = 0
     print(f"[HF Uploader] {DISCLAIMER} Repo: {args.repo} entries={len(entries)} tokens={total_tokens}")
 
     hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")

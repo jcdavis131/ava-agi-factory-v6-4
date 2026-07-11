@@ -61,6 +61,38 @@ def _log(msg):
     except:
         print(msg)
 
+# ---------- HF PUSH TASK (NEW — 2-loop) ----------
+@task(retries=3, retry_delay_seconds=[30, 120, 300], log_prints=True)
+def push_to_hf_task(manifest_path: str = "data/daily_expanded/manifest_*.jsonl", repo: str = "jcdavis131/ava-textbook-v6", private: bool = True):
+    """Push curated train/val/test to HF Hub for streaming Loop2 — Solo personal project, no work Drive"""
+    _log(f"[hf] push_to_hf repo={repo} manifest={manifest_path}")
+    hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
+    if not hf_token:
+        _log("[hf] HF_TOKEN not set — saving manifest to data/for_upload/hf_ready_*.json for Alienware push (expected in Hatch VM)")
+        # call hf_uploader dry-run via subprocess or just log
+        import subprocess
+        cmd = f"python3 {ROOT}/scripts/hf_uploader.py --repo {repo} --manifest '{manifest_path}' --dry-run"
+        try:
+            subprocess.run(cmd, shell=True, timeout=30)
+        except Exception as e:
+            _log(f"[hf] dry-run warning: {e}")
+        return {"pushed": False, "reason": "no_token", "repo": repo}
+    # real push
+    import subprocess
+    cmd = f"HF_TOKEN={hf_token} python3 {ROOT}/scripts/hf_uploader.py --repo {repo} --manifest '{manifest_path}' --private --push"
+    _log(f"[hf] cmd: {cmd}")
+    try:
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+        _log(res.stdout[-2000:])
+        if res.returncode == 0:
+            return {"pushed": True, "repo": repo}
+        else:
+            _log(f"[hf] push failed rc={res.returncode} {res.stderr[-2000:]}")
+            return {"pushed": False, "rc": res.returncode}
+    except Exception as e:
+        _log(f"[hf] exception {e}")
+        return {"pushed": False, "error": str(e)}
+
 # ---------- DATA GEN FLOW ----------
 @task(retries=3, retry_delay_seconds=[10, 60, 300], log_prints=True)
 def generate_phase(phase: str, tokens: int = 50_000_000):
@@ -110,7 +142,9 @@ def ava_data_gen_flow(preset: str = "mini", tokens: int = 50_000_000):
         raw_dirs = [generate_phase(p, tokens) for p in phases]
     tok = build_tokenizer()
     packed = pack_shards(raw_dirs, seq_len=1024 if preset=="mini" else 256)
-    return {"tokenizer": tok, "packed": packed, "raw": raw_dirs}
+    # NEW: push to HF for 2-loop arch (Loop1 -> Loop2 streaming)
+    hf_res = push_to_hf_task(manifest_path="data/daily_expanded/manifest_*.jsonl")
+    return {"tokenizer": tok, "packed": packed, "raw": raw_dirs, "hf": hf_res}
 
 # ---------- TRAIN FLOW ----------
 @task(retries=2, retry_delay_seconds=[30,120], log_prints=True)
