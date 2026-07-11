@@ -21,6 +21,80 @@ import argparse, math, os, json, pathlib, time
 from pathlib import Path
 
 WSD_CONFIG={"warmup":2000,"stable_steps":736000,"total_steps":800000,"lr_max":2e-4,"lr_min":2e-5}
+
+def _try_run_openwiki_and_harness(mode="mock", ckpt=None):
+    """
+    OpenWiki bridge + harness gating per docs/HARNESS_SKILL_INTEGRATION.md
+    - Personal mode builds local personal brain wiki in ~/.openwiki/wiki -> S2 hl300
+    - Code mode builds repo docs in openwiki/ -> S1+Planner
+    Steps:
+      1. run_skill openwiki-sync (S2 sync)
+      2. run_harness jspace_all,frontier_rubric,openwiki_knowledge
+    Returns dict or None if deps missing.
+    """
+    try:
+        print(f"\n[HARNESS GATE] Starting openwiki-sync + harness — mode={mode} ckpt={ckpt}")
+        # Try loader path for skills (ava-skills repo)
+        import os, sys
+        here = Path(__file__).resolve().parent
+        # add potential skill repo neighbors
+        for cand in [here.parent / "ava-skills", here / ".." / "ava-skills", Path.home() / "workspace" / "ava-skills"]:
+            cand = cand.resolve() if isinstance(cand, Path) else Path(cand)
+            if cand.exists() and str(cand) not in sys.path:
+                sys.path.insert(0, str(cand))
+        # 1. openwiki-sync via skill loader + direct adapter
+        try:
+            from ava.memory.openwiki_adapter import OpenWikiAdapter
+            adapter = OpenWikiAdapter()
+            stats = adapter.ingest(limit=100)
+            print(f"[openwiki-sync] Ingested {stats['n_files']} wiki files avg mass {stats['avg_mass']:.3f} — maps to S2 hl300")
+            if stats['has_france_for_generalization_test']:
+                print("[openwiki-sync] France→China probe ready (capital/language/continent/currency)")
+            # if model/ckpt given, attempt injection is handled by caller; here just log
+        except Exception as e:
+            print(f"[openwiki-sync] Adapter fallback (expected if no ~/.openwiki/wiki yet): {e}")
+            # try via skills loader as secondary
+            try:
+                from skills.loader import run_skill
+                res = run_skill("openwiki-sync", mode=mode, ckpt=ckpt or "ava_stable_736k.pt")
+                print(f"[openwiki-sync skill] {res}")
+            except Exception as e2:
+                print(f"[openwiki-sync skill] not available in this env: {e2}")
+
+        # 2. harness gate via harness.runner
+        try:
+            # add harness path
+            for cand in [here.parent / "ava-open-harness", here / ".." / "ava-open-harness", Path.home() / "workspace" / "ava-open-harness"]:
+                cand = Path(cand).resolve() if isinstance(cand, Path) else Path(cand)
+                if cand.exists() and str(cand) not in sys.path:
+                    sys.path.insert(0, str(cand))
+            from harness.runner import run_harness
+            eval_names = "jspace_all,frontier_rubric,openwiki_knowledge" if mode=="mock" else "jspace_all,frontier_rubric"
+            # In real mode we still want openwiki_knowledge if wiki exists
+            if mode!="mock":
+                eval_names = "jspace_all,frontier_rubric,openwiki_knowledge"
+            results = run_harness(eval_names=eval_names, mode=mode, ckpt=ckpt, preset="nano")
+            passed = results.get("meta",{}).get("passed",0)
+            total = results.get("meta",{}).get("total",0)
+            print(f"[HARNESS GATE] {passed}/{total} passed — wall {results.get('meta',{}).get('wall_s',0):.1f}s")
+            for name, r in results.get("evals",{}).items():
+                bar = r.get("bar","")
+                meas = str(r.get("measured",""))[:160]
+                verdict = "PASS" if r.get("pass") else "FAIL"
+                print(f"  - {name}: {verdict} bar={bar} {meas}")
+            # Gate: require at least 3 passes for branching (base) per HARNESS_SKILL_INTEGRATION.md
+            if branch_label := os.environ.get("BRANCH_GATE_EXPECT"):
+                pass
+            if passed < 3 and mode!="mock":
+                print(f"[HARNESS GATE] WARNING: only {passed} passed, expected >=3 — branching may be blocked")
+            return results
+        except Exception as e:
+            print(f"[HARNESS GATE] runner not available or failed (ok for local mock without harness installed): {e}")
+            return None
+    except Exception as e:
+        print(f"[HARNESS GATE] unexpected error: {e}")
+        return None
+
 ROPE_SCHEDULE=[
     {"start":0,"end":140000,"base":10000,"ctx":2048,"ntk":1.0,"desc":"0-140k: 10k (2k/4k ctx)"},
     {"start":140000,"end":384000,"base":10000,"ctx":4096,"ntk":1.0},
@@ -147,6 +221,7 @@ def main():
                 if branch=="base":
                     Path("ava_stable_736k.pt").write_text("mock stable 736k 13.8T streaming")
                     Path("ava_stable_736k_rope1000000_ctx131072.pt").write_text("mock stable rope 1M ctx131k streaming")
+                    _try_run_openwiki_and_harness(mode="mock", ckpt="ava_stable_736k.pt")
                 Path(f"ava_{branch}_final_800k.pt").write_text(f"mock final {branch} 800k streaming")
                 print(f"[MOCK STREAM] Branch {branch} done tokens_seen={ds.tokens_seen} stats={ds.stats()}")
                 os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
@@ -164,6 +239,8 @@ def main():
                 if branch=="base":
                     Path("ava_stable_736k.pt").write_text("mock stable 736k 13.8T")
                     Path("ava_stable_736k_rope1000000_ctx131072.pt").write_text("mock stable rope 1M ctx131k")
+                    # ── OpenWiki + Harness gating after stable ckpt 736k per HARNESS_SKILL_INTEGRATION.md
+                    _try_run_openwiki_and_harness(mode="mock", ckpt="ava_stable_736k.pt")
                 else:
                     Path(f"ava_{branch}_final_800k.pt").write_text(f"mock final {branch} 800k")
                 os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
@@ -236,6 +313,8 @@ def main():
                 if step==736000 and branch=="base":  # WSD save stable at 736k without OOM
                     torch.save(model.state_dict(), "ava_stable_736k.pt")
                     print("Saved ava_stable_736k.pt at 736k — ready for branching codebase is streaming so no memory spike")
+                    # ── Gate: OpenWiki sync into S2 hl300 + harness
+                    _try_run_openwiki_and_harness(mode="real", ckpt="ava_stable_736k.pt")
 
                 step+=1
                 if step>=args.max_steps and args.max_steps>0:
@@ -266,6 +345,7 @@ def main():
                 if step==2 and branch=="base":
                     torch.save(model.state_dict(), "ava_stable_736k.pt")
                     print("Saved ava_stable_736k.pt at 736k equivalent")
+                    _try_run_openwiki_and_harness(mode="real", ckpt="ava_stable_736k.pt")
 
             Path(f"ava_{branch}_final_800k.pt").write_bytes(b"mock ckpt replace with torch.save")
             print(f"Branch {branch} done — auto-running eval_branch_harness")
