@@ -188,10 +188,19 @@ the same style as B1-B4.
   determinism/schema/phase-coverage checks for free); plus dedicated correctness tests that independently
   re-derive each doc's answer from its own rendered text (re-sum the CSV tables; re-replay the GAIA2
   scheduling state machine from the parsed slots/deadline/events) rather than trusting the generator's
-  internal variables — this is what caught T12.2's ambiguity bug. 50/50 passing; full `pytest tests/`
-  unaffected (pre-existing, unrelated `torch.nn.functional.rms_norm` failures on this host's older torch
-  are untouched by this change — `test_collector.py`/`test_demand.py`, which actually read
-  `sources.yaml`, pass clean).
+  internal variables — this is what caught T12.2's ambiguity bug. 50/50 passing.
+- [x] **T12.5** 🟦 While verifying T12.4, found `model_1b.py` couldn't run on this dev host at all
+  (`torch==2.0.0+cpu`, vs. the docker image's pinned `torch==2.4.0+cu124`) — two version gaps, both fixed
+  with no behavior change on 2.4: `RMSNorm.forward` now falls back to the plain
+  `x/sqrt(mean(x**2)+eps)*weight` formula when `F.rms_norm` (added in 2.4) isn't present; the attention
+  block no longer passes SDPA's `scale=` kwarg (added in 2.1) at all — it pre-scales `q` by `attn_factor`
+  instead, which reproduces the identical `(q@k^T)*(attn_factor/sqrt(head_dim))` softmax argument through
+  SDPA's own default scale on every torch version SDPA exists in (2.0+). `requirements.txt`'s
+  `torch>=2.2.0` loosened to `>=2.0.0` to match; `docker/requirements.gpu.txt`'s now-stale "torch>=2.4 is
+  required" comment corrected (2.4 is still pinned there for the fused kernels, just no longer a hard
+  requirement for correctness). Full `pytest tests/`: **203 passed, 5 skipped, 0 failed** — the 22
+  previously-failing `test_model.py`/`test_jlosses.py` tests (including the causality suite T6.1 was built
+  around) now pass on this host too, not just in the pinned docker image.
 
 ## Docs
 - [x] `PLAN.md`, `TODOS.md`, `ORCHESTRATION.md` rewritten for the continuous pipeline
