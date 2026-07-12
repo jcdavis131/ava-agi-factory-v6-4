@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
@@ -113,6 +114,20 @@ class GenerateReq(BaseModel):
     task_type: str = "chat"
 
 
+class ChatMessage(BaseModel):
+    role: str  # "user" or "assistant" — matches ava/tokenizer.py's frozen
+    #            <|user|>/<|assistant|> specials (ids 0-5); no <|tool|> special
+    #            exists, so tool results are also sent as role="user" (see
+    #            AgenticOS/ava_bridge.py, which owns that convention).
+    content: str
+
+
+class ChatReq(BaseModel):
+    messages: list[ChatMessage]
+    max_tokens: int = 256
+    temperature: float = 0.8
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Boot-time load: broken checkpoint fails here, not on first request.
@@ -170,6 +185,42 @@ async def generate(req: GenerateReq):
         temperature=req.temperature,
         task_type=req.task_type,
     )
+
+
+_ROLE_TAGS = {"user": "<|user|>", "assistant": "<|assistant|>"}
+# generate() has no early-stop on <|eos|>/<|user|> (it fills max_tokens every
+# call — see ava/serve_engine.py:258's plain for-loop) — an undertrained chat
+# checkpoint can ramble past its own turn into fabricated follow-up turns.
+# Truncate at the first token that would start a new turn.
+_TURN_END_RE = re.compile(r"<\|eos\|>|<\|user\|>|<\|assistant\|>")
+
+
+@app.post("/chat")
+async def chat(req: ChatReq):
+    """Thin wrapper over ServeEngine.generate() using the <|user|>/<|assistant|>
+    convention already frozen in ava/tokenizer.py (SPECIALS ids 0-5) — the same
+    convention ava/datagen/chat_safety.py already generates training data in.
+    AgenticOS/ava_bridge.py is the client: formats a ReAct tool-calling
+    conversation into this shape and regex-parses the response back into the
+    tool_calls shape harness.py's Ollama-backed chat() already returns, so the
+    ReAct loop itself doesn't need to know which brain it's talking to.
+    """
+    if not req.messages:
+        raise HTTPException(status_code=422, detail="messages must be non-empty")
+    prompt = "".join(
+        f"{_ROLE_TAGS.get(m.role, '<|user|>')}{m.content}" for m in req.messages
+    ) + "<|assistant|>"
+    result = get_engine().generate(
+        prompt,
+        max_tokens=min(req.max_tokens, 256),
+        temperature=req.temperature,
+        task_type="chat",
+    )
+    content = result["text"]
+    m = _TURN_END_RE.search(content)
+    if m:
+        content = content[: m.start()]
+    return {"content": content, "tokens": result["tokens"], "latency_ms": result["latency_ms"]}
 
 
 @app.get("/report")
