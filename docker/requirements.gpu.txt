@@ -1,5 +1,7 @@
-# torch==2.4.0+cu124 is installed separately from the pytorch index (see Dockerfile.gpu).
-# torch>=2.4 is required: model_1b.py uses F.rms_norm, added in 2.4.
+# torch==2.4.0+cu124 is installed separately from the pytorch index (see Dockerfile.gpu),
+# for the fused F.rms_norm/scale-kwarg SDPA kernels. model_1b.py itself only needs
+# torch>=2.0 (RMSNorm and the attention scale both fall back to plain-tensor-op paths
+# on older torch -- see model_1b.py -- so CPU dev hosts without this pin still work).
 
 # 8-bit AdamW for base1b — without it the optimizer states alone blow the 12GB budget
 bitsandbytes==0.43.1
