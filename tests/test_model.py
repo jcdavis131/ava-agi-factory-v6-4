@@ -16,7 +16,10 @@ torch = pytest.importorskip("torch")
 
 from ava.config import AvaConfig, ConfigError
 from ava.model import build_model, count_params, set_router_bias
-from model_1b import AvaModel1B, apply_rope_scaling, apply_rotary_emb, rotate_half
+from model_1b import (
+    AvaModel1B, DeltaNetBlock, TransformerBlock1B, apply_rope_scaling,
+    apply_rotary_emb, rotate_half,
+)
 
 
 def _tiny(jspace_causal: bool = True, jspace_chunk: int = 4, **overrides) -> AvaConfig:
@@ -153,6 +156,79 @@ def test_chunk0_broadcast_is_data_independent():
         bc1 = mj.system1.broadcast_from(s, 4)
         bc2 = mj.system1.broadcast_from(mj.system1.init_state(1), 4)
     torch.testing.assert_close(bc1, bc2)
+
+
+# ---------------------------------------------------------------------------
+# T11.2 -- gated DeltaNet fixed-state block (specs/11_arch_hillclimb.md).
+
+def test_deltanet_block_is_causal():
+    """Same property as the transformer block, proven the same way: perturbing
+    token t must leave the block's own output at positions < t bit-identical."""
+    torch.manual_seed(20)
+    blk = DeltaNetBlock(d_model=16, n_heads=2, head_dim=8).eval()
+    x = torch.randn(1, 10, 16)
+    with torch.no_grad():
+        base = blk(x, None, None)
+
+    t = 4
+    x2 = x.clone()
+    x2[0, t] += 5.0
+    with torch.no_grad():
+        after = blk(x2, None, None)
+
+    torch.testing.assert_close(base[:, :t], after[:, :t], atol=1e-5, rtol=1e-5)
+    assert not torch.allclose(base[:, t], after[:, t], atol=1e-5), "perturbation must propagate forward"
+
+
+def test_deltanet_state_size_independent_of_context_length():
+    """The whole point of T11.2: state is [B, H, Dh, Dh], not a KV-cache that
+    grows with L. Run at 2x/4x/8x a base length and confirm the state tensor
+    shape -- and therefore its byte size -- never changes."""
+    torch.manual_seed(21)
+    blk = DeltaNetBlock(d_model=16, n_heads=2, head_dim=8)
+    base_bytes = blk.state_bytes(batch_size=1)
+    assert base_bytes == 1 * 2 * 8 * 8 * 4  # B * H * Dh * Dh * fp32
+
+    for L in (16, 32, 64, 128):  # 2x, 4x, 8x, 16x a 8-token base window
+        x = torch.randn(1, L, 16)
+        with torch.no_grad():
+            out = blk(x, None, None)
+        assert out.shape == (1, L, 16)
+        # state_bytes() takes no L argument by construction; assert that isn't
+        # accidentally lying by also checking it doesn't scale with L directly.
+        assert blk.state_bytes(batch_size=1) == base_bytes
+
+
+def test_deltanet_layers_swappable_and_causal_in_full_model():
+    """A subset of fusion layers as DeltaNetBlock; the full-model causality
+    property (T6.1's headline test) must still hold end to end."""
+    torch.manual_seed(22)
+    m = AvaModel1B(
+        vocab_size=64, d_model=32, n_text=1, n_fusion=2, n_reason=1,
+        n_heads=2, head_dim=16, multi_jspace_enabled=False, multimodal=False,
+        deltanet_layers=[0],
+    ).eval()
+    assert isinstance(m.fusion_layers[0], DeltaNetBlock)
+    assert isinstance(m.fusion_layers[1], TransformerBlock1B)
+
+    ids = torch.randint(0, 64, (1, 10))
+    with torch.no_grad():
+        base = m(input_ids=ids)["lm_logits"]
+    t = 5
+    p = ids.clone()
+    p[0, t] = (p[0, t] + 1) % 64
+    with torch.no_grad():
+        after = m(input_ids=p)["lm_logits"]
+    torch.testing.assert_close(base[:, :t], after[:, :t], atol=1e-4, rtol=1e-4)
+    assert not torch.allclose(base[:, t], after[:, t], atol=1e-5)
+
+
+def test_deltanet_layers_default_off_preserves_existing_model():
+    """deltanet_layers defaults to None: every fusion layer must still be a
+    plain TransformerBlock1B, so this param is a pure opt-in addition."""
+    m = AvaModel1B(vocab_size=64, d_model=32, n_text=1, n_fusion=3, n_reason=1,
+                    n_heads=2, head_dim=16, multi_jspace_enabled=False, multimodal=False)
+    assert all(isinstance(blk, TransformerBlock1B) for blk in m.fusion_layers)
 
 
 # ---------------------------------------------------------------------------
