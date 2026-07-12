@@ -116,10 +116,27 @@ Nothing here re-implements Stage 2/4; it is the governor, the reproducible view,
 - [x] **T10.9** 🟦 **Storage retention + disk high-water eviction** — on a single 28GB drive an ever-growing corpus needs more than delete-CONSUMED: high-water eviction that sheds the *least-curriculum-useful* RAW/PACKED first (over-supplied phases, oldest, lowest `edu_score`), **never** val/test, **never** a phase under its lead target. Extends the janitor (T8.5). *accept:* under a synthetic disk-fill, eviction keeps free-disk in band and never drops a phase below lead; no val/test byte ever deleted. Deps: T8.5, T10.1. — *done 2026-07-10:* `ava/pipeline/eviction.py` + janitor wire-up; lead floor = `packed_min_tokens`; `storage.evict_high_water_gb` in `pipeline.yaml`; tests in `tests/test_eviction.py`. (Full pacer lead_steps still T10.1.)
 - [ ] **T10.10** 🟦 **Supply observability** — `metrics.jsonl` + `/report` expose per-phase runway (steps & tokens), lead/lag vs setpoint, `DATA_STARVED` counters, production/curation/train tok/s + ratios, unique-tokens-per-phase, disk headroom, and `replay_epoch`s. This is how a human confirms "steady state = success" (PLAN.md). *accept:* a nano smoke shows all six phases' runway live; a forced starvation is visible within one scrape interval. Deps: T8.4, T10.1.
 
+## Stage 11 — Architecture hill-climb: 2026-07 open-weight review
+Candidates from a six-model open-weight review (Zaya1, VibeThinker-3B, DeepSeek V4 Flash, Qwen 3.6, Gemma 4),
+mis-filed into `vector-hoops` (a small tabular model with no KV-cache) by a prior session and reverted there.
+Mapped here to real tasks against `AvaModel1B`'s actual GQA transformer and open risk #1 (base1b VRAM).
+Full contract: `specs/11_arch_hillclimb.md`.
+- [ ] **T11.2** 🟪 Gated DeltaNet fixed-state layer — the direct candidate answer to open risk #1 / T9.3's
+  trim decision. Read `ava/j_space_module.py`'s chunk-recurrent state-passing first; may share an interface.
+- [ ] **T11.1** 🟪 Compressed-latent attention block (Zaya1-style) — alternate KV-reduction path, lower
+  priority than T11.2.
+- [ ] **T11.3** 🟦 Sparse/compressed KV + disk streaming at long context (DeepSeek V4 Flash-style) — blocked
+  on a real base1b context target; do not build speculatively.
+- [ ] **T11.4** 🟪 MatFormer-nested scale ladder (Gemma 4-style) — training-curriculum redesign, needs its
+  own spec (`12_matformer_ladder.md`) before touching `ava/train.py`; do not disturb the in-progress mini run.
+- Per-layer phone embeddings and discrete-diffusion decoding are recorded as **out of scope** in the spec —
+  they target problems (phone deploy, non-causal decoding) this project doesn't have.
+
 ## Docs
 - [x] `PLAN.md`, `TODOS.md`, `ORCHESTRATION.md` rewritten for the continuous pipeline
 - [ ] `specs/` refresh — `specs/04` is still accurate; `specs/08` param math needs the J-Space correction
 - [x] `specs/10_continuous_supply.md` — contract for Stage 10 (pacer setpoints, infinite-generator governor, bounded-memory streaming, as-of watermark, frozen eval snapshots, replay policy, compaction, curriculum-aware eviction, observability). Grounded in the real `Manifest`/`FlowConfig` API; adds `pacing`/`reproducibility`/`storage`/`replay` config blocks and a `Manifest.claim(max_rowid=...)` extension. Each task carries an acceptance command with a negative control.
+- [x] `specs/11_arch_hillclimb.md` — contract for Stage 11 (see above).
 
 ---
 
