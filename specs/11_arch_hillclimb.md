@@ -45,12 +45,25 @@ precision. This is the most directly relevant candidate to open risk #1 and to t
 (`TODOS.md` T9.3: "drop `n_fusion_layers` 28→24, or narrow the workspaces") — a fixed-state layer is a third
 option that doesn't shrink capacity. It also has a real conceptual cousin already in this codebase:
 J-Space's **chunk-recurrent** broadcast (T6.1's causality fix) already keeps a bounded state across chunks
-instead of mean-pooling the whole sequence. `T11.2` should read `ava/j_space_module.py`'s chunk-recurrent
-implementation before designing the DeltaNet layer — they may share a state-passing interface.
+instead of mean-pooling the whole sequence. `T11.2` should read root `multi_jspace_module.py`'s
+`MultiJSpace.forward` chunk-recurrent loop (chunked `broadcast_from` prefix-state → `read` fold, default
+`chunk_size=128`) before designing the DeltaNet layer — they may share a state-passing interface. (The
+root `j_space_module.py` is the older single-workspace fallback and has no chunking; `ava/j_space_module.py`
+does not exist.)
 *accept:* a `DeltaNetBlock` swappable for `TransformerBlock1B` at a config-gated subset of layers; the
 causality test suite passes; a needle-in-haystack run (`evals/needle.py`, already YaRN-tested to 2048) shows
 state size independent of context length at 2×, 4×, 8× the native window; report actual peak VRAM at
 base1b's target context vs the current GQA path — this number, not the vendor's, decides T9.3.
+
+**Status (2026-07-11):** implemented in `model_1b.py`, gated behind `deltanet_layers` (unset by default —
+zero effect on the existing model, checked by a regression test). 32/32 `tests/test_model.py` pass,
+including 4 new: block-level causality, state-size invariance across L=16→128, full-model causality with a
+DeltaNet layer mixed into `fusion_layers`, and the default-off regression guard. Analytic KV-cache-vs-fixed-
+state comparison using base1b's actual config (not the vendor's numbers), 3-DeltaNet:1-full-attn split
+(21/7 of 28 fusion layers): 2.3x smaller at L=2048, rising to 3.95x at L=131072 (7.52GB → 1.90GB). Still
+open: live `torch.cuda.max_memory_allocated` and the needle-in-haystack run — both deliberately deferred
+rather than take GPU time from the in-progress mini run (T9.2). Not wired into `AvaConfig`/`configs/*.yaml`
+yet; that's the adoption step, gated on the live numbers above, not a decision to make speculatively.
 
 ### T11.3 — Sparse/compressed KV hybrid at long context (DeepSeek V4 Flash)
 DeepSeek's Flash variant claims 10% of V3.2's KV at 1M context via a compressed-sparse KV path with disk
@@ -77,9 +90,45 @@ bidirectional diffusion decoder is a different training objective from the causa
 Stage 6 making causal — swapping it in is not a hill-climb step, it's a different project. Not tracked as a
 task; recorded here only so a future review doesn't re-propose it without reading this line.
 
+### T11.6 — Markovian recursive trace aggregation → bounded-context multi-sample reasoning (Zaya1, "1b")
+Zaya1 also runs k=4 parallel reasoning traces at inference and folds their tail ends into a bounded
+256-token aggregation context (entropy-gated, τ=0.7) instead of concatenating all k traces — longer
+effective reasoning without paying full self-consistency's token cost. Unlike T11.1-T11.4 this is **not**
+a forward-pass/KV-layout change: it's a decode-time strategy over `ava/serve_engine.py`'s `generate()`,
+which today is single-sample greedy/temperature sampling (`ServeEngine.generate`, no multi-trace path
+exists). It therefore does not need the T6.1 causality gate — nothing about `AvaModel1B.forward` changes.
+It does have a real conceptual cousin already in this codebase: `MultiJSpace`'s chunk-recurrent broadcast
+(`multi_jspace_module.py`, `chunk_size` default 128) already folds a stream into a bounded, non-growing
+state instead of pooling everything (root `multi_jspace_module.py`, not `ava/j_space_module.py` — see the
+T11.2 correction above) — the same "bounded state over a stream" idea T11.2 points at, except Zaya folds
+**parallel samples**, not sequential chunks.
+*accept:* implement as an opt-in `generate(..., k_traces=1)` path in `ServeEngine`; k=1 must be
+byte-identical to current output (negative control); at k=4, measure wall-clock and token cost against
+plain k=1 and against a naive concatenate-all-k baseline before claiming any quality win — nothing here is
+validated until `eval_harness.py` shows an accuracy delta on a reasoning probe, not assumed from the
+vendor's number.
+*priority:* below T11.1-T11.4 — needs a serve path at a scale where 4x sampling cost is affordable
+(mini+), and "7400 tokens correct... 91.9% AIME 2025" is Zaya1's own card, not measured here.
+
+### T11.7 — Parametric compression-coverage → the Math branch's fine-tune recipe (VibeThinker-3B)
+VibeThinker-3B's result is a training-recipe claim, not an attention/KV mechanism: a small (1.5B-3B)
+verifiable-reasoning (math/code) base gets a 2-stage SFT + MaxEnt-guided RL + offline self-distill
+post-train and reportedly lands near frontier math benchmarks for a ~$7,800 post-train budget. This maps
+to `T9.5` (branch fine-tunes) and specifically the **Math branch** already defined in
+`configs/base1b.yaml` (`freeze: [system1, planner]`, fine-tune `[system2, critic, router]`, data
+`math_formal/proofs/synthetic_math`, `lr: 8e-5`) — not to `model_1b.py`. The repo's actual post-train file
+for this, `sft_sota_2025.py`, is currently a 2-line placeholder (`print(...)`), so there is no existing
+recipe to compare against; adopting VibeThinker's 3-stage recipe would mean writing that file for real.
+*accept:* blocked on T9.3 (GO/NO-GO), same as T9.5 itself — do not build a training recipe for a branch
+that may not exist yet. When T9.5 starts, treat 2-stage SFT + MaxEnt RL + self-distill as one candidate
+recipe for the Math branch, measured against plain SFT on the same frozen eval snapshot (T10.6), not
+adopted by vendor-card default.
+
 ## Ordering
 
 T11.2 before T11.1 before T11.3 — T11.2 answers the open VRAM risk directly and has the clearest internal
 analog (J-Space chunk-recurrence) to reuse; T11.1 is the next-cheapest KV win; T11.3 only matters once a
 long-context target exists. T11.4 is independent and gated on writing `12_matformer_ladder.md` first. T11.5
-is a non-task, kept for the record.
+is a non-task, kept for the record. T11.6 and T11.7 are not forward-pass work and don't compete with
+T11.1-T11.4 for the same causality-gated review slot: T11.6 waits on a serve path worth the k=4 cost,
+T11.7 waits on T9.3/T9.5 same as the rest of branch fine-tuning.

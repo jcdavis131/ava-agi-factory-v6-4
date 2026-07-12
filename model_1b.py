@@ -200,6 +200,87 @@ class TransformerBlock1B(nn.Module):
         return x
 
 
+class DeltaNetBlock(nn.Module):
+    """Gated DeltaNet: linear attention with a fixed-size recurrent state.
+
+    T11.2 (specs/11_arch_hillclimb.md), candidate answer to open risk #1 (base1b
+    VRAM): swappable for TransformerBlock1B at a config-gated subset of layers
+    (AvaModel1B's `deltanet_layers`). Per-layer state is [B, H, Dh, Dh] --
+    independent of sequence length, unlike a KV-cache that grows with context.
+
+    Delta rule (Yang et al. 2024, "Parallelizing Linear Transformers with the
+    Delta Rule over Sequence Length"): S_t = S_{t-1}(I - beta_t k_t k_t^T) +
+    beta_t v_t k_t^T, beta_t a learned data-dependent gate in (0, 1) -- writes
+    v_t at address k_t, erasing whatever the old state predicted at that
+    address first. Output reads the state with the query: o_t = S_t q_t.
+
+    This is a straight sequential scan (O(L) python loop), not the paper's
+    chunked-parallel form. Causal by construction -- S_t is built only from
+    tokens <= t, so there is no way for it to see the future, no mask to get
+    wrong. Deliberately correctness-first to clear the causality suite (T6.1)
+    before any throughput work; the chunked-parallel form is a follow-up once
+    this lands, same relationship as J-Space's chunk-recurrent MultiJSpace vs.
+    a hypothetical fully-parallel version.
+    """
+
+    def __init__(self, d_model=2048, n_heads=16, head_dim=128, mlp: str = "gelu",
+                 mlp_mult: int = 4, mlp_ratio: Optional[float] = None):
+        super().__init__()
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.head_dim = head_dim
+
+        self.q_proj = nn.Linear(d_model, n_heads * head_dim, bias=False)
+        self.k_proj = nn.Linear(d_model, n_heads * head_dim, bias=False)
+        self.v_proj = nn.Linear(d_model, n_heads * head_dim, bias=False)
+        self.beta_proj = nn.Linear(d_model, n_heads)  # data-dependent write gate
+        self.o_proj = nn.Linear(n_heads * head_dim, d_model, bias=False)
+        self.norm1 = RMSNorm(d_model)
+        self.norm2 = RMSNorm(d_model)
+
+        if mlp == "swiglu":
+            self.mlp = SwiGLU(d_model, int((mlp_ratio or 4.0) * d_model))
+        else:
+            self.mlp = nn.Sequential(
+                nn.Linear(d_model, d_model * mlp_mult, bias=False),
+                nn.GELU(),
+                nn.Linear(d_model * mlp_mult, d_model, bias=False),
+            )
+
+    def state_bytes(self, batch_size: int = 1, elem_bytes: int = 4) -> int:
+        """Per-forward state size -- constant in L, the whole point of T11.2."""
+        return batch_size * self.n_heads * self.head_dim * self.head_dim * elem_bytes
+
+    def forward(self, x, cos, sin, attn_factor=1.0):
+        # cos/sin/attn_factor accepted only to keep the TransformerBlock1B call
+        # signature (RoPE has no meaning for a state-space recurrence -- the
+        # delta rule already encodes order through the scan itself).
+        B, L, _ = x.shape
+        h = self.norm1(x)
+        q = h @ self.q_proj.weight.T
+        k = h @ self.k_proj.weight.T
+        v = h @ self.v_proj.weight.T
+        q = q.view(B, L, self.n_heads, self.head_dim)
+        k = F.normalize(k.view(B, L, self.n_heads, self.head_dim), dim=-1)
+        v = v.view(B, L, self.n_heads, self.head_dim)
+        beta = torch.sigmoid(self.beta_proj(h))  # [B, L, H]
+
+        S = x.new_zeros(B, self.n_heads, self.head_dim, self.head_dim)
+        outs = []
+        for t in range(L):
+            k_t, v_t, q_t = k[:, t], v[:, t], q[:, t]           # [B, H, Dh]
+            beta_t = beta[:, t].unsqueeze(-1)                    # [B, H, 1]
+            pred = torch.einsum("bhij,bhj->bhi", S, k_t)         # what S already predicts at k_t
+            delta = beta_t * (v_t - pred)
+            S = S + torch.einsum("bhi,bhj->bhij", delta, k_t)    # write (erase old + insert new)
+            outs.append(torch.einsum("bhij,bhj->bhi", S, q_t))   # read with the query
+
+        out = torch.stack(outs, dim=1).reshape(B, L, -1)
+        x = x + self.o_proj(out)
+        x = x + self.mlp(self.norm2(x))
+        return x
+
+
 class VisionEncoder(nn.Module):
     def __init__(self, d_model=2048):
         super().__init__()
@@ -239,7 +320,7 @@ class AvaModel1B(nn.Module):
                  tie_lm_head=False, tie_verbalizer=False, multimodal=True,
                  use_memory=False, jspace_slots=None, jspace_half_life=None,
                  jspace_num_heads=4, rope_base=10000, gradient_checkpointing=False,
-                 jspace_causal=True, jspace_chunk_size=128):
+                 jspace_causal=True, jspace_chunk_size=128, deltanet_layers=None):
         super().__init__()
         self.d_model = d_model
         self.vocab_size = vocab_size
@@ -257,8 +338,19 @@ class AvaModel1B(nn.Module):
                                       use_qk_norm=use_qk_norm, n_kv_heads=n_kv_heads,
                                       mlp=mlp, mlp_mult=mlp_mult, mlp_ratio=mlp_ratio)
 
+        # T11.2: fusion-layer indices that run DeltaNetBlock instead of full
+        # attention. Default None/empty = every layer is TransformerBlock1B,
+        # i.e. byte-identical to before this param existed.
+        self._deltanet_layers = set(deltanet_layers or ())
+
+        def _fusion_block(i):
+            if i in self._deltanet_layers:
+                return DeltaNetBlock(d_model, n_heads=n_heads, head_dim=head_dim,
+                                     mlp=mlp, mlp_mult=mlp_mult, mlp_ratio=mlp_ratio)
+            return _block()
+
         self.text_layers = nn.ModuleList([_block() for _ in range(n_text)])
-        self.fusion_layers = nn.ModuleList([_block() for _ in range(n_fusion)])
+        self.fusion_layers = nn.ModuleList([_fusion_block(i) for i in range(n_fusion)])
         self.reasoning_layers = nn.ModuleList([_block() for _ in range(n_reason)])
 
         self.vision_enc = VisionEncoder(d_model) if multimodal else None

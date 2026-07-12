@@ -121,14 +121,32 @@ Candidates from a six-model open-weight review (Zaya1, VibeThinker-3B, DeepSeek 
 mis-filed into `vector-hoops` (a small tabular model with no KV-cache) by a prior session and reverted there.
 Mapped here to real tasks against `AvaModel1B`'s actual GQA transformer and open risk #1 (base1b VRAM).
 Full contract: `specs/11_arch_hillclimb.md`.
-- [ ] **T11.2** 🟪 Gated DeltaNet fixed-state layer — the direct candidate answer to open risk #1 / T9.3's
-  trim decision. Read `ava/j_space_module.py`'s chunk-recurrent state-passing first; may share an interface.
+- [x] **T11.2** 🟪 Gated DeltaNet fixed-state layer — `DeltaNetBlock` in `model_1b.py`, swappable for
+  `TransformerBlock1B` via `AvaModel1B(deltanet_layers=[...])` on a subset of `fusion_layers` (default
+  unset = zero behavior change, checked by a regression test). Sequential delta-rule scan (Yang et al.
+  2024), causal by construction — no mask to get wrong, since state at t is built only from tokens ≤ t.
+  4 new tests in `tests/test_model.py`, **32/32 passing** (28 existing + 4 new): standalone block
+  causality, state-size invariance across L=16→128, full-model causality with a DeltaNet layer mixed in,
+  and the default-off regression guard. **Analytic VRAM** (base1b's real config: d_model 2048, 16 heads/4
+  KV heads GQA, head_dim 128, 28 fusion layers; 3 DeltaNet : 1 full-attn = 21/7 split): fixed state
+  21×1.05MB ≈ 22MB total vs. growing bf16 KV-cache — 2.3x smaller at L=2048, rising to **3.95x at
+  L=131072** (7.52GB → 1.90GB). Numbers are this repo's own dims, not the vendor's. **Not yet measured:**
+  live `torch.cuda.max_memory_allocated` peak and the needle-in-haystack state-size check at 2x/4x/8x —
+  deferred; the GPU is occupied by the live mini run (T9.2) and this doesn't need to jump the queue.
+  Not wired into `AvaConfig`/`ava/model.py`/`configs/*.yaml` yet — that's the adoption step, gated on the
+  live-GPU numbers above, not a decision to make speculatively.
 - [ ] **T11.1** 🟪 Compressed-latent attention block (Zaya1-style) — alternate KV-reduction path, lower
   priority than T11.2.
 - [ ] **T11.3** 🟦 Sparse/compressed KV + disk streaming at long context (DeepSeek V4 Flash-style) — blocked
   on a real base1b context target; do not build speculatively.
 - [ ] **T11.4** 🟪 MatFormer-nested scale ladder (Gemma 4-style) — training-curriculum redesign, needs its
   own spec (`12_matformer_ladder.md`) before touching `ava/train.py`; do not disturb the in-progress mini run.
+- [ ] **T11.6** 🟦 Markovian recursive trace aggregation (Zaya1-style, k=4 parallel traces → bounded 256-tok
+  aggregation) — decode-time only, no causality gate needed; needs a `k_traces` path in `ServeEngine.generate`
+  that doesn't exist yet. Lower priority; wait for a serve target where 4x sampling cost is affordable.
+- [ ] **T11.7** 🟦 VibeThinker-style 2-stage SFT + MaxEnt RL + self-distill recipe for the Math branch —
+  training-recipe candidate for T9.5, not a `model_1b.py` change. `sft_sota_2025.py` is currently a 2-line
+  stub; blocked on T9.3/T9.5 same as the rest of branch fine-tuning.
 - Per-layer phone embeddings and discrete-diffusion decoding are recorded as **out of scope** in the spec —
   they target problems (phone deploy, non-causal decoding) this project doesn't have.
 
