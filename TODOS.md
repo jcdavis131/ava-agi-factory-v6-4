@@ -150,11 +150,56 @@ Full contract: `specs/11_arch_hillclimb.md`.
 - Per-layer phone embeddings and discrete-diffusion decoding are recorded as **out of scope** in the spec —
   they target problems (phone deploy, non-causal decoding) this project doesn't have.
 
+## Stage 12 — Workflow data: JobBench + GAIA2 synthetic generators
+`workflow_jobbench`/`workflow_gaia2` had been dangling string labels in the blueprint docs
+(`dolma_config.yaml`, `streaming_data.py`, `inner_monologue_research.md`) for phases 3-5 since before this
+repo had a real `ava/datagen/` at all — referenced in mix weights, never built. This stage builds them for
+real, on the actual live nano pipeline (not the 1B blueprint), modeled on the real published benchmarks
+(job-bench.github.io: 1,500+ professionals' delegation ratings across ~28 occupations/7 domains;
+facebookresearch/meta-agents-research-environments Gaia2: 800 async scenarios/10 universes) without any
+network dependency on either — spec 02 forbids it, so both are deterministic template+RNG generators in
+the same style as B1-B4.
+- [x] **T12.1** 🟦 `ava/datagen/workflow_jobbench.py` — `WorkflowJobBenchGenerator` (phases 3/4/5). 25
+  occupations × 3 planted-contradiction families (duplicate line-item, unit mismatch, stale/superseded
+  snapshot), every reconciliation computed in Python from the same numbers rendered into the CSV tables —
+  never templated as literal text. `task_type` is `deliberate` for duplicate/units, `temporal` for stale
+  (recency-dependent). Phase-4 docs GROW their item count until the rendered text clears spec 02's
+  6000-char long-doc floor (a fixed item count landed anywhere from ~4000 to ~10000 chars depending which
+  occupation's units got drawn — too wide a spread for a single `randint` range).
+- [x] **T12.2** 🟦 `ava/datagen/workflow_gaia2.py` — `WorkflowGaia2Generator` (phases 3/4/5, all
+  `task_type=temporal`). A deterministic scheduling state machine (candidate time slots + RNG-seeded async
+  events fired independently of the agent) over 4 twists mirroring Gaia2's named capability axes:
+  adaptability (a slot gets declined), ambiguity (a later explicit time supersedes an earlier vague one),
+  deadline pressure (a late constraint prunes the window), collaboration (a second agent's booking must be
+  accepted or flagged). The "resolution" text is always the literal replay of the state machine, so it's
+  checkable independently of the generator. Phase-4 docs chain further independent scenarios ("same
+  universe, later that day") until long enough, since a single scenario averages ~650 chars.
+  **Bug caught by the independent test, fixed before merge:** `_ambiguity_doc`'s past-deadline branch was
+  silently substituting an unrelated earlier slot instead of flagging the conflict, contradicting its own
+  "rather than silently rebooking" text — `_earliest_before(slots, deadline)` fallback removed; past-deadline
+  now always flags.
+- [x] **T12.3** 🟦 Wired into the live pipeline: registered in `ava/datagen/__init__.py`'s `GENERATORS`;
+  added `synth_jobbench`/`synth_gaia2` to `configs/sources.yaml` phases 3/4/5 at the blueprint's own
+  intended weights (jobbench 10/10/5%, gaia2 5/15/10% — jobbench skews toward reasoning/p3, gaia2 skews
+  toward long/async context/p4, matching `inner_monologue_research.md`'s original framing). Existing
+  p3/p4/p5 source weights rescaled down proportionally so every phase still sums to exactly 1.0 (verified
+  by script, not by eye).
+- [x] **T12.4** 🟦 Tests: both generators added to `tests/test_datagen.py`'s `ALL_GENERATORS` (gets
+  determinism/schema/phase-coverage checks for free); plus dedicated correctness tests that independently
+  re-derive each doc's answer from its own rendered text (re-sum the CSV tables; re-replay the GAIA2
+  scheduling state machine from the parsed slots/deadline/events) rather than trusting the generator's
+  internal variables — this is what caught T12.2's ambiguity bug. 50/50 passing; full `pytest tests/`
+  unaffected (pre-existing, unrelated `torch.nn.functional.rms_norm` failures on this host's older torch
+  are untouched by this change — `test_collector.py`/`test_demand.py`, which actually read
+  `sources.yaml`, pass clean).
+
 ## Docs
 - [x] `PLAN.md`, `TODOS.md`, `ORCHESTRATION.md` rewritten for the continuous pipeline
 - [ ] `specs/` refresh — `specs/04` is still accurate; `specs/08` param math needs the J-Space correction
 - [x] `specs/10_continuous_supply.md` — contract for Stage 10 (pacer setpoints, infinite-generator governor, bounded-memory streaming, as-of watermark, frozen eval snapshots, replay policy, compaction, curriculum-aware eviction, observability). Grounded in the real `Manifest`/`FlowConfig` API; adds `pacing`/`reproducibility`/`storage`/`replay` config blocks and a `Manifest.claim(max_rowid=...)` extension. Each task carries an acceptance command with a negative control.
 - [x] `specs/11_arch_hillclimb.md` — contract for Stage 11 (see above).
+- [x] `specs/02_data_generation.md` — added a B5 section for Stage 12's `workflow_jobbench`/`workflow_gaia2`
+  generators, in the same contract style as B1-B4.
 
 ---
 
