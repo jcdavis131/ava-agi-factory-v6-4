@@ -147,6 +147,7 @@ services:
       - ava_ckpt:/ckpt
       - ava_state:/state
       - ava_reports:/reports
+      - *host-disk
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/pipeline/status"]

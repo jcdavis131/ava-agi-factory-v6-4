@@ -23,3 +23,5 @@ ckpt/
 export/
 reports/*.html
 manifest.jsonl
+tasks/_status_snapshot.json
+tasks/_tick_status.json

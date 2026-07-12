@@ -1,0 +1,43 @@
+"""Unit tests for dashboard status helpers (no Docker / no live DB)."""
+
+from __future__ import annotations
+
+from ava.pipeline_status import current_run_series
+
+
+def test_current_run_series_drops_pre_restart_history():
+    metrics = [
+        {"event": "step", "step": 450, "lm": 0.12, "tok_s": 12000, "phase": 0},
+        {"event": "step", "step": 460, "lm": 0.11, "tok_s": 12100, "phase": 0},
+        {"event": "step", "step": 470, "lm": 0.10, "tok_s": 12000, "phase": 0},
+        # CUDA restart — step resets
+        {"event": "step", "step": 1, "lm": 10.5, "tok_s": None, "phase": 0},
+        {"event": "step", "step": 10, "lm": 8.0, "tok_s": 11000, "phase": 0},
+        {"event": "step", "step": 100, "lm": 0.30, "tok_s": 11200, "phase": 0},
+    ]
+    series = current_run_series(metrics)
+    assert series["step"] == [1, 10, 100]
+    assert series["lm_loss"][0] == 10.5
+    assert series["lm_loss"][-1] == 0.30
+    assert len(series["tok_s"]) == 3
+
+
+def test_current_run_series_empty():
+    assert current_run_series([]) == {
+        "step": [],
+        "lm_loss": [],
+        "tok_s": [],
+        "phase": [],
+        "total": [],
+    }
+
+
+def test_current_run_series_ignores_non_step_events():
+    metrics = [
+        {"event": "model_built", "preset": "mini"},
+        {"event": "step", "step": 1, "lm": 9.0, "phase": 0},
+        {"event": "checkpoint", "step": 100, "path": "/ckpt/step_100.pt"},
+        {"event": "step", "step": 100, "lm": 0.3, "tok_s": 10000, "phase": 0},
+    ]
+    series = current_run_series(metrics)
+    assert series["step"] == [1, 100]
