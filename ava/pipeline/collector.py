@@ -42,6 +42,7 @@ from typing import Callable, Iterator
 
 import yaml
 
+from ava.pipeline.demand import apply_demand_weights, read_demand
 from ava.pipeline.flow import (
     N_PHASES,
     FlowConfig,
@@ -575,7 +576,6 @@ def serve(
     notice the trainer has moved to a later phase.
     """
     by_name = {s.name: s for s in sources}
-    rr_by_phase: dict[int, WeightedRR] = {}
     rng = random.Random(seed)
     last_pause_reason: str | None = None
     last_phase: int | None = None
@@ -600,15 +600,25 @@ def serve(
             log("collector_resume", phase=phase)
             last_pause_reason = None
 
-        rr = rr_by_phase.get(phase)
-        if rr is None:
-            rr = WeightedRR(sources_for_phase(sources, phase))
-            rr_by_phase[phase] = rr
+        # Rebuild RR each tick from demand so expand/examples reweight live.
+        demand = read_demand()
+        base = sources_for_phase(sources, phase)
+        task_types = {s.name: s.task_type for s in sources}
+        weighted = apply_demand_weights(
+            base, source_task_types=task_types, demand=demand, phase=phase,
+        )
+        rr = WeightedRR(weighted)
         name = rr.next()
         if name is None:
             log("no_source_for_phase", level="warn", phase=phase)
             sleep_fn(poll_seconds)
             continue
+        if demand is not None and it % 20 == 1:
+            acts = demand.actions_for(phase)
+            if acts:
+                log("demand_actuate", phase=phase, source=name, actions=list(acts),
+                    effort=demand.effort_map().get(phase, 0.0),
+                    reasons=list(demand.reasons)[:2])
 
         try:
             run_source(by_name[name], phase, m, cfg, raw_dir, log,

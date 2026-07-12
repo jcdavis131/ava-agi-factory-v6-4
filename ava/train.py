@@ -35,6 +35,7 @@ from ava.config import AvaConfig, PhaseConfig
 from ava.data import StreamingShardSampler
 from ava.jlosses import JSpaceObjective
 from ava.model import build_model, count_params, set_router_bias
+from ava.pipeline.demand import compute_demand, write_demand
 from ava.pipeline.flow import FlowConfig
 from ava.pipeline.manifest import Manifest
 from model_1b import apply_rope_scaling
@@ -212,13 +213,49 @@ def main(argv=None) -> int:
     with Manifest() as manifest, StreamingShardSampler(
             cfg, manifest, flow, seed=args.seed, packed_dir=args.packed) as sampler:
 
+        lm_hist: list[float] = []
+
         def heartbeat(step: int, phase: int, status: str = "running") -> None:
-            """Publish phase so collectors/curators track the trainer."""
+            """Publish phase + demand so miners close the data loop."""
             try:
                 manifest.upsert_run(run_id, preset=args.preset, step=step,
                                     phase=phase, status=status)
             except Exception as exc:  # never let bookkeeping kill the GPU loop
                 log("heartbeat_failed", error=str(exc))
+                return
+            try:
+                ready = {p: int(manifest.tokens_ready(p)) for p in range(6)}
+                by_state = manifest.counts_by_state()
+                failed = int(by_state.get("FAILED", 0))
+                active = max(1, sum(int(by_state.get(s, 0)) for s in (
+                    "RAW", "CLAIMED_CURATE", "PACKED", "CLAIMED_TRAIN", "FAILED",
+                )))
+                trend = None
+                if len(lm_hist) >= 3:
+                    trend = lm_hist[-1] - lm_hist[0]
+                snap = compute_demand(
+                    tokens_ready_by_phase=ready,
+                    cfg=flow,
+                    trainer_phase=phase,
+                    step=step,
+                    preset=args.preset,
+                    failed_shards=failed,
+                    active_shards=active,
+                    lm_trend=trend,
+                )
+                path = write_demand(snap)
+                # Cheap history for collectors/dashboard; never block the step.
+                try:
+                    manifest.log_metric(run_id, "demand_effort_p" + str(phase),
+                                        snap.effort_map().get(phase, 0.0))
+                except Exception:
+                    pass
+                if step <= 1 or step % max(1, cfg.training.metrics_every_steps) == 0:
+                    log("demand_published", path=str(path), step=step, phase=phase,
+                        reasons=list(snap.reasons)[:3],
+                        effort={str(k): v for k, v in snap.effort_map().items() if v > 0})
+            except Exception as exc:
+                log("demand_publish_failed", error=str(exc))
 
         step, tokens_done = 0, 0
         latest = ckpt_dir / "latest"
@@ -310,6 +347,10 @@ def main(argv=None) -> int:
                     verbalizable_mass=round(float(mj["system2"]["verbalizable_mass"]), 5),
                     broadcast_strength=round(float(mj["broadcast_strength"]), 5),
                     route_probs=[round(x, 4) for x in mj["route_probs"].mean(0).tolist()])
+                lm_val = float(agg.get("lm", agg.get("total", 0.0)))
+                lm_hist.append(lm_val)
+                if len(lm_hist) > 5:
+                    lm_hist.pop(0)
                 heartbeat(step, phase)
                 t0 = time.time()
 
