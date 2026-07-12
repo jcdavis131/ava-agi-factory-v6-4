@@ -31,6 +31,7 @@ from ava.datagen.math_gen import MathGenerator
 from ava.datagen.encyclopedia import EncyclopediaGenerator
 from ava.datagen.code_gen import CodeGenGenerator, SAFE_BUILTINS, run_sandboxed
 from ava.datagen.chat_safety import ChatSafetyGenerator, _SCENARIO_TEMPLATES
+from ava.datagen.react_tools import ASSISTANT, USER, ReactToolsGenerator
 
 ALL_GENERATORS = [
     LogicGenerator,
@@ -38,6 +39,7 @@ ALL_GENERATORS = [
     EncyclopediaGenerator,
     CodeGenGenerator,
     ChatSafetyGenerator,
+    ReactToolsGenerator,
 ]
 
 # A small byte target keeps tests fast while still exercising every family.
@@ -120,6 +122,9 @@ def test_task_types_are_accurate_per_generator():
 
     chat_tt = {d["task_type"] for d in _collect(ChatSafetyGenerator)}
     assert {"safety", "automatic", "temporal", "deliberate"} <= chat_tt
+
+    react_tt = {d["task_type"] for d in _collect(ReactToolsGenerator)}
+    assert {"deliberate", "temporal"} <= react_tt
 
 
 # ---------------------------------------------------------------------------
@@ -664,3 +669,64 @@ def test_write_shards_deterministic(tmp_path):
     b = write_shards(LogicGenerator(seed=1234), str(tmp_path / "b"), target_mb=0.5)
     assert a["sha256"] == b["sha256"]
     assert a["bytes"] >= 0.5 * 1024 * 1024
+
+
+# ---------------------------------------------------------------------------
+# react_tools.py: independently verify tool-math answers and that grounding
+# docs never fabricate behavior for the function they were told doesn't exist
+# ---------------------------------------------------------------------------
+
+def test_react_math_answers_are_correct():
+    gen = ReactToolsGenerator(seed=1234)
+    docs = [d for d in gen.generate(300_000) if d["concept"] == "tool_math"]
+    assert docs, "no tool_math docs produced"
+    for d in docs:
+        m = re.search(r"(\d+) ([+\-*]) (\d+) = (-?\d+)\.", d["text"])
+        assert m, f"couldn't find the answer line in: {d['text']!r}"
+        a, op, b, claimed = int(m[1]), m[2], int(m[3]), int(m[4])
+        actual = {"+": a + b, "-": a - b, "*": a * b}[op]
+        assert claimed == actual, f"{a}{op}{b}: doc claims {claimed}, actually {actual}"
+
+
+def test_react_grounding_notfound_never_fabricates():
+    """The whole point of this family: after the Observation says '(no
+    matches)', the final answer must say the thing doesn't exist — never
+    describe plausible-sounding behavior for it."""
+    gen = ReactToolsGenerator(seed=1234)
+    docs = [d for d in gen.generate(300_000) if d["concept"] == "tool_grounding_notfound"]
+    assert docs, "no tool_grounding_notfound docs produced"
+    fabrication_markers = ("returns", "computes", "performs", "handles the case")
+    for d in docs:
+        assert "(no matches)" in d["text"]
+        final_turn = d["text"].rsplit(ASSISTANT, 1)[-1]
+        assert not any(m in final_turn.lower() for m in fabrication_markers), (
+            f"final turn looks like it fabricated behavior: {final_turn!r}"
+        )
+        assert re.search(r"(doesn't exist|does not exist|isn't there|no function called)", final_turn)
+
+
+def test_react_tools_parse_with_ava_bridge():
+    """Cross-repo consistency: every doc's tool-calling assistant turn must
+    actually parse via AgenticOS/ava_bridge.py's regex, or the SFT data and
+    the bridge that's supposed to read this exact format have drifted apart.
+    Skips gracefully if AgenticOS isn't checked out as a sibling directory
+    (this repo's own test suite shouldn't hard-depend on a sibling repo)."""
+    import sys
+    from pathlib import Path
+
+    agenticos = Path(__file__).resolve().parent.parent.parent / "AgenticOS"
+    if not agenticos.is_dir():
+        pytest.skip("AgenticOS sibling repo not present")
+    sys.path.insert(0, str(agenticos))
+    import ava_bridge
+
+    gen = ReactToolsGenerator(seed=1234)
+    docs = [d for d in gen.generate(300_000) if d["concept"] in
+            {"tool_math", "tool_date", "tool_grounding_notfound", "tool_read_cite"}]
+    assert docs
+    for d in docs:
+        # First assistant turn is the one with the Action: line.
+        first_assistant = d["text"].split(USER, 2)[1].split(ASSISTANT, 1)[-1]
+        parsed = ava_bridge.parse_react_response(first_assistant)
+        assert "tool_calls" in parsed, f"ava_bridge failed to parse a real Action: line: {d['text']!r}"
+        assert parsed["tool_calls"][0]["function"]["name"], "empty tool name parsed"
