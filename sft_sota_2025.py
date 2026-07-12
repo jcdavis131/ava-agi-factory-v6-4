@@ -35,7 +35,7 @@ from pathlib import Path
 
 from ava.datagen.chat_safety import ChatSafetyGenerator
 from ava.datagen.react_tools import ReactToolsGenerator
-from ava.pipeline.manifest import PACKED, Manifest
+from ava.pipeline.manifest import RAW, Manifest
 from ava.pipeline.pack import load_tokenizer, pack_docs, write_shard
 
 
@@ -90,13 +90,37 @@ def prepare_branch_data(
     write_shard(arr, idx, bin_path)
     print(f"Packed {idx['tokens']} tokens, {len(idx['docs'])} docs -> {bin_path}")
 
+    # add_shard(state=PACKED) directly does NOT set the `tokens` column (only
+    # complete() does) -- StreamingShardSampler's tokens_ready() reads that
+    # column, so a directly-PACKED shard silently looks empty to the trainer.
+    # Register RAW -> claim("curate") -> complete(tokens=...), the same
+    # transition curator.py itself performs, so this shard is actually
+    # consumable.
+    # Manifest shard-phase vs. doc-phase: the docs themselves keep their
+    # honest phase="p3"/"p5" metadata from react_tools.py/chat_safety.py
+    # (unchanged in idx.json). But ava/train.py's --branch path never reads
+    # nano.yaml's branch_chat.mix -- confirmed by grep, it's dead config --
+    # so a branch run's phase_for_step() always starts at phase 0 of the
+    # BASE curriculum and would need ~200M+ tokens before ever reaching
+    # phase 5. For a bounded branch-fork shakeout to actually find this
+    # shard, register the manifest SHARD (a scheduling concern, separate
+    # from doc-level metadata) under phase 0. Real fix is wiring branch_chat
+    # into the sampler properly -- out of scope for a data-prep script.
+    shard_phase = 0
     with Manifest(db_path=db_path) as m:
+        m.freeze_tokenizer(idx["tokenizer_sha"], lt.vocab_size)
         m.add_shard(
-            "sft_chat_branch_0000", source="sft_sota_2025", phase=5,
+            "sft_chat_branch_0000", source="sft_sota_2025", phase=shard_phase,
             path=str(bin_path), split="train", bytes_=int(arr.nbytes),
-            docs=len(idx["docs"]), sha256=idx["tokenizer_sha"], state=PACKED,
+            docs=len(idx["docs"]), sha256=idx["tokenizer_sha"], state=RAW,
         )
-    print(f"Registered in isolated manifest at {db_path} (NOT the live pipeline's manifest.db)")
+        shard = m.claim("curate", by="sft_sota_2025", phases=[shard_phase])
+        m.complete(
+            shard.id, by="sft_sota_2025", tokens=idx["tokens"], docs=len(idx["docs"]),
+            tokenizer_sha=idx["tokenizer_sha"],
+        )
+    print(f"Registered (PACKED, tokens={idx['tokens']}) in isolated manifest at {db_path} "
+          f"(NOT the live pipeline's manifest.db)")
 
     return {
         "tokens": idx["tokens"], "docs": len(idx["docs"]),
