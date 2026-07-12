@@ -12,6 +12,8 @@ from ava.datagen.code_gen import CodeGenGenerator
 from ava.datagen.encyclopedia import EncyclopediaGenerator
 from ava.datagen.logic import LogicGenerator
 from ava.datagen.math_gen import MathGenerator
+from ava.datagen.workflow_gaia2 import WorkflowGaia2Generator
+from ava.datagen.workflow_jobbench import WorkflowJobBenchGenerator
 
 #: The single source of truth for synthetic sources. `configs/sources.yaml`
 #: refers to generators by these keys; ava/pipeline/collector.py resolves them
@@ -22,10 +24,13 @@ GENERATORS: dict[str, type[Generator]] = {
     EncyclopediaGenerator.name: EncyclopediaGenerator,
     LogicGenerator.name: LogicGenerator,
     MathGenerator.name: MathGenerator,
+    WorkflowGaia2Generator.name: WorkflowGaia2Generator,
+    WorkflowJobBenchGenerator.name: WorkflowJobBenchGenerator,
 }
 
 __all__ = [
     "Generator", "write_shards", "run_cli", "validate_doc", "GENERATORS",
     "ChatSafetyGenerator", "CodeGenGenerator", "EncyclopediaGenerator",
-    "LogicGenerator", "MathGenerator",
+    "LogicGenerator", "MathGenerator", "WorkflowGaia2Generator",
+    "WorkflowJobBenchGenerator",
 ]
