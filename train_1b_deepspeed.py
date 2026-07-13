@@ -208,12 +208,12 @@ def compute_capacity_curve():
     return ks,s1,s2,combined
 
 def main():
-    parser=argparse.ArgumentParser(description="Ava AGI Factory v6.4 — WSD 736k branching YaRN 10k→1M Multi-J-Space WSM+OroJaR")
+    parser=argparse.ArgumentParser(description="Ava AGI Factory v6.4 — WSD 736k branching YaRN 10k->1M Multi-J-Space WSM+OroJaR")
     parser.add_argument("--branch", default="base", choices=["base","code","math","chat","all"])
     parser.add_argument("--deepspeed", default="deepspeed_zero3_bf16.json")
     parser.add_argument("--mock", action="store_true")
     parser.add_argument("--wandb", action="store_true")
-    parser.add_argument("--schedule", default="wsd", choices=["wsd","wsm"], help="LR schedule: wsd (original 736k 92%) or wsm decay-free merging")
+    parser.add_argument("--schedule", default="wsd", choices=["wsd","wsm"], help="LR schedule: wsd (original 736k 92%%) or wsm decay-free merging")
     parser.add_argument("--orojar", type=float, default=0.0, help="OroJaR weight lambda for Jacobian disentangle loss")
     parser.add_argument("--wsm_merge_every", type=int, default=10000, help="WSM merge frequency steps")
     parser.add_argument("--wsm_buffer", type=int, default=5, help="WSM buffer size k last checkpoints")
