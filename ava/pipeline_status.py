@@ -85,6 +85,33 @@ def _curriculum(preset: str) -> dict[str, Any] | None:
     }
 
 
+def _objective(preset: str) -> dict[str, Any] | None:
+    """Static loss-formula weights/targets for the dashboard's equation card.
+
+    Mirrors ava/jlosses.py's ``loss = lm + (...)*j_weight + half_life*hl_weight
+    + inter_mi*w + routing_KL*w`` — read once from the preset YAML so the
+    dashboard can label the aux-loss small multiples with the same numbers
+    the trainer is actually optimizing against.
+    """
+    try:
+        from ava.config import AvaConfig
+
+        cfg = AvaConfig.load(preset)
+    except Exception:  # noqa: BLE001
+        return None
+    j = cfg.jspace
+    return {
+        "grad_clip": float(cfg.training.optimizer.grad_clip),
+        "j_weight": dict(j.j_weight),
+        "base_loss_weights": dict(j.base_loss_weights),
+        "hl_weight": dict(j.hl_weight),
+        "half_life_target": dict(j.half_life),
+        "inter_mi_weight": float(j.inter_mi_weight),
+        "inter_mi_cos_target": float(j.inter_mi_cos_target),
+        "routing_weight": float(j.routing_weight),
+    }
+
+
 def _watch(
     last_step: dict[str, Any] | None,
     *,
@@ -267,14 +294,30 @@ def _step_rows(metrics: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+# Scalar fields lifted straight from each metrics-jsonl "step" row into the
+# per-run series the dashboard charts. ava/train.py:340-349 is the writer:
+# lm/total plus the LossBreakdown aux terms (ava/jlosses.py's loss formula),
+# the optimizer/throughput readouts, and the J-space workspace scalars.
+_SERIES_FIELDS = (
+    "tok_s", "grad_norm", "lr",
+    "report", "broadcast", "selectivity", "modulation",
+    "half_life", "inter_mi", "routing",
+    "verbalizable_mass", "broadcast_strength",
+)
+
+
 def current_run_series(metrics: list[dict[str, Any]]) -> dict[str, list[Any]]:
     """Keep only the latest contiguous run (drop pre-restart history).
 
     A restart is detected when ``step`` decreases vs the previous step row.
     """
+    empty: dict[str, list[Any]] = {
+        "step": [], "lm_loss": [], "phase": [], "total": [],
+        **{k: [] for k in _SERIES_FIELDS},
+    }
     rows = _step_rows(metrics)
     if not rows:
-        return {"step": [], "lm_loss": [], "tok_s": [], "phase": [], "total": []}
+        return empty
 
     start = 0
     prev = int(rows[0]["step"])
@@ -285,19 +328,14 @@ def current_run_series(metrics: list[dict[str, Any]]) -> dict[str, list[Any]]:
         prev = cur
     run = rows[start:]
 
-    series: dict[str, list[Any]] = {
-        "step": [],
-        "lm_loss": [],
-        "tok_s": [],
-        "phase": [],
-        "total": [],
-    }
+    series: dict[str, list[Any]] = {k: [] for k in empty}
     for row in run:
         series["step"].append(row.get("step"))
         series["lm_loss"].append(row.get("lm_loss", row.get("lm", row.get("total"))))
-        series["tok_s"].append(row.get("tok_s"))
         series["phase"].append(row.get("phase"))
         series["total"].append(row.get("total"))
+        for k in _SERIES_FIELDS:
+            series[k].append(row.get(k))
     return series
 
 
@@ -594,6 +632,7 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
         }
 
     curriculum = _curriculum(preset)
+    objective = _objective(preset)
     watch = _watch(
         last_step,
         curriculum=curriculum,
@@ -607,6 +646,7 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
         "mode": mode,
         "demand": demand_payload,
         "curriculum": curriculum,
+        "objective": objective,
         "watch": watch,
         "lifecycle": {
             "states": list(_STATES),
