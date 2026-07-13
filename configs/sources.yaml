@@ -5,13 +5,15 @@
 # source by mixture `weight` (smooth weighted round-robin). Within any single
 # phase the source weights sum to ~1.0 -- that sum is the mixture for the phase.
 #
-# Curriculum (see PLAN.md):
+# Curriculum (see PLAN.md). Agentic/tool-use (react_tools) runs through
+# P2/P3/P5 so the harness ecosystem — tools, skills, observations — is
+# curriculum material from the foundation phase onward, not an SFT bolt-on:
 #   P0 logic       : synthetic only
 #   P1 math        : open-web-math (light) + synthetic math
-#   P2 foundation  : fineweb-edu (edu>=2) + github-code + cosmopedia + synthetic facts
-#   P3 reasoning   : proof-pile-2 + open-web-math + synthetic CoT/temporal + synthetic workflows
+#   P2 foundation  : fineweb-edu (edu>=2) + github-code + cosmopedia + synthetic facts + react skills
+#   P3 reasoning   : proof-pile-2 + open-web-math + synthetic CoT/temporal + react tool-use + synthetic workflows
 #   P4 long        : fineweb-edu (long docs) + synthetic needle-in-haystack + synthetic workflows
-#   P5 anneal      : fineweb-edu (edu>=4.5) + proof-pile-2 (verified) + synthetic safety + workflows
+#   P5 anneal      : fineweb-edu (edu>=4.5) + proof-pile-2 (verified) + synthetic safety + react grounding + workflows
 #
 # Every `dataset` + `config` pair below was verified against the HF API to exist
 # and to be `gated:false` before being committed here. Changing a config name
@@ -85,7 +87,7 @@ sources:
     generator: math
     text_field: text
     phases: [3]
-    weight: {3: 0.25}
+    weight: {3: 0.15}
     task_type: temporal
     filters: {min_chars: 1}
     license: synthetic
@@ -115,13 +117,28 @@ sources:
     license: synthetic
     gated: false
 
+  # Agentic workflows / tool usage / skills (Thought:/Action:/Observation:).
+  # P2 = skill leverage as foundation vocabulary; P3 = tool calls and
+  # multi-step workflows; P5 = grounding-heavy anneal (notfound + cite).
+  - name: synth_react
+    kind: synthetic
+    generator: react_tools
+    text_field: text
+    phases: [2, 3, 5]
+    weight: {2: 0.15, 3: 0.30, 5: 0.25}
+    task_type: deliberate
+    filters: {min_chars: 1}
+    license: synthetic
+    gated: false
+
   # JobBench-style delegation dossiers (occupation x reconciliation task) and
   # Gaia2-style async/dynamic scheduling scenarios -- see
   # ava/datagen/workflow_jobbench.py and workflow_gaia2.py. Weights follow the
   # blueprint's own p3/p4/p5 emphasis (inner_monologue_research.md): jobbench
   # skews toward reasoning (p3), gaia2 skews toward long/async context (p4).
   # Existing p3/p4/p5 source weights above were rescaled down proportionally
-  # to make room so each phase still sums to ~1.0.
+  # to make room for BOTH this and synth_react so each phase still sums to
+  # ~1.0 (the two source PRs were authored independently of each other).
   - name: synth_jobbench
     kind: synthetic
     generator: jobbench
@@ -152,7 +169,7 @@ sources:
     split: train
     text_field: text
     phases: [1, 3]
-    weight: {1: 0.5, 3: 0.30}
+    weight: {1: 0.5, 3: 0.20}
     task_type: deliberate
     filters: {min_chars: 200}
     license: odc-by
@@ -166,7 +183,7 @@ sources:
     text_field: text
     score_field: score
     phases: [2, 4, 5]
-    weight: {2: 0.45, 4: 0.55, 5: 0.35}
+    weight: {2: 0.35, 4: 0.55, 5: 0.20}
     task_type: automatic
     filters:
       min_chars: {2: 200, 4: 4000, 5: 200}   # P4 = long documents only
@@ -195,7 +212,7 @@ sources:
     split: train
     text_field: text
     phases: [2]
-    weight: {2: 0.15}
+    weight: {2: 0.10}
     task_type: automatic
     filters: {min_chars: 200}
     license: apache-2.0
@@ -209,7 +226,7 @@ sources:
     text_field: text
     trust_remote_code: true
     phases: [3, 5]
-    weight: {3: 0.30, 5: 0.35}
+    weight: {3: 0.20, 5: 0.25}
     task_type: deliberate
     filters: {min_chars: 200}
     license: various
