@@ -40,6 +40,9 @@ def build_model(cfg: AvaConfig, *, use_memory: bool = False) -> AvaModel1B:
         rope_base=m.rope_base_init,
         gradient_checkpointing=cfg.training.gradient_checkpointing,
         multi_jspace_enabled=True,
+        rope_type=m.rope_type,
+        n_sinks=m.n_sinks,
+        use_peri_ln=m.use_peri_ln,
     )
     phase0 = cfg.phases[0]
     apply_rope_scaling(model, phase0.rope_base, phase0.ntk)

@@ -3,12 +3,15 @@
 > Solo personal project, no connection to employer, built with public/free-tier only
 > Source review: https://share.google/ApbX6CzAGagVjbpGY — 6 local LLMs that prove they're not just smaller versions of cloud models
 >
-> **Note (post model_1b.py merge):** the LongRoPE2 / Peri-LN / attention-sinks
-> claim below described the pre-merge `model_1b.py`. That file was merged with
-> a bug-fixed but simpler version and those three features are currently
-> **not** in the tree — see `tasks/plan-longrope2-port.md` for what was kept,
-> what was dropped, and why (master's RoPE rotation had a pairing bug the
-> other version fixed).
+> **Note (post model_1b.py merge/port):** the LongRoPE2 / Peri-LN /
+> attention-sinks claim below described the pre-merge `model_1b.py`, which had
+> a RoPE rotation bug (see `tasks/plan-longrope2-port.md`). All three have
+> since been ported onto the bug-fixed base and are back in the tree, but
+> **config-gated and off by default** (`rope_type: longrope2` /
+> `use_peri_ln: true` / `n_sinks: N` under a preset's `model:` section) —
+> no preset opts in yet, so "Ava already has" below is true of the code, not
+> of any currently-trained checkpoint. Sink shape and the attention path also
+> differ from the original implementation (GQA-aware); see the plan doc.
 
 ## TL;DR — Why Local ≠ Smaller Cloud in 2026
 

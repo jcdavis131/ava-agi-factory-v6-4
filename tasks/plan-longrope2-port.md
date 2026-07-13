@@ -1,75 +1,95 @@
-# Deferred: port LongRoPE2 / Peri-LN / attention sinks onto the fixed model_1b.py
+# LongRoPE2 / Peri-LN / attention sinks: ported onto the fixed model_1b.py
+
+**Status: done.** This file originally tracked the port as deferred work after
+the `master` <- `claude/model-training-workflow-plan-n5vep5` merge; the port
+has since landed. Kept as a record of what changed and why, since the
+reasoning (the RoPE bug in particular) matters for anyone touching this code.
 
 ## Why this file exists
 
 `master` and `claude/model-training-workflow-plan-n5vep5` diverged at `f508569`
-and both rewrote `model_1b.py` / `multi_jspace_module.py` independently. Merging
-`claude/model-training-workflow-plan-n5vep5` into `master` (this merge) kept the
-**branch's** `model_1b.py` and dropped **master's** architecture additions,
-because master's version still has the exact bug the branch's version fixed —
-see below. Nothing was deleted permanently; it's recoverable from git history
-and listed here so it doesn't get lost.
+and both rewrote `model_1b.py` / `multi_jspace_module.py` independently. The
+merge kept the **branch's** `model_1b.py` (bug-fixed but without master's
+architecture additions) rather than master's, because master's version still
+had the exact RoPE bug the branch's version fixed — see below. This file is
+the record of what was kept, what was dropped, and (now) how it was ported
+back on top of the fixed base rather than reverting to the broken one.
 
-## What was kept (branch's model_1b.py)
+## The bug that decided which base to port onto
 
-Real, documented bug fixes, exercised by `tests/test_model.py` /
-`tests/test_jlosses.py` (43 passed at merge time):
+Master's `TransformerBlock1B.forward` paired dimensions via
+`x[..., ::2]`/`x[..., 1::2]` (`apply_rotary_emb`'s local `rotate_half`) while
+its own `get_cos_sin()` built cos/sin via `cat((freqs, freqs))` (half-split
+layout). Those two disagree — pairing dim `i` with `i+1` when cos/sin pairs
+dim `i` with `i+dim/2` rotates by an inconsistent angle per dimension. Any
+hill-climb numbers measured against master's `model_1b.py` (`GWTB v2
+d_gw=256 k=8 selective 0.3514 phi 4.55x cap 0.82 collapse 1.0`, see
+`tasks/hillclimb-log.md` commit `5a8c2f6`) were computed on top of that
+broken rotation and should be treated as unverified.
 
-- Causal masking via `F.scaled_dot_product_attention(..., is_causal=True)`
-  (previously: no mask at all — the model could attend to the future).
-- `rotate_half()` fixed to match `get_cos_sin()`'s half-split
-  (`cat((freqs, freqs))`) layout. Master's version still pairs dims via
-  `x[..., ::2]` / `x[..., 1::2]` while its own `get_cos_sin()` builds the
-  half-split layout — those two disagree, so **master's RoPE rotation is
-  currently wrong**. Any hill-climb numbers measured against master's
-  `model_1b.py` (LongRoPE2 non-uniform factors, Peri-LN, etc.) were computed
-  on top of that broken rotation and should be treated as unverified until
-  re-run on a corrected base.
-- Detached cross-step `_prev_workspaces` cache (was crashing backward pass 2).
-- Tied `lm_head`, and heads/head_dim/layer counts driven by `d_model` instead
-  of hardcoded 16x128.
-- Adds GQA (`n_kv_heads`) + SwiGLU + gradient checkpointing, config-gated.
+The port re-plumbs LongRoPE2 through the *fixed* base's module-level
+`rotate_half()`/`apply_rotary_emb()` (half-split, matching `get_cos_sin()`)
+instead of bringing back a bespoke, bug-prone copy. A regression test
+(`test_longrope2_rotary_preserves_norm_and_relative_position`) guards this
+specifically: it checks the rotation is norm-preserving up to the intentional
+`mscale` factor and that `<R_i q, R_j k>` depends only on `i-j`, which is
+exactly the property the interleaved/half-split mismatch destroys.
 
-## What was dropped from this merge (master's model_1b.py / multi_jspace_module.py)
+## What's in model_1b.py now, config-gated, default off
 
-Find the pre-merge content at `master`'s tip as of this merge:
-`git show 67a5499:model_1b.py` (and `67a5499:scripts/prepare_longrope2.py`,
-`67a5499:multi_jspace_module.py` for the OroJaR helpers — note OroJaR itself
-*was* kept, see below).
+- `rope_type: "yarn" | "longrope2"` on `TransformerBlock1B`/`AvaModel1B`.
+  `longrope2_factors()` + `LongRoPE2ScaledRoPE` give non-uniform per-dim RoPE
+  factors (critical-dim shift 31->25 as scale 1->100, resonance-jitter
+  mitigation) for near-lossless long-context scaling, same `.update()`/
+  `.get_cos_sin()` interface as `YaRNScaledRoPE` so `apply_rope_scaling()`
+  and the rest of the model don't need to know which one they hold.
+- `use_peri_ln: bool` adds an output-LN (RMSNorm) after attention and after
+  the FFN, on top of the existing pre-LN. `nn.Identity()` when off — a true
+  no-op, not just "small effect."
+- `n_sinks: int` adds that many learnable, always-attended KV pairs (Xiao et
+  al. 2023) per block. Unlike master's version, sinks are shaped per KV-head
+  group (`self.n_kv_heads`, not `n_heads`) so they compose correctly with
+  grouped-query attention — concatenated onto K/V before the GQA
+  `repeat_interleave`, exactly like a regular key/value would be. When
+  `n_sinks>0`, the attention call switches from SDPA's fused `is_causal=True`
+  path to an explicit boolean `attn_mask` (`True` = attend: sinks always,
+  original tokens causal) since SDPA's fast path can't express that shape.
+- Defaults (`rope_type="yarn"`, `n_sinks=0`, `use_peri_ln=False`) reproduce
+  the pre-port model exactly — `tests/test_model.py`'s existing 32 tests pass
+  unchanged, byte-identical default forward path.
 
-- **LongRoPE2**: `longrope2_factors()`, non-uniform per-dim RoPE factors,
-  `critical_dim_shift` 31→25, resonance mitigation. `scripts/prepare_longrope2.py`
-  depended on this and was removed from the merge (dangling import) — recover
-  it from `master` alongside the port.
-- **Peri-LN**: QK-L2-norm (RMSNorm) + output-LN after attn and after FFN.
-- **4 learnable attention sinks** (Xiao et al. 2023), `[H,4,D]` KV, always-attended.
-- `rope_type="longrope2"` / `"yarn"` switch and the `use_peri_ln` / `n_sinks`
-  constructor args on `AvaModel1B`.
+## Config plumbing
 
-## What was kept from master despite the conflict (no port needed — already merged)
+`ava/config.py`'s `ModelConfig` gained `rope_type`/`n_sinks`/`use_peri_ln`
+(same defaults, validated in `__post_init__`); `ava/model.py`'s
+`build_model()` passes them through. No preset (`nano`/`mini`/`base1b.yaml`)
+opts in yet — that's a training-behavior decision for whoever wants to spend
+a run on it, not implied by porting the code. To try it, add e.g.
+`rope_type: longrope2`, `use_peri_ln: true`, `n_sinks: 4` under a preset's
+`model:` section.
 
-`multi_jspace_module.py`'s conflict was purely additive (master added new
-methods, branch's side was empty — no competing logic), so these are already
-in the merged tree:
+`scripts/prepare_longrope2.py` (imports `longrope2_factors`) is restored and
+runs against the ported function unchanged.
 
-- `estimate_jacobian_fro_norm`, `orojar_orthogonal_loss`,
-  `orojar_comprehensive_loss` (OroJaR: Jacobian Orthogonal Regularization +
-  Lipschitz Fro norm). Not yet wired into `ava/jlosses.py`'s objective —
-  wiring them in (or confirming they should stay opt-in) is a separate task
-  from the RoPE port.
+## Left undone, deliberately out of scope for this port
 
-## To do the port
-
-1. Re-derive `longrope2_factors()` / Peri-LN / attention-sink code from
-   `master`'s `model_1b.py` (`git show 67a5499:model_1b.py`), applied on top
-   of the *current* (fixed) `model_1b.py` rather than replacing it.
-2. Fix master's `rotate_half()`/`get_cos_sin()` mismatch as part of the port —
-   don't reintroduce it.
-3. Re-run whatever produced master's hill-climb numbers
-   ("`GWTB v2 d_gw=256 k=8 selective 0.3514 phi 4.55x cap 0.82 collapse 1.0`",
-   see `tasks/hillclimb-log.md` and commit `5a8c2f6`) against the corrected
-   rotation before trusting them.
-4. Restore `scripts/prepare_longrope2.py` once `longrope2_factors` exists again.
-5. Update `docs/LOCAL_LLMS_2026_SOTA.md`, which currently states "Ava v6.4
-   already has ... LongRoPE2 non-uniform 31→25 ... Peri-LN, 4 sinks" — true of
-   `master` pre-merge, not true of the merged tree until this port lands.
+- **Re-running master's hill-climb numbers** against the corrected rotation.
+  That needs a real training run, not a code change — do it before trusting
+  those numbers for anything.
+- **Wiring OroJaR into `ava/jlosses.py`'s objective.** `multi_jspace_module.py`
+  already has `estimate_jacobian_fro_norm`/`orojar_orthogonal_loss`/
+  `orojar_comprehensive_loss` from the earlier merge (that conflict was
+  purely additive, no port needed) but nothing calls them yet.
+- **`docs/LOCAL_LLMS_2026_SOTA.md`** claims are accurate again now that the
+  features are back in the tree (its note pointing here has been updated) —
+  but it still describes the *master* implementation's numbers/behavior in
+  places, which may not match this port's version (different sink shape,
+  different attention path). Treat descriptions there as directional, not
+  exact, until someone reconciles the prose with this implementation.
+- A **pre-existing, unrelated latent bug** noticed while reading this code,
+  not introduced or worsened by the port: `apply_rope_scaling()` iterates
+  `model.fusion_layers` and calls `blk.rope.update(...)` unconditionally, but
+  `DeltaNetBlock` (used when `deltanet_layers` is non-empty) has no `.rope`
+  attribute at all — calling `apply_rope_scaling` on a model with any
+  DeltaNet fusion layers will raise `AttributeError`. Not currently exercised
+  by any test or config combination.

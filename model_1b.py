@@ -1,5 +1,6 @@
 """
-Ava — YaRN RoPE 10k→1M + QK-Norm + Multi-J-Space support
+Ava — YaRN + LongRoPE2 RoPE 10k→1M + QK-Norm + Peri-LN + attention sinks +
+Multi-J-Space support
 Solo personal project, no connection to employer, built with public/free-tier only
 
 Fixed per specs/04_model_and_configs.md. The bugs that were here mattered:
@@ -21,6 +22,18 @@ Fixed per specs/04_model_and_configs.md. The bugs that were here mattered:
 
 Also adds, config-gated, what base1b needs to fit in 12GB: grouped-query
 attention (n_kv_heads) and SwiGLU, plus gradient checkpointing.
+
+LongRoPE2 / Peri-LN / attention sinks (config-gated, default off -- see
+tasks/plan-longrope2-port.md): ported from an independent line of work that
+built these on top of the *original*, unfixed rotate_half()/get_cos_sin(),
+so its own rotation had the same bug as (2) above. They're re-plumbed here
+through the fixed rotate_half()/apply_rotary_emb() instead of bringing that
+bug back, and attention sinks now compose with GQA (sinks live per KV-head
+group, repeated the same way regular K/V are for grouped-query attention).
+rope_type="longrope2" swaps in non-uniform per-dim RoPE factors (near-lossless
+long-context scaling); use_peri_ln adds QK-L2-norm's counterpart output-LN
+after attention and after the FFN; n_sinks>0 adds that many learnable,
+always-attended KV pairs (Xiao et al. 2023) alongside the causal mask.
 """
 import math
 from typing import Optional, Dict, List, Tuple
@@ -117,6 +130,124 @@ class YaRNScaledRoPE(nn.Module):
         return cos, sin
 
 
+def longrope2_factors(
+    dim: int, base: int, scale: float, critical_dim_shift: int = 6, sharpness: float = 12.0,
+) -> Tuple[torch.Tensor, torch.Tensor, float, float]:
+    """LongRoPE2 non-uniform per-dim RoPE factors + resonance mitigation.
+
+    dim: head_dim (e.g. 64 -> 32 pairs, 128 -> 64 pairs).
+    base: RoPE base (e.g. 10000).
+    scale: extension factor (1 = original context, 100 = 100x, e.g. 10k->1M).
+    critical_dim_shift: how far the "critical dimension" (the pair index past
+        which interpolation dominates) moves as scale goes 1->100 -- 31->25
+        for a 32-pair (head_dim=64) reference.
+
+    Returns (inv_freq [n_pairs], lambda_factors [n_pairs], critical, critical_t).
+    Per-dim lambda_i = 1 + (scale-1) * sigmoid_k(t - crit_t)^0.65 * resonance,
+    interpolating low frequencies earlier than a linear ramp would (mimics the
+    non-uniform schedule LongRoPE2's evolutionary search finds) while leaving
+    high frequencies (small j, local position info) untouched.
+    """
+    n_pairs = dim // 2
+    j = torch.arange(n_pairs).float()
+    exponent = (2 * j) / dim
+    inv_base = 1.0 / (base ** exponent)
+
+    if scale <= 1.0:
+        lam = torch.ones(n_pairs)
+        return inv_base, lam, 31.0, 31.0 / 32.0
+
+    # critical 31 -> 25 shift in log space: for scale=1 keep 31, for scale=100 -> 25
+    critical_start = 31.0
+    critical_end = 31.0 - float(critical_dim_shift)  # 25
+    log_ratio = math.log(scale) / math.log(100.0)
+    log_ratio = min(1.0, max(0.0, log_ratio))
+    critical = critical_start - (critical_start - critical_end) * log_ratio
+    critical_t = critical / 32.0  # ratio reference for 32 pairs; same proportion for other dims
+
+    t = j / float(n_pairs)  # 0..~1
+    # sigmoid sharpness k=12 gives a LongRoPE2-like steep-but-not-step ramp;
+    # power 0.65 mimics evolutionary search pushing mid dims earlier than linear.
+    sig = 1.0 / (1.0 + torch.exp(-sharpness * (t - critical_t)))
+    lam = 1.0 + (scale - 1.0) * (sig ** 0.65)
+
+    # Resonance mitigation: dimensions whose wavelength ~ seq_len cause attention
+    # spikes. A small sinusoidal jitter (phase tied to log(scale)) avoids landing
+    # on exact multiples.
+    resonance = 1.0 + 0.015 * torch.sin(j * 2.7 + math.log(scale + 1.0) * 1.3)
+    lam = lam * resonance
+
+    lam = torch.clamp(lam, min=1.0, max=scale * 1.02)  # avoid overshoot
+
+    inv_final = inv_base / lam
+    return inv_final, lam, critical, critical_t
+
+
+class LongRoPE2ScaledRoPE(nn.Module):
+    """Near-lossless long-context RoPE via non-uniform per-dim factors.
+
+    Same external interface as YaRNScaledRoPE (`.update()`, `.get_cos_sin()`,
+    `.attn_factor`, `.mscale`) so callers (TransformerBlock1B, AvaModel1B,
+    apply_rope_scaling) don't need to know which one they hold. Uses the same
+    half-split cos/sin layout as YaRNScaledRoPE -- callers rotate with the
+    module-level `rotate_half`/`apply_rotary_emb`, not a bespoke one, so this
+    can't drift out of sync with them the way the pre-port version did.
+
+    Ref: "LongRoPE2: Near-Lossless LLM Context Window Scaling" (arXiv 2412...).
+    """
+
+    def __init__(self, dim=64, base=10000, max_seq=131072, critical_dim_shift=6):
+        super().__init__()
+        self.dim = dim
+        self.base = base
+        self.max_seq = max_seq
+        self.critical_dim_shift = critical_dim_shift
+        self.scale = 1.0
+        self.attn_factor = 1.0
+        self.mscale = 1.0
+        inv_freq, lam, crit, crit_t = longrope2_factors(dim, base, 1.0, critical_dim_shift)
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
+        self.register_buffer("lambda_factors", lam, persistent=False)
+        self.critical = crit
+        self.critical_t = crit_t
+
+    def update(self, base: int, scale: float):
+        self.base = base
+        self.scale = scale
+        inv_freq, lam, crit, crit_t = longrope2_factors(self.dim, base, scale, self.critical_dim_shift)
+        self.inv_freq = inv_freq.to(self.inv_freq.device)
+        self.lambda_factors = lam.to(self.lambda_factors.device)
+        self.critical = crit
+        self.critical_t = crit_t
+        if scale <= 1.0:
+            self.attn_factor = 1.0
+            self.mscale = 1.0
+        else:
+            # Same YaRN "10x less tokens to reach a given ctx" scaling as
+            # YaRNScaledRoPE, so the two stay comparable at the same `scale`.
+            self.attn_factor = 0.1 * math.log(scale) + 1.0
+            self.mscale = min(1.414, max(1.0, 0.1 * math.log(scale) + 1.0))
+
+    def get_cos_sin(self, seq_len: int, device=None, dtype=None):
+        dev = device or self.inv_freq.device
+        t = torch.arange(seq_len, device=dev, dtype=self.inv_freq.dtype)
+        freqs = torch.einsum("i,j->ij", t, self.inv_freq.to(dev))
+        emb = torch.cat((freqs, freqs), dim=-1)          # half-split layout
+        cos = emb.cos() * self.mscale
+        sin = emb.sin() * self.mscale
+        if dtype is not None:
+            cos, sin = cos.to(dtype), sin.to(dtype)
+        return cos, sin
+
+
+def _make_rope(rope_type: str, dim: int, base: int):
+    if rope_type == "longrope2":
+        return LongRoPE2ScaledRoPE(dim=dim, base=base)
+    if rope_type == "yarn":
+        return YaRNScaledRoPE(dim=dim, base=base)
+    raise ValueError(f"rope_type must be 'yarn' or 'longrope2', got {rope_type!r}")
+
+
 def rotate_half(x):
     """Half-split rotation, matching get_cos_sin's cat((freqs, freqs)) layout.
 
@@ -156,13 +287,15 @@ class SwiGLU(nn.Module):
 class TransformerBlock1B(nn.Module):
     def __init__(self, d_model=2048, n_heads=16, head_dim=128, use_qk_norm=True,
                  n_kv_heads: Optional[int] = None, mlp: str = "gelu",
-                 mlp_mult: int = 4, mlp_ratio: Optional[float] = None):
+                 mlp_mult: int = 4, mlp_ratio: Optional[float] = None,
+                 rope_type: str = "yarn", n_sinks: int = 0, use_peri_ln: bool = False):
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
         self.head_dim = head_dim
         self.n_kv_heads = n_kv_heads or n_heads
         self.n_rep = n_heads // self.n_kv_heads
+        self.n_sinks = n_sinks
 
         self.q_proj = nn.Linear(d_model, n_heads * head_dim, bias=False)
         self.k_proj = nn.Linear(d_model, self.n_kv_heads * head_dim, bias=False)
@@ -172,6 +305,13 @@ class TransformerBlock1B(nn.Module):
         self.qk_norm_k = RMSNorm(head_dim) if use_qk_norm else nn.Identity()
         self.norm1 = RMSNorm(d_model)
         self.norm2 = RMSNorm(d_model)
+        # Peri-LN: an output-LN after attention and after the FFN, on top of the
+        # pre-LN (norm1/norm2) this block already had. QK-norm + output-LN
+        # together improve loss/stability at 400M-1B (Peri-LN paper). Identity
+        # (a pure no-op, not just "small") when off, so this can't perturb the
+        # default path at all, floating point included.
+        self.peri_norm_attn = RMSNorm(d_model) if use_peri_ln else nn.Identity()
+        self.peri_norm_mlp = RMSNorm(d_model) if use_peri_ln else nn.Identity()
 
         if mlp == "swiglu":
             self.mlp = SwiGLU(d_model, int((mlp_ratio or 4.0) * d_model))
@@ -183,7 +323,20 @@ class TransformerBlock1B(nn.Module):
             )
         # Kept for backward compat with apply_rope_scaling(); the model computes
         # cos/sin once per forward from its own rope and passes them in.
-        self.rope = YaRNScaledRoPE(dim=head_dim, base=10000)
+        self.rope = _make_rope(rope_type, head_dim, 10000)
+
+        # n_sinks learnable KV pairs (Xiao et al. 2023, StreamingLLM), always
+        # attended regardless of position -- absorb the softmax mass early
+        # tokens otherwise soak up as attention sinks by accident. One pair
+        # per KV-head group (not per query head), so they compose with GQA
+        # the same way regular K/V do: concatenate at the KV-head count, then
+        # repeat_interleave up to n_heads.
+        if n_sinks > 0:
+            self.sink_k = nn.Parameter(torch.randn(self.n_kv_heads, n_sinks, head_dim) * 0.02)
+            self.sink_v = nn.Parameter(torch.randn(self.n_kv_heads, n_sinks, head_dim) * 0.02)
+        else:
+            self.sink_k = None
+            self.sink_v = None
 
     def forward(self, x, cos, sin, attn_factor=1.0):
         B, L, _ = x.shape
@@ -197,6 +350,15 @@ class TransformerBlock1B(nn.Module):
         k = self.qk_norm_k(k)
         q, k = apply_rotary_emb(q, k, cos, sin)
 
+        if self.sink_k is not None:
+            # Concat sinks onto K/V *before* the GQA repeat, at the KV-head
+            # count -- a sink pair is then shared across a query-head group
+            # exactly like a regular key/value would be.
+            sink_k = self.sink_k.unsqueeze(0).expand(B, -1, -1, -1).to(k.dtype)
+            sink_v = self.sink_v.unsqueeze(0).expand(B, -1, -1, -1).to(v.dtype)
+            k = torch.cat([sink_k, k], dim=2)  # [B, n_kv_heads, n_sinks+L, D]
+            v = torch.cat([sink_v, v], dim=2)
+
         if self.n_rep > 1:  # grouped-query attention
             k = k.repeat_interleave(self.n_rep, dim=1)
             v = v.repeat_interleave(self.n_rep, dim=1)
@@ -206,10 +368,24 @@ class TransformerBlock1B(nn.Module):
         # (q@k^T) * (attn_factor/sqrt(head_dim)) softmax argument via SDPA's own
         # default scale (1/sqrt(head_dim)) instead, so this works on torch>=2.0
         # without a version check and without changing the math.
-        out = F.scaled_dot_product_attention(q * attn_factor, k, v, is_causal=True)
+        if self.sink_k is not None:
+            # SDPA's fused is_causal path can't express "always attend to the
+            # sinks, causal otherwise" -- build that mask explicitly instead.
+            # True = attend. Recomputed every call (cheap: L x (n_sinks+L)
+            # bools) rather than cached, since L varies across curriculum phases.
+            q_idx = torch.arange(L, device=x.device).unsqueeze(1)       # [L, 1]
+            k_idx = torch.arange(L, device=x.device).unsqueeze(0)       # [1, L]
+            causal = k_idx <= q_idx                                     # [L, L]
+            sinks_always = torch.ones(L, self.n_sinks, device=x.device, dtype=torch.bool)
+            mask = torch.cat([sinks_always, causal], dim=1)             # [L, n_sinks+L]
+            out = F.scaled_dot_product_attention(q * attn_factor, k, v, attn_mask=mask)
+        else:
+            out = F.scaled_dot_product_attention(q * attn_factor, k, v, is_causal=True)
         out = out.transpose(1, 2).reshape(B, L, -1)
-        x = x + self.o_proj(out)
-        x = x + self.mlp(self.norm2(x))
+        out = self.o_proj(out)
+        out = self.peri_norm_attn(out)
+        x = x + out
+        x = x + self.peri_norm_mlp(self.mlp(self.norm2(x)))
         return x
 
 
@@ -333,7 +509,8 @@ class AvaModel1B(nn.Module):
                  tie_lm_head=False, tie_verbalizer=False, multimodal=True,
                  use_memory=False, jspace_slots=None, jspace_half_life=None,
                  jspace_num_heads=4, rope_base=10000, gradient_checkpointing=False,
-                 jspace_causal=True, jspace_chunk_size=128, deltanet_layers=None):
+                 jspace_causal=True, jspace_chunk_size=128, deltanet_layers=None,
+                 rope_type: str = "yarn", n_sinks: int = 0, use_peri_ln: bool = False):
         super().__init__()
         self.d_model = d_model
         self.vocab_size = vocab_size
@@ -343,13 +520,17 @@ class AvaModel1B(nn.Module):
         # graph (and a batch dimension) across steps. ON for eval persistence tests.
         self.use_memory = use_memory
         self.gradient_checkpointing = gradient_checkpointing
+        self.rope_type = rope_type
+        self.n_sinks = n_sinks
+        self.use_peri_ln = use_peri_ln
 
         self.embed = nn.Embedding(vocab_size, d_model)
 
         def _block():
             return TransformerBlock1B(d_model, n_heads=n_heads, head_dim=head_dim,
                                       use_qk_norm=use_qk_norm, n_kv_heads=n_kv_heads,
-                                      mlp=mlp, mlp_mult=mlp_mult, mlp_ratio=mlp_ratio)
+                                      mlp=mlp, mlp_mult=mlp_mult, mlp_ratio=mlp_ratio,
+                                      rope_type=rope_type, n_sinks=n_sinks, use_peri_ln=use_peri_ln)
 
         # T11.2: fusion-layer indices that run DeltaNetBlock instead of full
         # attention. Default None/empty = every layer is TransformerBlock1B,
@@ -375,7 +556,7 @@ class AvaModel1B(nn.Module):
 
         # One RoPE for the whole model: every block's schedule is identical, so
         # computing cos/sin per block was pure waste.
-        self.rope = YaRNScaledRoPE(dim=head_dim, base=rope_base)
+        self.rope = _make_rope(rope_type, head_dim, rope_base)
 
         self.jspace = None
         self.multi_jspace = None
@@ -555,7 +736,9 @@ def apply_rope_scaling(model: AvaModel1B, base: int, scale: float):
         blk.rope.update(base, scale)
 
 
-def get_model(vocab_size=128000, d_model=2048, multi_jspace_enabled=True):
+def get_model(vocab_size=128000, d_model=2048, multi_jspace_enabled=True,
+              rope_type: str = "yarn", n_sinks: int = 0, use_peri_ln: bool = False):
     """Blueprint-compatible factory. New code should use ava.model.build_model(cfg)."""
     return AvaModel1B(vocab_size=vocab_size, d_model=d_model,
-                      multi_jspace_enabled=multi_jspace_enabled)
+                      multi_jspace_enabled=multi_jspace_enabled,
+                      rope_type=rope_type, n_sinks=n_sinks, use_peri_ln=use_peri_ln)
