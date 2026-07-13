@@ -56,10 +56,13 @@ training:
 phases:                            # same 6-phase shape, 2.5B budget
   - {name: p0_logic,      tokens: 400_000_000, seq: 512,  rope_base: 10000,  ntk: 1.0, mix: {logic: 1.0}}
   - {name: p1_math,       tokens: 500_000_000, seq: 512,  rope_base: 10000,  ntk: 1.0, mix: {math: 0.85, logic: 0.15}}
-  - {name: p2_foundation, tokens: 850_000_000, seq: 1024, rope_base: 10000,  ntk: 1.0, mix: {encyclopedia: 0.35, code: 0.25, math: 0.15, logic: 0.10, chat: 0.15}}
-  - {name: p3_reasoning,  tokens: 400_000_000, seq: 2048, rope_base: 50000,  ntk: 1.0, mix: {math_reasoning: 0.45, logic: 0.20, temporal: 0.20, code: 0.15}}
+  # tool_use = agentic workflows / harness skills (react_tools generator):
+  # foundation vocabulary in P2, multi-step tool workflows in P3, and
+  # grounding-heavy (notfound/cite) anneal in P5.
+  - {name: p2_foundation, tokens: 850_000_000, seq: 1024, rope_base: 10000,  ntk: 1.0, mix: {encyclopedia: 0.30, code: 0.20, tool_use: 0.15, math: 0.15, logic: 0.10, chat: 0.10}}
+  - {name: p3_reasoning,  tokens: 400_000_000, seq: 2048, rope_base: 50000,  ntk: 1.0, mix: {math_reasoning: 0.30, tool_use: 0.30, logic: 0.15, temporal: 0.15, code: 0.10}}
   - {name: p4_long,       tokens: 150_000_000, seq: 4096, rope_base: 100000, ntk: 1.2, mix: {long_docs: 0.70, needle: 0.30}}
-  - {name: p5_anneal,     tokens: 200_000_000, seq: 4096, rope_base: 100000, ntk: 1.2, mix: {proofs_verified: 0.30, math_reasoning: 0.25, chat: 0.25, safety: 0.20}}
+  - {name: p5_anneal,     tokens: 200_000_000, seq: 4096, rope_base: 100000, ntk: 1.2, mix: {tool_use: 0.25, proofs_verified: 0.20, chat: 0.20, safety: 0.20, math_reasoning: 0.15}}
 
 data:
   seed: 1234
