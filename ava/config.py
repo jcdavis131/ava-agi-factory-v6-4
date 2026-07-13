@@ -61,6 +61,12 @@ class ModelConfig:
     mlp_mult: int = 4
     mlp_ratio: float | None = None
     jspace_num_heads: int = 4
+    # LongRoPE2/Peri-LN/attention-sinks (model_1b.py, config-gated -- see
+    # tasks/plan-longrope2-port.md). Defaults reproduce the pre-port model
+    # exactly: "yarn" RoPE, no sinks, no Peri-LN output-norm.
+    rope_type: str = "yarn"
+    n_sinks: int = 0
+    use_peri_ln: bool = False
 
     def __post_init__(self) -> None:
         if self.n_heads * self.head_dim != self.d_model:
@@ -73,6 +79,10 @@ class ModelConfig:
             raise ConfigError(f"n_heads ({self.n_heads}) must be divisible by n_kv_heads ({kv})")
         if self.mlp not in ("gelu", "swiglu"):
             raise ConfigError(f"mlp must be 'gelu' or 'swiglu', got {self.mlp!r}")
+        if self.rope_type not in ("yarn", "longrope2"):
+            raise ConfigError(f"rope_type must be 'yarn' or 'longrope2', got {self.rope_type!r}")
+        if self.n_sinks < 0:
+            raise ConfigError(f"n_sinks must be >= 0, got {self.n_sinks}")
         # Packed token shards are uint16; a larger vocab would silently wrap.
         if self.vocab_size > 65535:
             raise ConfigError(f"vocab_size {self.vocab_size} > 65535 breaks uint16 token packing")

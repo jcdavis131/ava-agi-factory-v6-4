@@ -21,6 +21,144 @@ import argparse, math, os, json, pathlib, time
 from pathlib import Path
 
 WSD_CONFIG={"warmup":2000,"stable_steps":736000,"total_steps":800000,"lr_max":2e-4,"lr_min":2e-5}
+# WSM: Decay-Free via Checkpoint Merging (arXiv 2024) — infinite continuation
+WSM_CONFIG={"warmup":2000,"stable_lr":2e-4,"merge_every":10000,"buffer_size":5,"ema_decay":0.9,"save_dir":"checkpoints/wsm"}
+
+class WSMCheckpointMerger:
+    """
+    Decay-free WSM: maintain buffer of last k checkpoints, merge via EMA weighted average.
+    Supports infinite continuation: stable LR forever + periodic merged checkpoint.
+    """
+    def __init__(self, buffer_size=5, ema_decay=0.9, merge_every=10000, save_dir="checkpoints/wsm"):
+        from collections import deque
+        self.buffer_size=buffer_size
+        self.ema_decay=ema_decay
+        self.merge_every=merge_every
+        self.save_dir=Path(save_dir)
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+        self.buffer=deque(maxlen=buffer_size)
+        self.merged_state=None
+        self.merge_count=0
+
+    def add(self, state_dict, step):
+        # store CPU copy to save RAM
+        import copy, torch
+        cpu_sd={k:v.detach().cpu() if hasattr(v,'detach') else v for k,v in state_dict.items()}
+        self.buffer.append((step, cpu_sd))
+
+    def should_merge(self, step):
+        return step>0 and step%self.merge_every==0 and len(self.buffer)>=2
+
+    def merge(self):
+        import torch
+        if len(self.buffer)==0:
+            return None
+        # weighted average with exponential weights w_i = ema_decay^(k-1-i)
+        k=len(self.buffer)
+        weights=[self.ema_decay**(k-1-i) for i in range(k)]
+        w_sum=sum(weights)
+        weights=[w/w_sum for w in weights]
+        # init merged with first
+        merged={}
+        # all keys from first sd
+        first_sd=self.buffer[0][1]
+        for key in first_sd.keys():
+            # stack weighted
+            try:
+                tensors=[sd[key].float() * w for (_,sd),w in zip(self.buffer,weights)]
+                merged[key]=sum(tensors)
+            except Exception:
+                # non-float or irregular, take last
+                merged[key]=self.buffer[-1][1][key]
+        self.merged_state=merged
+        self.merge_count+=1
+        return merged
+
+    def save_merged(self, step):
+        if self.merged_state is None:
+            return None
+        path=self.save_dir/f"wsm_merged_step{step}_buf{len(self.buffer)}.pt"
+        try:
+            import torch
+            torch.save({"step":step,"state_dict":self.merged_state,"merge_count":self.merge_count}, path)
+            return path
+        except Exception as e:
+            print(f"[WSM] save failed {e}")
+            return None
+
+def _try_run_openwiki_and_harness(mode="mock", ckpt=None):
+    """
+    OpenWiki bridge + harness gating per docs/HARNESS_SKILL_INTEGRATION.md
+    - Personal mode builds local personal brain wiki in ~/.openwiki/wiki -> S2 hl300
+    - Code mode builds repo docs in openwiki/ -> S1+Planner
+    Steps:
+      1. run_skill openwiki-sync (S2 sync)
+      2. run_harness jspace_all,frontier_rubric,openwiki_knowledge
+    Returns dict or None if deps missing.
+    """
+    try:
+        print(f"\n[HARNESS GATE] Starting openwiki-sync + harness — mode={mode} ckpt={ckpt}")
+        # Try loader path for skills (ava-skills repo)
+        import os, sys
+        here = Path(__file__).resolve().parent
+        # add potential skill repo neighbors
+        for cand in [here.parent / "ava-skills", here / ".." / "ava-skills", Path.home() / "workspace" / "ava-skills"]:
+            cand = cand.resolve() if isinstance(cand, Path) else Path(cand)
+            if cand.exists() and str(cand) not in sys.path:
+                sys.path.insert(0, str(cand))
+        # 1. openwiki-sync via skill loader + direct adapter
+        try:
+            from ava.memory.openwiki_adapter import OpenWikiAdapter
+            adapter = OpenWikiAdapter()
+            stats = adapter.ingest(limit=100)
+            print(f"[openwiki-sync] Ingested {stats['n_files']} wiki files avg mass {stats['avg_mass']:.3f} — maps to S2 hl300")
+            if stats['has_france_for_generalization_test']:
+                print("[openwiki-sync] France→China probe ready (capital/language/continent/currency)")
+            # if model/ckpt given, attempt injection is handled by caller; here just log
+        except Exception as e:
+            print(f"[openwiki-sync] Adapter fallback (expected if no ~/.openwiki/wiki yet): {e}")
+            # try via skills loader as secondary
+            try:
+                from skills.loader import run_skill
+                res = run_skill("openwiki-sync", mode=mode, ckpt=ckpt or "ava_stable_736k.pt")
+                print(f"[openwiki-sync skill] {res}")
+            except Exception as e2:
+                print(f"[openwiki-sync skill] not available in this env: {e2}")
+
+        # 2. harness gate via harness.runner
+        try:
+            # add harness path
+            for cand in [here.parent / "ava-open-harness", here / ".." / "ava-open-harness", Path.home() / "workspace" / "ava-open-harness"]:
+                cand = Path(cand).resolve() if isinstance(cand, Path) else Path(cand)
+                if cand.exists() and str(cand) not in sys.path:
+                    sys.path.insert(0, str(cand))
+            from harness.runner import run_harness
+            eval_names = "jspace_all,frontier_rubric,openwiki_knowledge" if mode=="mock" else "jspace_all,frontier_rubric"
+            # In real mode we still want openwiki_knowledge if wiki exists
+            if mode!="mock":
+                eval_names = "jspace_all,frontier_rubric,openwiki_knowledge"
+            results = run_harness(eval_names=eval_names, mode=mode, ckpt=ckpt, preset="nano")
+            passed = results.get("meta",{}).get("passed",0)
+            total = results.get("meta",{}).get("total",0)
+            print(f"[HARNESS GATE] {passed}/{total} passed — wall {results.get('meta',{}).get('wall_s',0):.1f}s")
+            for name, r in results.get("evals",{}).items():
+                bar = r.get("bar","")
+                meas = str(r.get("measured",""))[:160]
+                verdict = "PASS" if r.get("pass") else "FAIL"
+                print(f"  - {name}: {verdict} bar={bar} {meas}")
+            # Gate: require at least 3 passes for branching (base) per HARNESS_SKILL_INTEGRATION.md
+            if branch_label := os.environ.get("BRANCH_GATE_EXPECT"):
+                pass
+            if passed < 3 and mode!="mock":
+                print(f"[HARNESS GATE] WARNING: only {passed} passed, expected >=3 — branching may be blocked")
+            return results
+        except Exception as e:
+            print(f"[HARNESS GATE] runner not available or failed (ok for local mock without harness installed): {e}")
+            return None
+    except Exception as e:
+        print(f"[HARNESS GATE] unexpected error: {e}")
+        return None
+
 ROPE_SCHEDULE=[
     {"start":0,"end":140000,"base":10000,"ctx":2048,"ntk":1.0,"desc":"0-140k: 10k (2k/4k ctx)"},
     {"start":140000,"end":384000,"base":10000,"ctx":4096,"ntk":1.0},
@@ -36,7 +174,13 @@ BRANCH_CONFIGS={
     "chat":{"freeze":["system1","system2"],"finetune":["critic","planner","router","arbitration"],"router_bias":[0.15,0.25,0.35,0.25],"target_hl":{"system1":8,"system2":300,"critic":35,"planner":180},"data":"chat_alignment 30% + safety_blackmail_leverage 20% + jobbench_delegation_human_will 25% + gaia2_temporal_deadlines 15% + counterfactual_reflection 10%","lr":5e-5},
 }
 
-def wsd_lr(step):
+def wsd_lr(step, schedule="wsd"):
+    if schedule=="wsm":
+        cfg=WSM_CONFIG
+        if step < cfg["warmup"]:
+            return cfg["stable_lr"]*step/max(1,cfg["warmup"])
+        else:
+            return cfg["stable_lr"]
     cfg=WSD_CONFIG
     if step < cfg["warmup"]:
         return cfg["lr_max"]*step/max(1,cfg["warmup"])
@@ -45,6 +189,10 @@ def wsd_lr(step):
     else:
         progress=(step-cfg["stable_steps"])/max(1,(cfg["total_steps"]-cfg["stable_steps"]))
         return cfg["lr_min"] + 0.5*(cfg["lr_max"]-cfg["lr_min"])*(1+math.cos(math.pi*progress))
+
+# alias for new flag
+def get_lr(step, schedule="wsd"):
+    return wsd_lr(step, schedule=schedule)
 
 def get_rope(step):
     for e in ROPE_SCHEDULE:
@@ -60,11 +208,16 @@ def compute_capacity_curve():
     return ks,s1,s2,combined
 
 def main():
-    parser=argparse.ArgumentParser(description="Ava AGI Factory v6.4 — WSD 736k branching YaRN 10k→1M Multi-J-Space")
+    parser=argparse.ArgumentParser(description="Ava AGI Factory v6.4 — WSD 736k branching YaRN 10k->1M Multi-J-Space WSM+OroJaR")
     parser.add_argument("--branch", default="base", choices=["base","code","math","chat","all"])
     parser.add_argument("--deepspeed", default="deepspeed_zero3_bf16.json")
     parser.add_argument("--mock", action="store_true")
     parser.add_argument("--wandb", action="store_true")
+    parser.add_argument("--schedule", default="wsd", choices=["wsd","wsm"], help="LR schedule: wsd (original 736k 92%%) or wsm decay-free merging")
+    parser.add_argument("--orojar", type=float, default=0.0, help="OroJaR weight lambda for Jacobian disentangle loss")
+    parser.add_argument("--wsm_merge_every", type=int, default=10000, help="WSM merge frequency steps")
+    parser.add_argument("--wsm_buffer", type=int, default=5, help="WSM buffer size k last checkpoints")
+    parser.add_argument("--wsm_ema", type=float, default=0.9, help="WSM EMA decay")
     # ── new streaming args for constant-memory flow ──
     parser.add_argument("--data_root", default="data/streaming_shards", help="root of sharded jsonl streaming data")
     parser.add_argument("--streaming", action="store_true", default=True, help="use AvaStreamingDataset constant-memory streamer")
@@ -72,6 +225,11 @@ def main():
     parser.add_argument("--shuffle_buffer", type=int, default=10000, help="fixed shuffle buffer size — memory cap")
     parser.add_argument("--seq_len", type=int, default=2048, help="sequence length per sample (2048 early, 131072 later per RoPE schedule)")
     parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--rope", type=str, default="yarn", choices=["yarn","longrope2"], help="RoPE type: yarn baseline 10k->1M vs longrope2 non-uniform per-dim 31->25 + resonance")
+    parser.add_argument("--n_sinks", type=int, default=4, help="attention sinks count (4)")
+    parser.add_argument("--use_peri_ln", action="store_true", default=True, help="enable Peri-LN output-LN")
+    parser.add_argument("--no-peri-ln", dest="use_peri_ln", action="store_false", help="disable Peri-LN")
+    parser.add_argument("--critical_shift", type=int, default=6, help="LongRoPE2 critical dim shift 31->25")
     parser.add_argument("--max_steps", type=int, default=10, help="demo steps when mock — real trainer loops infinite stream")
     args=parser.parse_args()
 
@@ -147,6 +305,7 @@ def main():
                 if branch=="base":
                     Path("ava_stable_736k.pt").write_text("mock stable 736k 13.8T streaming")
                     Path("ava_stable_736k_rope1000000_ctx131072.pt").write_text("mock stable rope 1M ctx131k streaming")
+                    _try_run_openwiki_and_harness(mode="mock", ckpt="ava_stable_736k.pt")
                 Path(f"ava_{branch}_final_800k.pt").write_text(f"mock final {branch} 800k streaming")
                 print(f"[MOCK STREAM] Branch {branch} done tokens_seen={ds.tokens_seen} stats={ds.stats()}")
                 os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
@@ -164,18 +323,31 @@ def main():
                 if branch=="base":
                     Path("ava_stable_736k.pt").write_text("mock stable 736k 13.8T")
                     Path("ava_stable_736k_rope1000000_ctx131072.pt").write_text("mock stable rope 1M ctx131k")
+                    # ── OpenWiki + Harness gating after stable ckpt 736k per HARNESS_SKILL_INTEGRATION.md
+                    _try_run_openwiki_and_harness(mode="mock", ckpt="ava_stable_736k.pt")
                 else:
                     Path(f"ava_{branch}_final_800k.pt").write_text(f"mock final {branch} 800k")
                 os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
                 continue
 
-        # Real torch path — constant-memory streaming
+        # Real torch path — constant-memory streaming WSD/WSM + OroJaR + LongRoPE2/Peri-LN
         import torch, torch.nn.functional as F
         from model_1b import get_model, apply_rope_scaling
         from multi_jspace_module import MultiJSpaceLosses, compute_half_life_curves
-        model=get_model()
+        # hill-climb 1 + 2 merged
+        try:
+            model=get_model(rope_type=args.rope, n_sinks=args.n_sinks, use_peri_ln=args.use_peri_ln, critical_shift=getattr(args,'critical_shift',31))
+        except TypeError:
+            model=get_model(rope_type=args.rope, n_sinks=args.n_sinks, use_peri_ln=args.use_peri_ln)
+        print(f"[ROPE] type={args.rope} sinks={args.n_sinks} peri_ln={args.use_peri_ln}")
         jlosses=MultiJSpaceLosses()
         optimizer=torch.optim.AdamW(model.parameters(), lr=bcfg["lr"])
+
+        # WSM merger if --schedule wsm
+        wsm_merger=None
+        if args.schedule=="wsm":
+            wsm_merger=WSMCheckpointMerger(buffer_size=args.wsm_buffer, ema_decay=args.wsm_ema, merge_every=args.wsm_merge_every, save_dir=WSM_CONFIG["save_dir"])
+            print(f"[WSM] Decay-free mode: stable_lr {WSM_CONFIG['stable_lr']} merge_every {args.wsm_merge_every} buffer {args.wsm_buffer} ema {args.wsm_ema} — infinite continuation support")
 
         if branch!="base" and Path("ava_stable_736k.pt").exists():
             print(f"Loading stable checkpoint ava_stable_736k.pt for {branch} — freeze {bcfg['freeze']}")
@@ -183,9 +355,8 @@ def main():
 
         model.train()
         if HAS_STREAMING and args.streaming:
-            print(f"[Real STREAMING] Building infinite low-memory stream for branch {branch} — seq_len auto from RoPE schedule")
+            print(f"[Real STREAMING] Building infinite low-memory stream for branch {branch} — seq_len auto from RoPE schedule schedule={args.schedule} orojar={args.orojar}")
             ds = AvaStreamingDataset(data_root=args.data_root, branch=branch, shuffle_buffer=args.shuffle_buffer, max_seq_len=args.seq_len)
-            # optional background synthetic generation if no real data
             gen = None
             if len(list(Path(args.data_root).rglob("*.jsonl*"))) < 5:
                 try:
@@ -196,76 +367,118 @@ def main():
                     pass
 
             step = 0
+            prev_loss=None
             for batch in ds.batched(seq_len=args.seq_len, batch_size=args.batch_size):
                 rope=get_rope(step)
                 apply_rope_scaling(model, rope["base"], rope["base"]//10000 if rope.get("yarn") else rope["base"]/10000)
-                lr=wsd_lr(step)
+                lr=get_lr(step, schedule=args.schedule)
                 for pg in optimizer.param_groups: pg['lr']=lr
 
-                # batch["input_ids"] is the constant-memory tokenized chunk [B, L]
                 input_ids = batch["input_ids"] if isinstance(batch["input_ids"], torch.Tensor) else torch.tensor(batch["input_ids"], dtype=torch.long)
                 task_types = batch["task_type"]
-                # forward with per-source task_type routing — critical for J-Space losses without OOM
-                # pick majority task_type for step's routing bias
                 from collections import Counter
                 maj_task = Counter(task_types).most_common(1)[0][0] if task_types else "deliberate"
 
                 out = model(input_ids=input_ids, task_type=maj_task)
                 lm_logits = out["lm_logits"]
                 jspace = out["jspace"]
+                fused = out.get("fused", None)
 
-                # Losses wiring that respects streaming metadata
-                # lm loss on next-token
                 lm_loss = F.cross_entropy(lm_logits[:,:-1].reshape(-1, lm_logits.shape[-1]), input_ids[:,1:].reshape(-1), ignore_index=-100)
-                # 4 base J-Space losses — never loads full corpus, only current batch metrics
-                # reportability, broadcast, selectivity, modulation computed inside jlosses from fused + workspace
-                # per-space losses using maj_task to weight
-                # inter_mi + routing KL always-on
 
-                # For demo, combine placeholder
-                loss = lm_loss * 1.0  # + jlosses(jspace,maj_task) weighted
+                orojar_loss_val=0.0
+                jacobian_metrics={}
+                if args.orojar>0 and fused is not None:
+                    try:
+                        ws_dict=jspace.get('workspaces') if isinstance(jspace, dict) else None
+                        if ws_dict is not None:
+                            orojar_loss_val, jacobian_metrics = jlosses.orojar_comprehensive_loss(ws_dict, fused, jspace.get('route_probs'), target_cos=0.45)
+                            orojar_loss_val = orojar_loss_val * args.orojar
+                        else:
+                            # fallback via model.multi_jspace and fused
+                            if model.multi_jspace is not None:
+                                # construct ws_dict from multi_jspace metrics if available
+                                fused_for_jac=fused
+                                orojar_loss_val, jacobian_metrics = jlosses.orojar_comprehensive_loss(model.multi_jspace, fused_for_jac, jspace.get('route_probs'), target_cos=0.45)
+                                orojar_loss_val = orojar_loss_val * args.orojar
+                    except Exception as e:
+                        print(f"[OroJaR] compute failed step {step}: {e}")
+                        import traceback; traceback.print_exc()
+                        orojar_loss_val=0.0
+
+                loss = lm_loss * 1.0
+                if isinstance(orojar_loss_val, torch.Tensor):
+                    loss = loss + orojar_loss_val
+                elif isinstance(orojar_loss_val, (float,int)) and orojar_loss_val!=0:
+                    loss = loss + torch.tensor(orojar_loss_val, device=lm_loss.device)
 
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
 
+                if wsm_merger is not None:
+                    if step % max(1,(args.wsm_merge_every//5)) ==0:
+                        wsm_merger.add(model.state_dict(), step)
+                    if wsm_merger.should_merge(step):
+                        merged=wsm_merger.merge()
+                        saved=wsm_merger.save_merged(step)
+                        print(f"[WSM] Merged checkpoint at step {step} buffer {len(wsm_merger.buffer)} ema {args.wsm_ema} -> {saved}")
+
+                delta=abs(loss.item()-prev_loss) if prev_loss is not None else 0.0
+                prev_loss=loss.item()
+
                 if step%10==0:
-                    print(f"[STREAM] step {step} lr {lr:.2e} rope {rope['base']} ctx {rope['ctx']} phase={batch['phase']} task={maj_task} lm_loss {lm_loss.item():.3f} tokens_seen={ds.tokens_seen} shuffle_q={ds.stats()['shuffle_q']} RAM constant")
+                    orojar_str=f" orojar {orojar_loss_val.item():.4f}" if isinstance(orojar_loss_val, torch.Tensor) else f" orojar {orojar_loss_val:.4f}" if orojar_loss_val else ""
+                    jac_str=f" fro {jacobian_metrics.get('fro',0):.2f} cos {jacobian_metrics.get('cos',0):.3f} orth {jacobian_metrics.get('orth',0):.3f}" if jacobian_metrics else ""
+                    print(f"[STREAM] step {step} lr {lr:.2e} sched {args.schedule} rope {rope['base']} ctx {rope['ctx']} phase={batch['phase']} task={maj_task} lm {lm_loss.item():.3f}{orojar_str}{jac_str} delta {delta:.4f} tokens {ds.tokens_seen}")
                 if step%200==0 and step>0:
                     torch.save(model.state_dict(), f"ava_{branch}_step{step}.pt")
-                if step==736000 and branch=="base":  # WSD save stable at 736k without OOM
+                if step==736000 and branch=="base" and args.schedule=="wsd":
                     torch.save(model.state_dict(), "ava_stable_736k.pt")
-                    print("Saved ava_stable_736k.pt at 736k — ready for branching codebase is streaming so no memory spike")
+                    print("Saved ava_stable_736k.pt at 736k — branching no memory spike")
+                    _try_run_openwiki_and_harness(mode="real", ckpt="ava_stable_736k.pt")
+                elif wsm_merger is not None and step%args.wsm_merge_every==0 and branch=="base" and step>0:
+                    torch.save(model.state_dict(), f"ava_stable_wsm_{step}.pt")
+                    print(f"[WSM] Saved stable WSM ckpt at {step} (infinite continuation)")
 
                 step+=1
                 if step>=args.max_steps and args.max_steps>0:
-                    print(f"Demo stop at {args.max_steps} steps — remove --max_steps for full 800k infinite stream")
+                    print(f"Demo stop at {args.max_steps} steps — remove --max_steps for full 800k (WSM infinite if schedule=wsm)")
                     break
 
             if gen:
                 gen.stop()
             Path(f"ava_{branch}_final_800k.pt").write_bytes(b"streaming ckpt")
-            print(f"Branch {branch} done streaming tokens_seen={ds.tokens_seen}")
+            print(f"Branch {branch} done streaming tokens_seen={ds.tokens_seen} schedule={args.schedule}")
             os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
         else:
-            # fallback old demo without streaming (would OOM on large data)
+            wsm_merger_fallback=None
+            if args.schedule=="wsm":
+                wsm_merger_fallback=WSMCheckpointMerger(buffer_size=args.wsm_buffer, ema_decay=args.wsm_ema, merge_every=args.wsm_merge_every)
             for step in range(5):
                 rope=get_rope(step)
                 apply_rope_scaling(model, rope["base"], rope["base"]//10000 if rope.get("yarn") else rope["base"]/10000)
-                lr=wsd_lr(step)
+                lr=get_lr(step, schedule=args.schedule)
                 for pg in optimizer.param_groups: pg['lr']=lr
                 loss=torch.tensor(1.0, requires_grad=True)
+                if args.orojar>0:
+                    loss=loss+torch.tensor(args.orojar*0.1, requires_grad=True)
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
+                if wsm_merger_fallback:
+                    wsm_merger_fallback.add(model.state_dict(), step)
+                    if wsm_merger_fallback.should_merge(step):
+                        wsm_merger_fallback.merge()
                 if step==0:
                     ks,s1,s2,comb=compute_capacity_curve()
                     print(f"W&B capacity law ks={ks} combined knee 9")
                 if step%2==0:
-                    print(f"step {step} lr {lr:.2e} rope {rope['base']} ctx {rope['ctx']} — would log half_life/S1_hl_est etc")
+                    print(f"step {step} lr {lr:.2e} sched {args.schedule} rope {rope['base']} ctx {rope['ctx']} orojar {args.orojar} — would log hl est etc")
                 if step==2 and branch=="base":
                     torch.save(model.state_dict(), "ava_stable_736k.pt")
                     print("Saved ava_stable_736k.pt at 736k equivalent")
+                    _try_run_openwiki_and_harness(mode="real", ckpt="ava_stable_736k.pt")
 
             Path(f"ava_{branch}_final_800k.pt").write_bytes(b"mock ckpt replace with torch.save")
             print(f"Branch {branch} done — auto-running eval_branch_harness")

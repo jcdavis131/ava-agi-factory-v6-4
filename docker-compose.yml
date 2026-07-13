@@ -1,3 +1,5 @@
+# Solo personal project, no connection to employer, built with public/free-tier only
+#
 # Ava continuous pipeline: gather -> clean -> train -> serve, all concurrent.
 #
 # Coordination is via a SQLite WAL manifest on the shared `ava_state` volume.
@@ -8,6 +10,7 @@
 #   docker compose up -d                 # whole pipeline
 #   docker compose up -d collector curator   # data plane only
 #   docker compose logs -f trainer
+#   docker compose up -d ava-train       # ad hoc interactive GPU dev shell (not part of the pipeline)
 
 x-cpu-image: &cpu-image
   build:
@@ -141,6 +144,7 @@ services:
       AVA_TOKENIZER: /state/tokenizer.json
       AVA_SKIP_ENGINE_BOOT: ${AVA_SKIP_ENGINE_BOOT:-0}
       ENABLE_JSPACE_WRITE: ${ENABLE_JSPACE_WRITE:-0}
+      AGENT_EVAL_DIR: /agent-eval
     ports:
       - "8000:8000"
     volumes:
@@ -148,6 +152,14 @@ services:
       - ava_state:/state
       - ava_reports:/reports
       - *host-disk
+      # Read-only: lets /evals show agent-eval's scoreboard (the Ava-claw /
+      # AgenticOS agentic hill-climb, a different axis than the pretraining
+      # evals above) alongside it. ava_claw_run.py writes here from the host;
+      # the dashboard only ever reads. User-confirmed 2026-07-13.
+      - type: bind
+        source: ${AGENT_EVAL_HOST_PATH:-C:/Users/jcdav/agent-eval}
+        target: /agent-eval
+        read_only: true
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/pipeline/status"]
@@ -155,6 +167,48 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+
+  # ---- ad hoc dev shell (not part of the pipeline; start explicitly) --------
+  # Interactive GPU box for manual experiments — separate image/volumes from
+  # the pipeline services above so it never fights them for ava_state/ava_ckpt.
+  # Port remapped to 8001 so it can coexist with the pipeline `server` service.
+  ava-train:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: ava-agi-factory:2.4.0-cuda12.4
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - WANDB_MODE=offline
+      - PYTHONUNBUFFERED=1
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_MODEL=qwen3:32b
+      - GLM_MODEL=glm-5.2[1m]
+      - HF_HUB_OFFLINE=0
+      - TOKENIZERS_PARALLELISM=false
+      - ZAI_API_KEY=${ZAI_API_KEY:-}
+      - META_API_KEY=${META_API_KEY:-}
+    volumes:
+      - .:/workspace
+      - ./checkpoints:/workspace/checkpoints
+      - ./data:/workspace/data
+      - ./logs:/workspace/logs
+      - ./wandb:/workspace/wandb
+    ports:
+      - "8001:8000"
+    stdin_open: true
+    tty: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: bash -c "sleep infinity"
 
 volumes:
   ava_raw:     { external: true }
