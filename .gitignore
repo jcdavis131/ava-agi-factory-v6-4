@@ -15,5 +15,13 @@ data/synthetic*/
 .env
 venv/
 .venv/
+
+# ava pipeline
 data/
+runs/
+ckpt/
+export/
+reports/*.html
 manifest.jsonl
+tasks/_status_snapshot.json
+tasks/_tick_status.json
