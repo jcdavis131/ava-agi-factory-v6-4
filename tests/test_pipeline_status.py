@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ava.pipeline_status import _SERIES_FIELDS, current_run_series
+from ava.pipeline_status import _SERIES_FIELDS, current_run_series, full_run_series
 
 
 def test_current_run_series_drops_pre_restart_history():
@@ -56,3 +56,39 @@ def test_current_run_series_ignores_non_step_events():
     ]
     series = current_run_series(metrics)
     assert series["step"] == [1, 100]
+
+
+def test_full_run_series_keeps_pre_restart_history_and_flags_restarts():
+    """Unlike current_run_series, full_run_series must NOT drop the segment
+    before a restart — that's the whole point of the "loss landscape doesn't
+    show the full timeline" fix. Restarts are reported as timestamps instead
+    of silently dropped."""
+    metrics = [
+        {"event": "step", "step": 450, "lm": 0.12, "ts": 100.0, "phase": 0},
+        {"event": "step", "step": 460, "lm": 0.11, "ts": 110.0, "phase": 0},
+        # CUDA restart — step resets
+        {"event": "step", "step": 1, "lm": 10.5, "ts": 200.0, "phase": 0},
+        {"event": "step", "step": 10, "lm": 8.0, "ts": 210.0, "phase": 0},
+    ]
+    result = full_run_series(metrics)
+    assert result["series"]["step"] == [450, 460, 1, 10]
+    assert result["series"]["ts"] == [100.0, 110.0, 200.0, 210.0]
+    assert result["restarts"] == [200.0]
+
+
+def test_full_run_series_empty():
+    result = full_run_series([])
+    assert result["series"]["step"] == []
+    assert result["series"]["ts"] == []
+    assert result["restarts"] == []
+
+
+def test_full_run_series_downsamples_but_keeps_latest_point():
+    metrics = [
+        {"event": "step", "step": i, "lm": 1.0, "ts": float(i)}
+        for i in range(1, 2001)
+    ]
+    result = full_run_series(metrics)
+    n = len(result["series"]["step"])
+    assert n <= 610, f"expected downsampling to roughly _FULL_SERIES_MAX_POINTS, got {n}"
+    assert result["series"]["step"][-1] == 2000, "must always keep the most recent point"

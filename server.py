@@ -144,6 +144,8 @@ app = FastAPI(title="Ava J-Space Viewer v6.4", lifespan=lifespan)
 async def root():
     return (
         "<a href='/dashboard'>/dashboard</a> · "
+        "<a href='/evals'>/evals</a> · "
+        "<a href='/chat'>/chat</a> · "
         "<a href='/jspace/viewer'>/jspace/viewer</a> · "
         "<a href='/health'>/health</a> · "
         "<a href='/report'>/report</a>"
@@ -155,6 +157,22 @@ async def dashboard():
     from ava.dashboard_html import DASHBOARD_HTML
 
     return HTMLResponse(DASHBOARD_HTML)
+
+
+@app.get("/evals", response_class=HTMLResponse)
+async def evals_page():
+    from ava.evals_html import EVALS_HTML
+
+    return HTMLResponse(EVALS_HTML)
+
+
+@app.get("/chat", response_class=HTMLResponse)
+async def chat_page():
+    """The chat UI. Coexists with POST /chat (the JSON API below) on the same
+    path -- FastAPI dispatches by method, so this only ever serves GET."""
+    from ava.chat_html import CHAT_HTML
+
+    return HTMLResponse(CHAT_HTML)
 
 
 @app.get("/pipeline/status")
