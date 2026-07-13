@@ -42,7 +42,37 @@ _STATE_HELP = {
 }
 
 # Trainer silent longer than this ⇒ surface as stale on the dashboard.
+# This is a floor only: the effective cutoff adapts to the observed logging
+# cadence, because a phase transition (e.g. seq 512 → 1024) can legitimately
+# stretch the gap between step events from ~3 min to ~15 min.
 _STALE_STEP_S = 180.0
+_STALE_MAX_S = 3600.0
+_STALE_CADENCE_MULT = 2.5
+
+
+def _stale_threshold_s(run_rows: list[dict[str, Any]]) -> float:
+    """Staleness cutoff adapted to the trainer's current step cadence.
+
+    Expected gap between step events = tokens covered per logging interval
+    divided by the most recent tok/s. The latest tok/s already reflects a new
+    phase's speed right after a transition, when the wall-clock gap between
+    the last two rows does not (it straddles the boundary).
+    """
+    steps = [r for r in run_rows if r.get("event") == "step"]
+    expected = None
+    if len(steps) >= 2:
+        try:
+            tok_delta = float(steps[-1].get("tokens") or 0) - float(steps[-2].get("tokens") or 0)
+            tok_s = float(steps[-1].get("tok_s") or 0)
+            if tok_delta > 0 and tok_s > 0:
+                expected = tok_delta / tok_s
+            else:
+                expected = float(steps[-1]["ts"]) - float(steps[-2]["ts"])
+        except (TypeError, ValueError, KeyError):
+            expected = None
+    if expected is None or expected <= 0:
+        return _STALE_STEP_S
+    return min(_STALE_MAX_S, max(_STALE_STEP_S, _STALE_CADENCE_MULT * expected))
 
 _ROUTE_NAMES = ("automatic", "deliberate", "critic", "planner")
 
@@ -426,6 +456,7 @@ def _mode(
     last_step: dict[str, Any] | None,
     starved: bool,
     age_s: float | None,
+    stale_after_s: float,
     gates: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Operator-facing mode: data_prep vs training vs blocked."""
@@ -443,11 +474,14 @@ def _mode(
             "label": "Data prep",
             "detail": "Building packed runway for the trainer phase (collect → curate → pack).",
         }
-    if age_s is not None and age_s > _STALE_STEP_S:
+    if age_s is not None and age_s > stale_after_s:
         return {
             "id": "stale",
             "label": "Trainer stale",
-            "detail": f"No step for {age_s:.0f}s — check GPU / CUDA / trainer logs.",
+            "detail": (
+                f"No step for {age_s:.0f}s (> {stale_after_s:.0f}s expected at the "
+                f"current phase's cadence) — check GPU / CUDA / trainer logs."
+            ),
         }
     return {
         "id": "training",
@@ -572,7 +606,8 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
             age_s = max(0.0, time.time() - float(last_step["ts"]))
         except (TypeError, ValueError):
             age_s = None
-    stale = bool(age_s is not None and age_s > _STALE_STEP_S and not starved)
+    stale_after_s = _stale_threshold_s(run_rows)
+    stale = bool(age_s is not None and age_s > stale_after_s and not starved)
 
     low_water = float(cfg.low_water_gb) if cfg else 12.0
     packed_min = int(cfg.packed_min_tokens) if cfg else 200_000_000
@@ -590,7 +625,8 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
         collector_paused=bool(pause.get("paused")),
         by_state=by_state,
     )
-    mode = _mode(last_step=last_step, starved=starved, age_s=age_s, gates=gates)
+    mode = _mode(last_step=last_step, starved=starved, age_s=age_s,
+                 stale_after_s=stale_after_s, gates=gates)
     runway = _phase_runway(
         tokens_by_phase,
         packed_min=packed_min,
@@ -701,6 +737,7 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
             "data_starved": starved,
             "age_s": None if age_s is None else round(age_s, 1),
             "stale": stale,
+            "stale_after_s": round(stale_after_s, 1),
         },
         "eval": {
             "json_exists": (reports / "branch_eval_results_real.json").is_file()
