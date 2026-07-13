@@ -61,8 +61,9 @@ def test_current_run_series_ignores_non_step_events():
 def test_full_run_series_keeps_pre_restart_history_and_flags_restarts():
     """Unlike current_run_series, full_run_series must NOT drop the segment
     before a restart — that's the whole point of the "loss landscape doesn't
-    show the full timeline" fix. Restarts are reported as timestamps instead
-    of silently dropped."""
+    show the full timeline" fix. cum_step keeps counting up across the
+    restart instead of jumping backward (raw step resets to 1), so a chart
+    plotting cum_step never has to draw a line that jumps backward."""
     metrics = [
         {"event": "step", "step": 450, "lm": 0.12, "ts": 100.0, "phase": 0},
         {"event": "step", "step": 460, "lm": 0.11, "ts": 110.0, "phase": 0},
@@ -73,12 +74,15 @@ def test_full_run_series_keeps_pre_restart_history_and_flags_restarts():
     result = full_run_series(metrics)
     assert result["series"]["step"] == [450, 460, 1, 10]
     assert result["series"]["ts"] == [100.0, 110.0, 200.0, 210.0]
-    assert result["restarts"] == [200.0]
+    assert result["series"]["cum_step"] == [450, 460, 461, 470]
+    assert result["series"]["cum_step"] == sorted(result["series"]["cum_step"]), "cum_step must be non-decreasing"
+    assert result["restarts"] == [{"cum_step": 461, "ts": 200.0}]
 
 
 def test_full_run_series_empty():
     result = full_run_series([])
     assert result["series"]["step"] == []
+    assert result["series"]["cum_step"] == []
     assert result["series"]["ts"] == []
     assert result["restarts"] == []
 

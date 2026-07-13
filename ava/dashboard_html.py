@@ -386,20 +386,20 @@ svg.spark { width: 100%; height: 26px; display: block; }
 
     <h2 style="margin-top:1rem">Loss landscape</h2>
     <div class="chart-grid">
-      <div class="chart-card"><h3><span>Loss — lm vs total<span class="tip" tabindex="0" data-tip="Y-axis: the loss value (lower = model is less surprised by the data = better). X-axis: wall-clock time across the WHOLE run, not just since the last restart — amber ticks mark where the trainer crashed and resumed. Two lines: lm_loss (core prediction loss) and total (lm_loss plus all the auxiliary regularizers)."></span></span><span class="cv" id="lossCv">—</span></h3>
+      <div class="chart-card"><h3><span>Loss — lm vs total<span class="tip" tabindex="0" data-tip="Y-axis: the loss value (lower = model is less surprised by the data = better). X-axis: cumulative training step across the WHOLE run (keeps counting up across restarts instead of resetting), not just since the last restart — amber ticks mark where the trainer crashed and resumed. Two lines: lm_loss (core prediction loss) and total (lm_loss plus all the auxiliary regularizers)."></span></span><span class="cv" id="lossCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartLoss"></svg></div></div>
-      <div class="chart-card"><h3><span>Learning rate<span class="tip" tabindex="0" data-tip="Y-axis: the learning rate the optimizer is currently using. X-axis: wall-clock time. Follows a warmup (ramps up) then decay (ramps down) schedule."></span></span><span class="cv" id="lrCv">—</span></h3>
+      <div class="chart-card"><h3><span>Learning rate<span class="tip" tabindex="0" data-tip="Y-axis: the learning rate the optimizer is currently using. X-axis: cumulative training step. Follows a warmup (ramps up) then decay (ramps down) schedule."></span></span><span class="cv" id="lrCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartLr"></svg></div></div>
-      <div class="chart-card"><h3><span>Gradient norm<span class="tip" tabindex="0" data-tip="Y-axis: gradient norm (how big a weight update the optimizer wants to make). X-axis: wall-clock time. The dashed red line is the clip threshold — values are capped there to stop the model taking a destructively large step."></span></span><span class="cv" id="gradCv">—</span></h3>
+      <div class="chart-card"><h3><span>Gradient norm<span class="tip" tabindex="0" data-tip="Y-axis: gradient norm (how big a weight update the optimizer wants to make). X-axis: cumulative training step. The dashed red line is the clip threshold — values are capped there to stop the model taking a destructively large step."></span></span><span class="cv" id="gradCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartGrad"></svg></div></div>
-      <div class="chart-card"><h3><span>Throughput<span class="tip" tabindex="0" data-tip="Y-axis: training throughput in tokens per second. X-axis: wall-clock time. Dips often line up with restarts, checkpoint writes, or the GPU being shared with something else."></span></span><span class="cv" id="tokCv">—</span></h3>
+      <div class="chart-card"><h3><span>Throughput<span class="tip" tabindex="0" data-tip="Y-axis: training throughput in tokens per second. X-axis: cumulative training step. Dips often line up with restarts, checkpoint writes, or the GPU being shared with something else."></span></span><span class="cv" id="tokCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartTok"></svg></div></div>
-      <div class="chart-card"><h3><span>Workspace mass &amp; broadcast<span class="tip" tabindex="0" data-tip="Y-axis: two workspace health signals, 0 to 1. verbalizable_mass = how much of the workspace content could be put into words; broadcast_strength = how strongly it's being shared with the rest of the model. X-axis: wall-clock time."></span></span><span class="cv" id="jsCv">—</span></h3>
+      <div class="chart-card"><h3><span>Workspace mass &amp; broadcast<span class="tip" tabindex="0" data-tip="Y-axis: two workspace health signals, 0 to 1. verbalizable_mass = how much of the workspace content could be put into words; broadcast_strength = how strongly it's being shared with the rest of the model. X-axis: cumulative training step."></span></span><span class="cv" id="jsCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartJspace"></svg></div></div>
       <div class="chart-card"><h3><span>Route mix (this step)<span class="tip" tabindex="0" data-tip="What fraction of the most recent batch's attention was routed to each of the four reasoning spaces: S1 (fast/automatic), S2 (slow/deliberate), Critic (safety), Planner (long-horizon)."></span></span><span class="cv" id="routeCv">—</span></h3>
         <div id="routeMix"></div></div>
     </div>
-    <p class="muted" style="margin:0.5rem 0 0">Smoothed (Catmull–Rom) · x-axis is wall-clock time, spans the whole run (not just since the last restart) · hover any chart for exact values, including which step/time · amber ticks mark trainer restarts.</p>
+    <p class="muted" style="margin:0.5rem 0 0">Smoothed (Catmull–Rom) · x-axis is cumulative training step, spans the whole run (not just since the last restart — the trainer's own step counter resets each time, this keeps counting up) · hover any chart for exact values, including raw step and wall-clock time · amber ticks mark trainer restarts.</p>
 
     <h2 style="margin-top:1.1rem">Loss function — J-space auxiliary terms<span class="tip" tabindex="0" data-tip="The actual formula being minimized during training: the core language-modeling loss (lm) plus several auxiliary regularizer terms, each color-matched to its sparkline below."></span></h2>
     <div class="eqn-card">
@@ -483,11 +483,11 @@ const TIP = {
   mass_kv: "Verbalizable mass — roughly, what fraction of a workspace's content could plausibly be put into words. Very low means it's not holding much meaningful info yet; very high can mean it's saturated.",
   routes_kv: "The last batch's routing split across the four reasoning spaces (R0=S1 automatic, R1=S2 deliberate, R2=Critic, R3=Planner) — should shift depending on task type.",
   phase_name: "Which curriculum phase (P0-P5) the most recently logged training step belongs to.",
-  loss_chart: "Y-axis: the loss value (lower = model is less surprised by the data = better). X-axis: wall-clock time across the WHOLE run, not just since the last restart — amber ticks mark where the trainer crashed and resumed. Two lines: lm_loss (core prediction loss) and total (lm_loss plus all the auxiliary regularizers).",
-  lr_chart: "Y-axis: the learning rate the optimizer is currently using. X-axis: wall-clock time. Follows a warmup (ramps up) then decay (ramps down) schedule — see WSD in the curriculum caption.",
-  grad_chart: "Y-axis: gradient norm (how big a weight update the optimizer wants to make). X-axis: wall-clock time. The dashed red line is the clip threshold — values are capped there to stop the model from taking a destructively large step.",
-  tok_chart: "Y-axis: training throughput in tokens per second. X-axis: wall-clock time. Dips often line up with restarts, checkpoint writes, or the GPU being shared with something else.",
-  jspace_chart: "Y-axis: two workspace health signals, 0 to 1. verbalizable_mass = how much of the workspace content could be put into words; broadcast_strength = how strongly it's being shared with the rest of the model. X-axis: wall-clock time.",
+  loss_chart: "Y-axis: the loss value (lower = model is less surprised by the data = better). X-axis: cumulative training step across the WHOLE run (keeps counting up across restarts instead of resetting), not just since the last restart — amber ticks mark where the trainer crashed and resumed. Two lines: lm_loss (core prediction loss) and total (lm_loss plus all the auxiliary regularizers).",
+  lr_chart: "Y-axis: the learning rate the optimizer is currently using. X-axis: cumulative training step. Follows a warmup (ramps up) then decay (ramps down) schedule — see WSD in the curriculum caption.",
+  grad_chart: "Y-axis: gradient norm (how big a weight update the optimizer wants to make). X-axis: cumulative training step. The dashed red line is the clip threshold — values are capped there to stop the model from taking a destructively large step.",
+  tok_chart: "Y-axis: training throughput in tokens per second. X-axis: cumulative training step. Dips often line up with restarts, checkpoint writes, or the GPU being shared with something else.",
+  jspace_chart: "Y-axis: two workspace health signals, 0 to 1. verbalizable_mass = how much of the workspace content could be put into words; broadcast_strength = how strongly it's being shared with the rest of the model. X-axis: cumulative training step.",
   route_mix_chart: "What fraction of the most recent batch's attention was routed to each of the four reasoning spaces: S1 (fast/automatic), S2 (slow/deliberate), Critic (safety), Planner (long-horizon). Different task types are expected to route differently.",
   dominant_route: "Whichever of S1/S2/Critic/Planner got the largest share of routing on the last batch, and what percent it got.",
   route_entropy: "How spread out the routing is across the four spaces, in bits. Near 0 = all traffic goes to one space (route 'collapsed'); higher = more evenly spread.",
@@ -901,7 +901,7 @@ function sparkline(ys, color) {
   </svg>`;
 }
 
-function drawChart(svg, { chartId, xs, lines, refLines, xTickFmt, yTickFmt, restarts, steps, xLabel }) {
+function drawChart(svg, { chartId, xs, lines, refLines, xTickFmt, yTickFmt, restarts, steps, times, xLabel }) {
   const w = 320, h = 120, padL = 40, padR = 10, padT = 8, padB = 18;
   svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
   const wrap = svg.parentElement;
@@ -1006,10 +1006,15 @@ function drawChart(svg, { chartId, xs, lines, refLines, xTickFmt, yTickFmt, rest
       `<div><span class="k" style="border-color:${l.color}">${l.label}</span><b>${yTickFmt ? yTickFmt(l.ys[bestI]) : l.ys[bestI]}</b></div>`
     ).join("");
     const xHead = xTickFmt ? xTickFmt(xs[bestI]) : xs[bestI];
-    const stepHead = steps && steps[bestI] != null ? ` · step ${Math.round(steps[bestI])}` : "";
+    // Raw logged step only shown when it actually differs from the
+    // cumulative x position (i.e. after a restart) — otherwise it's the
+    // same number twice.
+    const rawStep = steps && steps[bestI] != null ? Math.round(steps[bestI]) : null;
+    const stepHead = rawStep != null && rawStep !== Math.round(xs[bestI]) ? ` (raw step ${rawStep})` : "";
+    const timeHead = times && times[bestI] != null ? ` · ${fmtClockTime(times[bestI])}` : "";
     const nearRestart = (restarts || []).some(rt => Math.abs(rt - xs[bestI]) < (xmax - xmin) / w * 6);
     const restartNote = nearRestart ? `<div style="color:${MCOLORS.orange};font-size:0.65rem">↻ trainer restart</div>` : "";
-    tip.innerHTML = `<div class="muted" style="font-size:0.65rem">${xLabel || ""}${xHead}${stepHead}</div>${restartNote}${rows}`;
+    tip.innerHTML = `<div class="muted" style="font-size:0.65rem">${xLabel || ""}${xHead}${stepHead}${timeHead}</div>${restartNote}${rows}`;
     tip.style.display = "block";
     const leftPct = (cx / w) * 100;
     if (leftPct > 55) { tip.style.right = `calc(${100 - leftPct}% + 4px)`; tip.style.left = "auto"; }
@@ -1025,16 +1030,8 @@ const fmtTokS = v => v == null ? "—" : fmt(Math.round(v));
 const fmtFrac = v => v == null ? "—" : Number(v).toFixed(3);
 const fmtStep = v => v == null ? "—" : Math.round(v);
 
-// Wall-clock x-axis: relative for axis ticks (compact, always fits), a full
-// local timestamp for the tooltip (exact, on demand).
-function fmtRelTime(tsSec) {
-  if (tsSec == null) return "—";
-  const dSec = Math.max(0, Date.now() / 1000 - tsSec);
-  if (dSec < 90) return "now";
-  if (dSec < 3600) return `${Math.round(dSec / 60)}m ago`;
-  if (dSec < 86400) return `${(dSec / 3600).toFixed(1)}h ago`;
-  return `${(dSec / 86400).toFixed(1)}d ago`;
-}
+// Full local timestamp, used in tooltips/captions where wall-clock time is
+// supplementary context alongside the step-based x-axis.
 function fmtClockTime(tsSec) {
   if (tsSec == null) return "—";
   try { return new Date(tsSec * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); }
@@ -1087,9 +1084,13 @@ function renderTrain(d) {
 
   const s = tr.series || {};                    // current run only (exact, for stat cards/table)
   const fs = tr.full_series || {};               // whole history, downsampled, restarts included
-  const xs = fs.ts || [];
-  const restarts = tr.restarts || [];
-  const chartOpts = { xTickFmt: fmtRelTime, restarts, steps: fs.step, xLabel: "" };
+  // cum_step, not raw step: the trainer's own counter resets/rolls back on
+  // every restart, so it isn't monotonic across the full history the way it
+  // is within one run — cum_step keeps counting up instead of jumping
+  // backward. steps/times ride along for the tooltip (exact raw step + when).
+  const xs = fs.cum_step || [];
+  const restarts = (tr.restarts || []).map(r => r.cum_step);
+  const chartOpts = { xTickFmt: fmtStep, restarts, steps: fs.step, times: fs.ts, xLabel: "step " };
 
   document.getElementById("lossCv").textContent = fmtLoss(lastNonNull(s.lm_loss));
   drawChart(document.getElementById("chartLoss"), {
@@ -1139,9 +1140,12 @@ function renderTrain(d) {
   renderAux(d);
   renderTable(d);
 
-  const span = xs.length >= 2 ? fmtClockTime(xs[0]) + " → " + fmtClockTime(xs[xs.length - 1]) : "—";
+  const stepSpan = xs.length >= 2 ? `step ${fmtStep(xs[0])} → ${fmtStep(xs[xs.length - 1])}` : "—";
+  const times = fs.ts || [];
+  const timeSpan = times.length >= 2 && times[0] != null && times[times.length - 1] != null
+    ? ` (${fmtClockTime(times[0])} → ${fmtClockTime(times[times.length - 1])})` : "";
   document.getElementById("trainCaption").textContent =
-    `Source: ${tr.metrics_path || "metrics"} · ${xs.length} points, ${span} · ${restarts.length} restart${restarts.length === 1 ? "" : "s"} (amber tick marks) · ${tr.n_points || 0} recent jsonl lines read`;
+    `Source: ${tr.metrics_path || "metrics"} · ${xs.length} points, ${stepSpan}${timeSpan} · ${restarts.length} restart${restarts.length === 1 ? "" : "s"} (amber tick marks) · ${tr.n_points || 0} recent jsonl lines read`;
 }
 
 function renderRouteMix(d) {
