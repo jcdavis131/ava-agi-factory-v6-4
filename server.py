@@ -28,6 +28,13 @@ _REPORTS = Path(os.environ.get("AVA_REPORTS_DIR", str(_REPO / "reports")))
 _EVAL_JSON = _REPORTS / "branch_eval_results_real.json"
 _EVAL_MD = _REPORTS / "REPORT_REAL.md"
 _REPORT_HTML = _REPORTS / "index.html"
+# Read-only mount of the sibling agent-eval repo (see docker-compose.yml's
+# `server` service) -- the Ava-claw / AgenticOS agentic hill-climb scoreboard,
+# a different axis from the pretraining evals above (tool-use/grounding vs.
+# perplexity/probes/J-Space). Optional: /agent_eval/scoreboard 404s cleanly
+# if the mount isn't present (e.g. a bare-metal boot with no AGENT_EVAL_DIR).
+_AGENT_EVAL_DIR = Path(os.environ.get("AGENT_EVAL_DIR", str(_REPO.parent / "agent-eval")))
+_AGENT_EVAL_SCOREBOARD = _AGENT_EVAL_DIR / "scoreboard.md"
 
 VIEWER_HTML = """
 <!DOCTYPE html><html><head><title>Ava J-Space Viewer v6.4</title>
@@ -325,6 +332,20 @@ async def eval_report():
             status_code=404, detail="run eval first: make eval"
         )
     return {"report_markdown": _EVAL_MD.read_text(encoding="utf-8")}
+
+
+@app.get("/agent_eval/scoreboard")
+async def agent_eval_scoreboard():
+    """agent-eval's scoreboard.md (Ava-claw / AgenticOS hill-climb results) --
+    see ava_claw_run.py in the agent-eval repo. 404 if that repo isn't
+    mounted or hasn't produced a scoreboard yet (no run against Ava so far
+    is not an error state, just "nothing to show")."""
+    if not _AGENT_EVAL_SCOREBOARD.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="no agent-eval scoreboard found (not mounted, or no runs yet)",
+        )
+    return {"scoreboard_markdown": _AGENT_EVAL_SCOREBOARD.read_text(encoding="utf-8")}
 
 
 @app.websocket("/jspace/stream")
