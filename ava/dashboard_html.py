@@ -88,6 +88,13 @@ main {
 .pill.ok { color: var(--ok); border-color: #9cbc9f; background: #e8f0e9; }
 .pill.warn { color: var(--warn); border-color: #d4b56a; background: #f7efd8; }
 .pill.bad { color: var(--bad); border-color: #c99; background: #f5e8e8; }
+.narrative-card { border-left: 3px solid var(--accent); }
+.narrative-body {
+  margin: 0; font-size: 0.98rem; line-height: 1.65; color: var(--ink);
+}
+.narrative-body b { font-variant-numeric: tabular-nums; }
+.narrative-body .warn-inline { color: var(--warn); font-weight: 600; }
+.narrative-body .bad-inline { color: var(--bad); font-weight: 600; }
 .mode {
   display: flex;
   gap: 1rem;
@@ -246,6 +253,29 @@ pre.out {
 .kv .k { color: var(--muted); }
 a { color: var(--accent); }
 
+/* -- ELI5 tooltips: a small "?" badge next to any label; hover or focus to
+   read a plain-language explainer. CSS-only (no JS listeners per element)
+   and keyboard-reachable (tabindex + :focus), unlike the native `title`
+   attribute it replaces. */
+.tip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 13px; height: 13px; margin-left: 0.3em; border-radius: 50%;
+  border: 1px solid var(--muted); color: var(--muted); font-size: 0.62rem;
+  font-weight: 600; font-style: normal; text-transform: none; letter-spacing: 0;
+  cursor: help; position: relative; vertical-align: middle; flex: none;
+}
+.tip::before { content: "?"; }
+.tip::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: 15rem; background: var(--ink); color: var(--card);
+  font-size: 0.72rem; font-weight: 400; line-height: 1.4; padding: 0.4rem 0.55rem;
+  border-radius: 2px; box-shadow: 0 2px 8px rgba(20,18,10,0.25);
+  opacity: 0; pointer-events: none; transition: opacity 0.1s ease; z-index: 10;
+}
+.tip:hover::after, .tip:focus::after { opacity: 1; }
+.tip:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
 /* -- Manim-inspired chart grid: smooth curves, precise axes, traced dots -- */
 .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.7rem; margin-top: 0.6rem; }
 @media (max-width: 720px) { .chart-grid { grid-template-columns: 1fr; } }
@@ -293,29 +323,6 @@ svg.spark { width: 100%; height: 26px; display: block; }
 .table-wrap.show { display: block; }
 .table-wrap table { font-size: 0.72rem; }
 .table-wrap th, .table-wrap td { white-space: nowrap; padding: 0.25rem 0.5rem; }
-/* ELI5 help chips — hover / focus any "?" for a plain-English explainer. */
-.help {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 13px; height: 13px; border-radius: 50%; flex: none;
-  border: 1px solid #b9b4a6; color: var(--muted); background: transparent;
-  font-size: 9px; font-weight: 600; font-style: normal;
-  cursor: help; position: relative; margin-left: 0.35rem; vertical-align: 1px;
-  text-transform: none; letter-spacing: 0;
-}
-.help::after {
-  content: attr(data-tip);
-  position: absolute; left: 50%; top: calc(100% + 7px); transform: translateX(-50%);
-  width: 240px; max-width: 66vw;
-  background: var(--ink); color: var(--card);
-  font-size: 0.72rem; font-weight: 400; line-height: 1.45;
-  text-transform: none; letter-spacing: 0; white-space: normal; text-align: left;
-  font-variant-numeric: normal;
-  padding: 0.5rem 0.6rem; border-radius: 3px;
-  z-index: 60; opacity: 0; visibility: hidden; pointer-events: none;
-  transition: opacity 0.12s ease;
-}
-.help:hover::after, .help:focus::after { opacity: 1; visibility: visible; }
-.help.flip::after { left: auto; right: -6px; transform: none; }
 </style>
 </head>
 <body>
@@ -325,70 +332,77 @@ svg.spark { width: 100%; height: 26px; display: block; }
     <span id="preset">—</span>
     · <span id="clock">—</span>
     · poll 3s
-    · <a href="/pipeline/status">json</a>
+    · <a href="/evals">evals</a>
+    · <a href="/chat">chat</a>
     · <a href="/ecosystem">ecosystem</a>
+    · <a href="/pipeline/status">json</a>
     · <a href="/health">/health</a>
     · <a href="/jspace/viewer">viewer</a>
     · <a href="/report">report</a>
   </div>
 </header>
 <main>
+  <section class="card span2 narrative-card">
+    <h2>Current state<span class="tip" tabindex="0" data-tip="A plain-English paragraph, rewritten from live data every few seconds, answering &quot;what is the pipeline doing right now?&quot; so you don't have to cross-reference six panels."></span></h2>
+    <p class="narrative-body" id="narrative">Loading…</p>
+  </section>
+
   <section class="card span2">
-    <h2>Operator view <span class="help" tabindex="0" data-help="sec_operator">?</span></h2>
+    <h2>Operator view<span class="tip" tabindex="0" data-tip="The 30-second view: what mode the pipeline is in, plus five pass/fail gates (D1–D5). Green everywhere = nothing needs you."></span></h2>
     <div id="modeBanner"></div>
     <div class="gates" id="gates"></div>
     <div class="row" id="topStats" style="margin-top:0.85rem"></div>
   </section>
 
   <section class="card span2">
-    <h2>Curriculum — where we are <span class="help" tabindex="0" data-help="sec_curriculum">?</span></h2>
+    <h2>Curriculum — where we are<span class="tip" tabindex="0" data-tip="The model learns in six lessons (phases), like school: logic first, then math, general knowledge, reasoning, long documents, and a final high-quality polish. Each card shows that lesson's token budget and data diet."></span></h2>
     <div id="curriculumHero"></div>
     <div class="curric" id="curriculum"></div>
     <p class="muted" id="curriculumCaption" style="margin:0.75rem 0 0">Six-phase logic-first curriculum. Active phase is outlined.</p>
   </section>
 
   <section class="card span2">
-    <h2>Closed-loop demand (train → miners) <span class="help" tabindex="0" data-help="sec_demand">?</span></h2>
+    <h2>Closed-loop demand (train → miners)<span class="tip" tabindex="0" data-tip="The feedback loop: the trainer regularly tells the data-gatherers what it's hungry for ('more examples', 'expand this phase'), and they re-weight their sources to match."></span></h2>
     <div id="demandPanel"></div>
     <p class="muted" style="margin:0.75rem 0 0">Only collectors fetch outside data. Trainer publishes expand / curate / examples; miners reweight sources.</p>
   </section>
 
   <section class="card">
-    <h2>Shard lifecycle <span class="help" tabindex="0" data-help="sec_lifecycle">?</span></h2>
+    <h2>Shard lifecycle<span class="tip" tabindex="0" data-tip="Every chunk of text (a 'shard') moves through these stages: gathered raw → being cleaned → packed (ready to train on) → being read → consumed (safe to delete when disk is tight)."></span></h2>
     <div id="prepAlerts"></div>
     <div class="funnel" id="funnel"></div>
     <div class="glossary" id="lifecycleGlossary"></div>
   </section>
 
   <section class="card">
-    <h2>Packed runway by phase <span class="help" tabindex="0" data-help="sec_runway">?</span></h2>
+    <h2>Packed runway by phase<span class="tip" tabindex="0" data-tip="Fuel gauges, one per lesson: prepped tokens stacked up vs the minimum needed so the trainer never runs out mid-lesson."></span></h2>
     <div class="phase-grid" id="phases"></div>
     <p class="muted" id="runwayCaption" style="margin:0.75rem 0 0">Fill = tokens vs packed_min. Outlined = trainer phase; amber = collector target.</p>
   </section>
 
   <section class="card span2">
-    <h2>Training — current run <span class="help" tabindex="0" data-help="sec_training">?</span></h2>
+    <h2>Training — current run<span class="tip" tabindex="0" data-tip="Live vital signs of the model actually learning: how wrong its guesses are, how fast it reads, and how hard it's adjusting itself."></span></h2>
     <div id="trainAlerts"></div>
     <div class="row" id="trainStats"></div>
 
-    <h2 style="margin-top:1rem">Loss landscape</h2>
+    <h2 style="margin-top:1rem">Loss landscape<span class="tip" tabindex="0" data-tip="Six live charts of the run. All share the same X axis: cumulative training step across the whole run (restarts don't reset it; amber ticks mark them). Hover any chart for exact values."></span></h2>
     <div class="chart-grid">
-      <div class="chart-card"><h3><span>Loss — lm vs total <span class="help" tabindex="0" data-help="chart_loss">?</span></span><span class="cv" id="lossCv">—</span></h3>
+      <div class="chart-card"><h3><span>Loss — lm vs total<span class="tip" tabindex="0" data-tip="Y-axis: the loss value (lower = model is less surprised by the data = better). X-axis: cumulative training step across the WHOLE run (keeps counting up across restarts instead of resetting), not just since the last restart — amber ticks mark where the trainer crashed and resumed. Two lines: lm_loss (core prediction loss) and total (lm_loss plus all the auxiliary regularizers)."></span></span><span class="cv" id="lossCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartLoss"></svg></div></div>
-      <div class="chart-card"><h3><span>Learning rate <span class="help" tabindex="0" data-help="chart_lr">?</span></span><span class="cv" id="lrCv">—</span></h3>
+      <div class="chart-card"><h3><span>Learning rate<span class="tip" tabindex="0" data-tip="Y-axis: the learning rate the optimizer is currently using. X-axis: cumulative training step. Follows a warmup (ramps up) then decay (ramps down) schedule."></span></span><span class="cv" id="lrCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartLr"></svg></div></div>
-      <div class="chart-card"><h3><span>Gradient norm <span class="help" tabindex="0" data-help="chart_grad">?</span></span><span class="cv" id="gradCv">—</span></h3>
+      <div class="chart-card"><h3><span>Gradient norm<span class="tip" tabindex="0" data-tip="Y-axis: gradient norm (how big a weight update the optimizer wants to make). X-axis: cumulative training step. The dashed red line is the clip threshold — values are capped there to stop the model taking a destructively large step."></span></span><span class="cv" id="gradCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartGrad"></svg></div></div>
-      <div class="chart-card"><h3><span>Throughput <span class="help" tabindex="0" data-help="chart_tok">?</span></span><span class="cv" id="tokCv">—</span></h3>
+      <div class="chart-card"><h3><span>Throughput<span class="tip" tabindex="0" data-tip="Y-axis: training throughput in tokens per second. X-axis: cumulative training step. Dips often line up with restarts, checkpoint writes, or the GPU being shared with something else."></span></span><span class="cv" id="tokCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartTok"></svg></div></div>
-      <div class="chart-card"><h3><span>Workspace mass &amp; broadcast <span class="help" tabindex="0" data-help="chart_jspace">?</span></span><span class="cv" id="jsCv">—</span></h3>
+      <div class="chart-card"><h3><span>Workspace mass &amp; broadcast<span class="tip" tabindex="0" data-tip="Y-axis: two workspace health signals, 0 to 1. verbalizable_mass = how much of the workspace content could be put into words; broadcast_strength = how strongly it's being shared with the rest of the model. X-axis: cumulative training step."></span></span><span class="cv" id="jsCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartJspace"></svg></div></div>
-      <div class="chart-card"><h3><span>Route mix (this step) <span class="help" tabindex="0" data-help="chart_route">?</span></span><span class="cv" id="routeCv">—</span></h3>
+      <div class="chart-card"><h3><span>Route mix (this step)<span class="tip" tabindex="0" data-tip="What fraction of the most recent batch's attention was routed to each of the four reasoning spaces: S1 (fast/automatic), S2 (slow/deliberate), Critic (safety), Planner (long-horizon)."></span></span><span class="cv" id="routeCv">—</span></h3>
         <div id="routeMix"></div></div>
     </div>
-    <p class="muted" style="margin:0.5rem 0 0">Smoothed (Catmull–Rom) · hover any chart for exact values · draws in on first load or trainer restart · last ~200 logged steps.</p>
+    <p class="muted" style="margin:0.5rem 0 0">Smoothed (Catmull–Rom) · x-axis is cumulative training step, spans the whole run (not just since the last restart — the trainer's own step counter resets each time, this keeps counting up) · hover any chart for exact values, including raw step and wall-clock time · amber ticks mark trainer restarts.</p>
 
-    <h2 style="margin-top:1.1rem">Loss function — J-space auxiliary terms <span class="help" tabindex="0" data-help="sec_eqn">?</span></h2>
+    <h2 style="margin-top:1.1rem">Loss function — J-space auxiliary terms<span class="tip" tabindex="0" data-tip="The actual formula being minimized during training: the core language-modeling loss (lm) plus several auxiliary regularizer terms, each color-matched to its sparkline below."></span></h2>
     <div class="eqn-card">
       <div class="eqn-line">
         <b>loss</b> = lm
@@ -408,14 +422,14 @@ svg.spark { width: 100%; height: 26px; display: block; }
     <button type="button" class="linkbtn" id="tableToggle">Show data table ▾</button>
     <div class="table-wrap" id="tableWrap"><table><thead id="seriesThead"></thead><tbody id="seriesTbody"></tbody></table></div>
 
-    <h2 style="margin-top:1rem">Watch signals <span class="help" tabindex="0" data-help="sec_watch">?</span></h2>
+    <h2 style="margin-top:1rem">Watch signals<span class="tip" tabindex="0" data-tip="Auto-generated 'things worth a glance' — with warnings when a number looks off."></span></h2>
     <div class="row" id="watchStats"></div>
     <ul class="hints" id="watchHints"></ul>
     <p class="muted" id="trainCaption">Source: metrics jsonl</p>
   </section>
 
   <section class="card">
-    <h2>Checkpoints <span class="help" tabindex="0" data-help="sec_ckpts">?</span></h2>
+    <h2>Checkpoints<span class="tip" tabindex="0" data-tip="Saved snapshots of the model's brain. After a crash, training resumes from the newest one — you only ever lose the steps since it was written."></span></h2>
     <table>
       <thead><tr><th title="Snapshot filename — step_N.pt was saved at training step N">File</th><th title="Snapshot size on disk in megabytes">MB</th><th title="How long ago this snapshot was written">Age</th></tr></thead>
       <tbody id="ckpts"></tbody>
@@ -423,7 +437,7 @@ svg.spark { width: 100%; height: 26px; display: block; }
   </section>
 
   <section class="card">
-    <h2>Live inspect <span class="help" tabindex="0" data-help="sec_inspect">?</span></h2>
+    <h2>Live inspect<span class="tip" tabindex="0" data-tip="Type a sentence and peek inside the live model: which inner workspaces light up and where attention routes. Needs the engine booted (off during training so it doesn't fight the trainer for the GPU)."></span></h2>
     <p class="muted">Forward pass on the hot-reloaded checkpoint (needs engine boot). Mass / route should change with input.</p>
     <div class="probe">
       <input id="probeText" value="The number of legs on the animal that spins webs is"/>
@@ -436,92 +450,75 @@ svg.spark { width: 100%; height: 26px; display: block; }
 const STATES = ["RAW","CLAIMED_CURATE","PACKED","CLAIMED_TRAIN","CONSUMED","FAILED","DELETED"];
 let lastPayload = null;
 
-// -- ELI5 help system ---------------------------------------------------------
-// Every metric/axis gets a "?" chip. One dictionary, plain English, no jargon
-// without an immediate translation. Hover or keyboard-focus to read.
-const HELP = {
-  // Sections
-  sec_operator: "The 30-second view: what the pipeline is doing right now, plus five pass/fail gates (D1–D5). Green everywhere = nothing needs you.",
-  sec_curriculum: "The model learns in six lessons (phases), like school: logic first, then math, general knowledge, reasoning, long documents, and a final high-quality polish. Each card shows that lesson's token budget and data diet.",
-  sec_demand: "The feedback loop. The trainer regularly tells the data-gatherers what it's hungry for ('more examples', 'expand this phase'), and they re-weight their sources to match.",
-  sec_lifecycle: "Every chunk of text (a 'shard') moves through these stages: gathered raw → being cleaned → packed (ready to train on) → being read → consumed (safe to delete when disk is tight).",
-  sec_runway: "Fuel gauges, one per lesson: how many prepped tokens are stacked up vs the minimum needed so the trainer never runs out mid-lesson.",
-  sec_training: "Live vital signs of the model actually learning: how wrong its guesses are, how fast it reads, and how hard it's adjusting itself.",
-  sec_eqn: "The full score the trainer is minimizing. 'lm' is plain next-word error; every colored term is a gentle extra pressure shaping the model's inner workspaces, each multiplied by its weight (how much it counts).",
-  sec_watch: "Auto-generated 'things worth a glance' — with warnings when a number looks off.",
-  sec_ckpts: "Saved snapshots of the model's brain. After a crash, training resumes from the newest one — you only ever lose the steps since it was written.",
-  sec_inspect: "Type a sentence and peek inside the live model: which inner workspaces light up and where its attention routes. Needs the engine booted (off during training so it doesn't fight the trainer for the GPU).",
-  // Gates
-  gate_D1: "Free space left on the computer's disk. If it drops below the target, data-gathering pauses so training can never fill the whole drive.",
-  gate_D2: "Tokens (word-pieces) already prepped and waiting for the current lesson — like firewood stacked by the stove. Short pile = trainer could go hungry.",
-  gate_D3: "Are the data-gathering workers running? They pause themselves when the disk gets too full.",
-  gate_D4: "Unprocessed raw text sitting in the inbox waiting to be cleaned. Kept under a cap so it can't flood the disk.",
-  gate_D5: "Share of text chunks that broke during processing. A few is normal; a climbing number means something upstream is wrong.",
-  // Top stats
-  loop: "One-word health check for the whole gather→clean→train loop. 'healthy' means data is flowing and the trainer is stepping.",
-  host_free: "Free disk space on the actual Windows drive (probed directly — Docker's own numbers can lie about this).",
-  collectors: "The workers that fetch and generate training text. 'paused' usually means low disk, not a crash.",
-  trainer_phase: "Which of the six lessons (P0–P5) the model is on right now.",
-  step: "One step = the model reads one big batch of text and updates itself once. 'Age' is how long since a step was last logged — slow lessons legitimately log less often.",
-  lm_loss: "How surprised the model is by the next word, on average. Lower = better. Watching it fall is watching the model learn.",
-  raw_backlog: "How much raw, not-yet-cleaned text is queued up, vs the cap that keeps it from flooding the disk.",
-  ckpt: "The newest saved snapshot of the model. Crash-insurance: training resumes from here.",
-  // Training stats
-  tokens_seen: "Total word-pieces the model has read so far this run.",
-  lm_total: "Two versions of the score: 'lm' is pure next-word error; 'total' adds the J-space extra terms. The gap between them is how much the extras currently cost.",
-  tok_s: "Reading speed in tokens (word-pieces) per second. Drops sharply when a new lesson uses longer texts — that's expected, not a problem.",
-  lr: "Learning rate: how big each self-correction nudge is. Ramps up at the start, cruises flat, then eases down at the end (that shape is deliberate).",
-  grad: "Gradient norm: how hard the model wants to change itself this step. Spikes = turbulence. The dashed line is the safety clamp (clip) — changes bigger than that get scaled down.",
-  // Charts (axes explained)
-  chart_loss: "The main 'is it learning?' picture. Down-and-to-the-right = learning. Blue 'lm' = pure next-word error; teal 'total' adds the J-space extras. X axis: training step. Y axis: loss — lower is better.",
-  chart_lr: "How big the learning nudges are over time — warm-up, long cruise, cool-down. X axis: training step. Y axis: learning rate (scientific notation).",
-  chart_grad: "How hard the model is pulling on its own weights. The dashed red line is the clip: pulls stronger than this get trimmed. Frequent visits to the line = turbulence. X axis: training step. Y axis: gradient size.",
-  chart_tok: "Reading speed over time. Cliff-drops line up with lesson changes to longer texts. X axis: training step. Y axis: tokens per second.",
-  chart_jspace: "Two J-space vitals: 'verbalizable_mass' ≈ how much of the model's inner workspace could be put into words; 'broadcast_strength' ≈ how loudly workspaces share results with each other. X axis: training step. Y axis: 0–1 score.",
-  chart_route: "Where the model routed its thinking on the latest step, across its four inner workspaces: fast autopilot (S1), slow deliberate thought (S2), an inner critic, and a planner.",
-  // Aux loss terms
-  aux_report: "Report: pressure for each workspace to be able to faithfully describe what it's holding — keeps inner states honest and readable.",
-  aux_broadcast: "Broadcast: pressure for workspaces to actually share their conclusions with each other instead of hoarding them.",
-  aux_selectivity: "Selectivity: pressure for each workspace to be picky about what it lets in, rather than soaking up everything.",
-  aux_modulation: "Modulation: pressure for workspaces to adjust how they operate based on context — turning knobs, not just passing data along.",
-  aux_half_life: "Half-life: how long each workspace holds a thought before letting it fade. Reflexes (S1) should forget fast; the planner should hold on. This term penalizes drifting from those targets.",
-  aux_inter_mi: "Inter-MI: keeps the workspaces from becoming copies of each other — siblings, not clones. Measures overlap between spaces against a target.",
-  aux_routing: "Routing KL: pressure on the traffic director to send each kind of text to the right workspace (math → deliberate, safety → critic, and so on).",
-  // Watch signals
-  dominant_route: "Which inner workspace is getting most of the traffic right now. 'Entropy' below it = how spread-out the traffic is; near zero means everything funnels one way (usually bad).",
-  j_aux_share: "How much of the total score comes from the J-space extras vs plain next-word learning. Above ~50% means the extras are drowning out the main lesson.",
-  lm_delta: "Change in next-word error vs the previous log point. Negative = improving. One bad reading is noise; a streak is a trend.",
-  mass_watch: "Verbalizable mass (could the model say what it's thinking?) and broadcast strength (how loudly workspaces share). Both 0–1.",
-  half_lives_watch: "How many tokens each workspace currently holds a thought for: S1/S2, then Critic and Planner. Compare against the targets in the equation card.",
-  // Demand panel
-  demand_step: "The trainer step at which this 'shopping list' was last published to the data-gatherers.",
-  curate_stricter: "When loss trends the wrong way, the trainer asks the cleaners to tighten quality filters — fewer, better shards.",
-  task_boosts: "Multipliers nudging collectors toward the kinds of text the trainer wants more of right now (e.g. deliberate ×1.5).",
-  demand_reasons: "The trainer's own words for why it's asking: deficits, loss trends, or 'all healthy, keep the mixture'.",
-  // Curriculum hero
-  cur_hero: "seq = how long each practice text is, in tokens. rope = the position-encoding dial that lets the model handle longer texts. mix = this lesson's diet of data types. tool_use = agentic tool-and-skill transcripts.",
+// ELI5 explainers, one per metric/axis/label across this page. Plain
+// language on purpose -- assume the reader doesn't already know what "j_aux
+// share" means. Keyed by a short id, looked up via tip(id).
+const TIP = {
+  d1_host_free: "How much free disk space the machine has. If this runs out, everything stops — data collection, training, checkpoints. Needs to stay above the red line (the low-water mark).",
+  d2_runway: "How much cleaned, ready-to-train-on data is queued up for the phase currently being trained. Like a fuel gauge — if it hits empty, the trainer has nothing to chew on.",
+  d3_collectors: "Whether the workers fetching raw training text from the outside world are actively running, or paused (usually because disk is too full).",
+  d4_raw_headroom: "How much unprocessed raw text is sitting on disk, out of the max allowed before collectors pause themselves to avoid filling the disk.",
+  d5_fail_rate: "Percent of data shards that a worker gave up on (bad data, crash, etc.) instead of successfully processing. High numbers mean something's wrong upstream.",
+  loop_health: "One-word verdict on the whole pipeline: healthy and stepping, stale (stuck), or data-starved (trainer ready but nothing to train on).",
+  host_free: "Free disk space on the actual host machine (not the container's virtual disk, which can lie about how much room is really left).",
+  collectors_status: "Whether the pipeline is currently pausing data collection (usually a disk-space precaution) or letting it run.",
+  trainer_phase: "Which stage of the curriculum the model is currently being trained on (see the Curriculum panel below) — the topic mix and context length change per phase.",
+  step: "One optimizer update = one step. The model's weights change a tiny bit after every step, based on a batch of training data.",
+  lm_loss: "How surprised the model is by the actual next word, on average — lower is better. This is the main number that should trend down as training works.",
+  raw_backlog: "Unprocessed text collected from the internet but not yet cleaned/tokenized, waiting for a curator worker to get to it.",
+  ckpt: "The most recent saved snapshot of the model's weights — what you'd load to actually use or resume training from.",
+  phase_progress: "How far through the CURRENT curriculum phase training has gotten, measured in tokens (words/sub-words) processed vs. that phase's budget.",
+  run_progress: "How far through the ENTIRE planned training run this is, across all curriculum phases combined.",
+  next_ckpt: "How many more optimizer steps until the next checkpoint (saved snapshot) gets written to disk.",
+  demand_step: "The training step number as of the last time the trainer told the data-collection side what it needs more/less of.",
+  curate_stricter: "Whether the trainer is asking curators to be pickier about data quality right now (e.g. because loss is rising and it suspects noisy data).",
+  task_boosts: "Which categories of training examples (math, code, chat, ...) the trainer is asking miners to prioritize collecting more of.",
+  tokens_seen: "Total words/sub-words the model has been trained on so far in this run, summed across all steps.",
+  lm_total: "Two numbers: the core language-modeling loss (predict-the-next-word), and the total loss including all the auxiliary J-space regularizers added on top. See the loss formula below.",
+  tok_s: "Training throughput: how many tokens (words/sub-words) per second the GPU is processing. Higher = faster training, all else equal.",
+  lr: "Learning rate — how big a step the optimizer takes when updating weights. Follows a warmup-then-decay schedule (see the Learning rate chart).",
+  grad: "Gradient norm — roughly, how hard the optimizer is trying to push the weights this step. Spikes can mean instability; it's clipped at a max value (dashed line on the chart) to prevent the model from blowing up.",
+  broadcast_kv: "How strongly information is being shared ('broadcast') between the model's different reasoning workspaces (S1/S2/Critic/Planner) on this batch.",
+  report_kv: "One of the auxiliary loss terms — encourages a workspace to be able to accurately 'report' (verbalize) what it's holding.",
+  routing_kv: "How much the model's internal router disagrees with the expected routing pattern for this task type (e.g. 'automatic' tasks should route mostly to S1). Lower is better alignment.",
+  mass_kv: "Verbalizable mass — roughly, what fraction of a workspace's content could plausibly be put into words. Very low means it's not holding much meaningful info yet; very high can mean it's saturated.",
+  routes_kv: "The last batch's routing split across the four reasoning spaces (R0=S1 automatic, R1=S2 deliberate, R2=Critic, R3=Planner) — should shift depending on task type.",
+  phase_name: "Which curriculum phase (P0-P5) the most recently logged training step belongs to.",
+  loss_chart: "Y-axis: the loss value (lower = model is less surprised by the data = better). X-axis: cumulative training step across the WHOLE run (keeps counting up across restarts instead of resetting), not just since the last restart — amber ticks mark where the trainer crashed and resumed. Two lines: lm_loss (core prediction loss) and total (lm_loss plus all the auxiliary regularizers).",
+  lr_chart: "Y-axis: the learning rate the optimizer is currently using. X-axis: cumulative training step. Follows a warmup (ramps up) then decay (ramps down) schedule — see WSD in the curriculum caption.",
+  grad_chart: "Y-axis: gradient norm (how big a weight update the optimizer wants to make). X-axis: cumulative training step. The dashed red line is the clip threshold — values are capped there to stop the model from taking a destructively large step.",
+  tok_chart: "Y-axis: training throughput in tokens per second. X-axis: cumulative training step. Dips often line up with restarts, checkpoint writes, or the GPU being shared with something else.",
+  jspace_chart: "Y-axis: two workspace health signals, 0 to 1. verbalizable_mass = how much of the workspace content could be put into words; broadcast_strength = how strongly it's being shared with the rest of the model. X-axis: cumulative training step.",
+  route_mix_chart: "What fraction of the most recent batch's attention was routed to each of the four reasoning spaces: S1 (fast/automatic), S2 (slow/deliberate), Critic (safety), Planner (long-horizon). Different task types are expected to route differently.",
+  dominant_route: "Whichever of S1/S2/Critic/Planner got the largest share of routing on the last batch, and what percent it got.",
+  route_entropy: "How spread out the routing is across the four spaces, in bits. Near 0 = all traffic goes to one space (route 'collapsed'); higher = more evenly spread.",
+  j_aux_share: "What fraction of the TOTAL loss comes from the auxiliary J-space terms rather than the core language-modeling loss. If this gets too high, the aux terms may be drowning out actual language learning.",
+  lm_delta: "How much the lm_loss changed versus the previous logged step — a quick 'is it currently improving or getting worse' signal.",
+  grad_vs_clip: "The most recent gradient norm, for comparison against the clip target (usually ~1.0) shown alongside it.",
+  half_lives: "How many tokens of 'memory' each reasoning space holds before old information decays to half strength. S1 forgets fast (short-term), S2/Critic/Planner hold on longer — by design, not a bug.",
+  eqn_card: "The actual formula being minimized during training: the core language-modeling loss (lm) plus several auxiliary regularizer terms, each color-matched to its sparkline below.",
+  aux_report: "Report loss — penalizes a workspace when it can't accurately verbalize/report what it's holding.",
+  aux_broadcast: "Broadcast loss — encourages the right amount of information sharing between workspaces (not too little, not so much it floods everything).",
+  aux_selectivity: "Selectivity loss — encourages 'automatic' tasks to use low variance (routine, on-rails) and 'deliberate' tasks to use high variance (more exploratory) internal representations.",
+  aux_modulation: "Modulation loss — checks that the model's internal state actually changes in a task-appropriate way, not just a fixed default pattern.",
+  aux_half_life: "Half-life loss — pulls each workspace's memory decay rate toward its target half-life (see the Half-lives stat).",
+  aux_inter_mi: "Inter-space mutual-information loss — keeps different reasoning spaces from just copying each other; they're supposed to specialize.",
+  aux_routing: "Routing KL loss — penalizes the router when its space-selection distribution drifts from the expected pattern for the current task type.",
+  data_table: "The raw numbers behind the charts above — every logged point (not smoothed), most recent first, with the wall-clock time each was logged.",
+  cur_hero: "seq = how long each practice text is, in tokens. rope = the position-encoding dial that lets the model handle longer texts. mix = this lesson's diet of data types (tool_use = agentic tool-and-skill transcripts).",
+  demand_reasons: "The trainer's own words for why it's asking: phase deficits, loss trends, or 'runway healthy — maintain mixture'.",
+  eval_meta: "Basic context for the eval run: which preset/checkpoint was tested, what hardware, how long it took.",
+  eval_test: "The name of a specific automated check — usually formatted as branch/test-name.",
+  eval_bar: "The pass/fail threshold this test is checking against — what result would count as a genuine capability, not chance.",
+  eval_measured: "The raw measured value(s) for this test, as logged by the eval harness — the evidence behind the PASS/FAIL verdict.",
+  eval_verdict: "Whether the measured value cleared the bar. FAIL on an untrained/random-init checkpoint is expected — these tests are only meaningful once the model has actually learned something.",
 };
 
-function helpChip(key) {
-  const t = HELP[key];
+function tipEl(key) {
+  const t = TIP[key];
   if (!t) return "";
-  return `<span class="help" tabindex="0" data-tip="${t.replace(/"/g, "&quot;")}">?</span>`;
+  return `<span class="tip" tabindex="0" data-tip="${t.replace(/&/g,"&amp;").replace(/"/g,"&quot;")}"></span>`;
 }
-// Static HTML carries <span class="help" data-help="key">?</span>; fill data-tip once.
-function installHelp() {
-  document.querySelectorAll(".help[data-help]").forEach(el => {
-    const t = HELP[el.getAttribute("data-help")];
-    if (t) el.setAttribute("data-tip", t); else el.style.display = "none";
-  });
-}
-// Flip tooltips that would run off the right edge of the window.
-document.addEventListener("mouseover", (e) => {
-  const h = e.target.closest(".help");
-  if (!h) return;
-  h.classList.remove("flip");
-  const r = h.getBoundingClientRect();
-  if (r.left + 245 > window.innerWidth - 10) h.classList.add("flip");
-});
 
 function fmt(n) {
   if (n == null || Number.isNaN(n)) return "—";
@@ -545,6 +542,90 @@ function pillClass(ok, warn) {
   return "ok";
 }
 
+function fmtDuration(s) {
+  if (s == null || !isFinite(s) || s < 0) return "—";
+  if (s < 90) return Math.round(s) + "s";
+  if (s < 3600) return Math.round(s / 60) + "m";
+  if (s < 86400) return (s / 3600).toFixed(1) + "h";
+  return (s / 86400).toFixed(1) + "d";
+}
+
+// One paragraph, plain language, regenerated from the live payload every
+// poll -- this is meant to answer "what's going on right now" without
+// making the reader cross-reference six panels themselves.
+function composeNarrative(d) {
+  const mode = d.mode || {};
+  const preset = d.preset || "?";
+  const last = (d.trainer && d.trainer.last) || {};
+  const watch = d.watch || {};
+  const restarts = (d.trainer && d.trainer.restarts) || [];
+  const fs = (d.trainer && d.trainer.full_series) || {};
+  const disk = d.disk || {};
+  const pause = (d.flow && d.flow.collector_pause) || {};
+  const parts = [];
+
+  // 1. What is it doing right now.
+  if (mode.id === "training") {
+    parts.push(`Training the <b>${preset}</b> preset.`);
+  } else if (mode.id === "data_prep") {
+    parts.push(`Building data runway for the <b>${preset}</b> preset — not training yet.`);
+  } else if (mode.id === "stale") {
+    parts.push(`<span class="warn-inline">Trainer stale</span> on the <b>${preset}</b> preset — no step logged in ${fmtAge(d.trainer && d.trainer.age_s)}.`);
+  } else if (mode.id === "blocked") {
+    parts.push(`<span class="bad-inline">Blocked</span> — ${mode.detail || "see gates below"}.`);
+  } else {
+    parts.push(`Preset <b>${preset}</b>.`);
+  }
+
+  // 2. Where in the curriculum.
+  const pp = watch.phase_progress, rp = watch.run_progress;
+  if (pp && rp) {
+    parts.push(`Currently phase P${pp.phase} (${pp.short || pp.name}), <b>${(pp.frac*100).toFixed(0)}%</b> through this phase and <b>${(rp.frac*100).toFixed(1)}%</b> through the full ${fmt(rp.tokens_total)}-token run.`);
+  }
+
+  // 3. Loss trend + throughput, in plain words rather than just a number.
+  if (last.step != null && last.lm_loss != null) {
+    const delta = watch.lm_delta_10;
+    let trend = "holding steady";
+    if (delta != null) {
+      if (delta < -0.01) trend = "falling";
+      else if (delta > 0.02) trend = "<span class=\"warn-inline\">rising</span>";
+    }
+    parts.push(`Loss is ${trend} (lm <b>${Number(last.lm_loss).toFixed(3)}</b>) at step <b>${fmt(last.step)}</b>, ~${last.tok_s != null ? fmt(Math.round(last.tok_s)) : "—"} tok/s.`);
+  }
+
+  // 4. Restart/stability history — the thing that's easy to miss by only
+  // looking at "current run" charts.
+  if (restarts.length > 0) {
+    const sinceLast = Date.now() / 1000 - restarts[restarts.length - 1];
+    const totalSpan = (fs.ts && fs.ts.length >= 2) ? (fs.ts[fs.ts.length - 1] - fs.ts[0]) : null;
+    parts.push(`This run has hit <b>${restarts.length}</b> restart${restarts.length === 1 ? "" : "s"}${totalSpan != null ? ` over its ~${fmtDuration(totalSpan)} history` : ""}, but has been stable for the last ${fmtDuration(sinceLast)}.`);
+  } else if (fs.ts && fs.ts.length >= 2) {
+    parts.push(`No restarts in the visible history (~${fmtDuration(fs.ts[fs.ts.length - 1] - fs.ts[0])}) — running smoothly.`);
+  }
+
+  // 5. Infra health, only called out when it needs attention (don't restate
+  // "everything's fine" six different ways).
+  const issues = [];
+  if (disk.below_low_water) issues.push(`<span class="warn-inline">host disk low</span> (${disk.free_gb} GB)`);
+  if (pause.paused) issues.push(`<span class="warn-inline">collectors paused</span> (${pause.reason || "unknown"})`);
+  if (d.trainer && d.trainer.data_starved) issues.push(`<span class="bad-inline">data starved</span>`);
+  parts.push(issues.length ? `Watch: ${issues.join(", ")}.` : `Disk and collectors are healthy.`);
+
+  // 6. Evals.
+  if (d.eval && d.eval.json_exists) {
+    parts.push(`Eval results are available — see the <a href="/evals">evals page</a>.`);
+  } else {
+    parts.push(`No eval run yet.`);
+  }
+
+  return parts.join(" ");
+}
+
+function renderNarrative(d) {
+  document.getElementById("narrative").innerHTML = composeNarrative(d);
+}
+
 function renderMode(d) {
   const m = d.mode || {};
   const id = m.id || "unknown";
@@ -558,12 +639,14 @@ function renderMode(d) {
     </div>`;
 }
 
+const GATE_TIPS = { D1: "d1_host_free", D2: "d2_runway", D3: "d3_collectors", D4: "d4_raw_headroom", D5: "d5_fail_rate" };
+
 function renderGates(d) {
   const gates = (d.flow && d.flow.gates) || [];
   document.getElementById("gates").innerHTML = gates.map(g => `
     <div class="gate ${g.ok ? "ok" : "bad"}">
-      <div class="id">${g.id}</div>
-      <div class="name">${g.name}${helpChip("gate_" + g.id)}</div>
+      <div class="id">${g.id}${tipEl(GATE_TIPS[g.id])}</div>
+      <div class="name">${g.name}</div>
       <div class="val">${g.value || "—"}</div>
       <div class="tgt">${g.target || ""}</div>
     </div>`).join("");
@@ -587,21 +670,21 @@ function renderTop(d) {
   document.getElementById("preset").textContent = d.preset || "—";
   document.getElementById("clock").textContent = fmtTs(d.ts);
   document.getElementById("topStats").innerHTML = `
-    <div class="stat"><div class="k">Loop${helpChip("loop")}</div><div class="v sm"><span class="pill ${health}">${healthLabel}</span></div>
+    <div class="stat"><div class="k">Loop${tipEl('loop_health')}</div><div class="v sm"><span class="pill ${health}">${healthLabel}</span></div>
       <div class="sub">${flow.data_detail || ""}</div></div>
-    <div class="stat"><div class="k">Host free${helpChip("host_free")}</div><div class="v sm"><span class="pill ${freeCls}">${free != null ? free + " GB" : "—"}</span></div>
+    <div class="stat"><div class="k">Host free${tipEl('host_free')}</div><div class="v sm"><span class="pill ${freeCls}">${free != null ? free + " GB" : "—"}</span></div>
       <div class="sub">probe ${disk.probe || "—"} · low ${disk.low_water_gb ?? "—"}</div></div>
-    <div class="stat"><div class="k">Collectors${helpChip("collectors")}</div><div class="v sm"><span class="pill ${pause.paused ? "warn" : "ok"}">${pause.paused ? "paused" : "running"}</span></div>
+    <div class="stat"><div class="k">Collectors${tipEl('collectors_status')}</div><div class="v sm"><span class="pill ${pause.paused ? "warn" : "ok"}">${pause.paused ? "paused" : "running"}</span></div>
       <div class="sub">${pause.reason || "feeding target phase"}</div></div>
-    <div class="stat"><div class="k">Trainer phase${helpChip("trainer_phase")}</div><div class="v">${flow.trainer_phase != null ? flow.trainer_phase : "—"}</div>
+    <div class="stat"><div class="k">Trainer phase${tipEl('trainer_phase')}</div><div class="v">${flow.trainer_phase != null ? flow.trainer_phase : "—"}</div>
       <div class="sub">${(d.watch && d.watch.phase_progress && d.watch.phase_progress.short) || "target P"+(flow.target_phase != null ? flow.target_phase : "—")}</div></div>
-    <div class="stat"><div class="k">Step${helpChip("step")}</div><div class="v">${step}</div>
+    <div class="stat"><div class="k">Step${tipEl('step')}</div><div class="v">${step}</div>
       <div class="sub">age ${fmtAge(tr.age_s)}</div></div>
-    <div class="stat"><div class="k">lm loss${helpChip("lm_loss")}</div><div class="v sm">${loss}</div>
+    <div class="stat"><div class="k">lm loss${tipEl('lm_loss')}</div><div class="v sm">${loss}</div>
       <div class="sub">${toks} tok/s</div></div>
-    <div class="stat"><div class="k">Raw backlog${helpChip("raw_backlog")}</div><div class="v sm">${m.raw_gb != null ? m.raw_gb + " GB" : "—"}</div>
+    <div class="stat"><div class="k">Raw backlog${tipEl('raw_backlog')}</div><div class="v sm">${m.raw_gb != null ? m.raw_gb + " GB" : "—"}</div>
       <div class="sub">${Math.round((m.raw_fill || 0)*100)}% of max ${m.raw_max_gb ?? "—"} GB</div></div>
-    <div class="stat"><div class="k">Ckpt${helpChip("ckpt")}</div><div class="v sm">${(d.ckpt && d.ckpt.latest_pointer) || "—"}</div>
+    <div class="stat"><div class="k">Ckpt${tipEl('ckpt')}</div><div class="v sm">${(d.ckpt && d.ckpt.latest_pointer) || "—"}</div>
       <div class="sub">tok ${m.tokenizer_sha || "—"}</div></div>
   `;
 }
@@ -634,13 +717,12 @@ function renderCurriculum(d) {
       <div>
         <div class="title">Now training:
           <span class="pill ok">P${active} · ${activePh.short || activePh.name}</span>
-          ${helpChip("cur_hero")}
         </div>
         <div class="detail">
-          seq ${activePh.seq} · rope ${activePh.rope_base} · mix ${mixStr(activePh.mix)}
-          · phase progress ${pctPhase}% (${fmt(pp.tokens_in_phase)} / ${fmt(pp.phase_tokens)})
-          · run ${pctRun}% of ${fmt(cur.tokens_total)} tokens
-          · next ckpt in ${watch.steps_to_ckpt != null ? watch.steps_to_ckpt : "—"} steps
+          seq ${activePh.seq} · rope ${activePh.rope_base} · mix ${mixStr(activePh.mix)}${tipEl('cur_hero')}
+          · phase progress${tipEl('phase_progress')} ${pctPhase}% (${fmt(pp.tokens_in_phase)} / ${fmt(pp.phase_tokens)})
+          · run${tipEl('run_progress')} ${pctRun}% of ${fmt(cur.tokens_total)} tokens
+          · next ckpt${tipEl('next_ckpt')} in ${watch.steps_to_ckpt != null ? watch.steps_to_ckpt : "—"} steps
         </div>
       </div>
     </div>`;
@@ -739,17 +821,17 @@ function renderWatch(d) {
   const hl = last.hl_est || {};
   const dom = w.dominant_route || {};
   document.getElementById("watchStats").innerHTML = `
-    <div class="stat"><div class="k">Dominant route${helpChip("dominant_route")}</div><div class="v sm">${dom.name || "—"} ${dom.p != null ? (dom.p*100).toFixed(0)+"%" : ""}</div>
-      <div class="sub">entropy ${w.route_entropy != null ? w.route_entropy : "—"} bits</div></div>
-    <div class="stat"><div class="k">J-aux share${helpChip("j_aux_share")}</div><div class="v sm">${w.j_aux_share != null ? (w.j_aux_share*100).toFixed(0)+"%" : "—"}</div>
+    <div class="stat"><div class="k">Dominant route${tipEl('dominant_route')}</div><div class="v sm">${dom.name || "—"} ${dom.p != null ? (dom.p*100).toFixed(0)+"%" : ""}</div>
+      <div class="sub">entropy ${w.route_entropy != null ? w.route_entropy : "—"} bits ${tipEl('route_entropy')}</div></div>
+    <div class="stat"><div class="k">J-aux share${tipEl('j_aux_share')}</div><div class="v sm">${w.j_aux_share != null ? (w.j_aux_share*100).toFixed(0)+"%" : "—"}</div>
       <div class="sub">of total loss</div></div>
-    <div class="stat"><div class="k">Δ lm (log)${helpChip("lm_delta")}</div><div class="v sm">${w.lm_delta_10 != null ? (w.lm_delta_10 > 0 ? "+" : "")+w.lm_delta_10 : "—"}</div>
+    <div class="stat"><div class="k">Δ lm (log)${tipEl('lm_delta')}</div><div class="v sm">${w.lm_delta_10 != null ? (w.lm_delta_10 > 0 ? "+" : "")+w.lm_delta_10 : "—"}</div>
       <div class="sub">vs prior step log</div></div>
-    <div class="stat"><div class="k">grad${helpChip("grad")}</div><div class="v sm">${w.grad_vs_clip != null ? w.grad_vs_clip : "—"}</div>
+    <div class="stat"><div class="k">grad${tipEl('grad_vs_clip')}</div><div class="v sm">${w.grad_vs_clip != null ? w.grad_vs_clip : "—"}</div>
       <div class="sub">clip target ~1.0</div></div>
-    <div class="stat"><div class="k">mass${helpChip("mass_watch")}</div><div class="v sm">${last.verbalizable_mass != null ? Number(last.verbalizable_mass).toFixed(3) : "—"}</div>
+    <div class="stat"><div class="k">mass</div><div class="v sm">${last.verbalizable_mass != null ? Number(last.verbalizable_mass).toFixed(3) : "—"}</div>
       <div class="sub">broadcast ${last.broadcast_strength != null ? Number(last.broadcast_strength).toFixed(3) : "—"}</div></div>
-    <div class="stat"><div class="k">half-lives${helpChip("half_lives_watch")}</div><div class="v sm">${hl.system1 != null ? Math.round(hl.system1)+"/"+Math.round(hl.system2||0) : "—"}</div>
+    <div class="stat"><div class="k">half-lives${tipEl('half_lives')}</div><div class="v sm">${hl.system1 != null ? Math.round(hl.system1)+"/"+Math.round(hl.system2||0) : "—"}</div>
       <div class="sub">S1/S2 · C ${hl.critic != null ? Math.round(hl.critic) : "—"} · P ${hl.planner != null ? Math.round(hl.planner) : "—"}</div></div>
   `;
   const hints = w.hints || [];
@@ -822,7 +904,7 @@ function sparkline(ys, color) {
   </svg>`;
 }
 
-function drawChart(svg, { chartId, xs, lines, refLines, xTickFmt, yTickFmt }) {
+function drawChart(svg, { chartId, xs, lines, refLines, xTickFmt, yTickFmt, restarts, steps, times, xLabel }) {
   const w = 320, h = 120, padL = 40, padR = 10, padT = 8, padB = 18;
   svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
   const wrap = svg.parentElement;
@@ -866,6 +948,15 @@ function drawChart(svg, { chartId, xs, lines, refLines, xTickFmt, yTickFmt }) {
     const y = Y(r.value);
     out += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${w-padR}" y2="${y.toFixed(1)}" stroke="${r.color || '#898781'}" stroke-width="1" stroke-dasharray="3 3"/>`;
     if (r.label) out += `<text x="${w-padR}" y="${(y-3).toFixed(1)}" text-anchor="end" font-size="8" fill="${r.color || '#898781'}">${r.label}</text>`;
+  });
+
+  // Restart markers: short muted ticks at the top edge only (not full-height
+  // lines) -- a run with many restarts would otherwise turn the chart into a
+  // picket fence. Hover reveals which one via the crosshair tooltip.
+  (restarts || []).forEach(rt => {
+    if (rt < xmin || rt > xmax) return;
+    const x = X(rt).toFixed(1);
+    out += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT + 5}" stroke="${MCOLORS.orange}" stroke-width="1.5" opacity="0.85"/>`;
   });
 
   const firstDraw = !_chartSeen.has(chartId);
@@ -917,7 +1008,16 @@ function drawChart(svg, { chartId, xs, lines, refLines, xTickFmt, yTickFmt }) {
     const rows = lines.filter(l => l.ys[bestI] != null).map(l =>
       `<div><span class="k" style="border-color:${l.color}">${l.label}</span><b>${yTickFmt ? yTickFmt(l.ys[bestI]) : l.ys[bestI]}</b></div>`
     ).join("");
-    tip.innerHTML = `<div class="muted" style="font-size:0.65rem">step ${xTickFmt ? xTickFmt(xs[bestI]) : xs[bestI]}</div>${rows}`;
+    const xHead = xTickFmt ? xTickFmt(xs[bestI]) : xs[bestI];
+    // Raw logged step only shown when it actually differs from the
+    // cumulative x position (i.e. after a restart) — otherwise it's the
+    // same number twice.
+    const rawStep = steps && steps[bestI] != null ? Math.round(steps[bestI]) : null;
+    const stepHead = rawStep != null && rawStep !== Math.round(xs[bestI]) ? ` (raw step ${rawStep})` : "";
+    const timeHead = times && times[bestI] != null ? ` · ${fmtClockTime(times[bestI])}` : "";
+    const nearRestart = (restarts || []).some(rt => Math.abs(rt - xs[bestI]) < (xmax - xmin) / w * 6);
+    const restartNote = nearRestart ? `<div style="color:${MCOLORS.orange};font-size:0.65rem">↻ trainer restart</div>` : "";
+    tip.innerHTML = `<div class="muted" style="font-size:0.65rem">${xLabel || ""}${xHead}${stepHead}${timeHead}</div>${restartNote}${rows}`;
     tip.style.display = "block";
     const leftPct = (cx / w) * 100;
     if (leftPct > 55) { tip.style.right = `calc(${100 - leftPct}% + 4px)`; tip.style.left = "auto"; }
@@ -933,14 +1033,22 @@ const fmtTokS = v => v == null ? "—" : fmt(Math.round(v));
 const fmtFrac = v => v == null ? "—" : Number(v).toFixed(3);
 const fmtStep = v => v == null ? "—" : Math.round(v);
 
+// Full local timestamp, used in tooltips/captions where wall-clock time is
+// supplementary context alongside the step-based x-axis.
+function fmtClockTime(tsSec) {
+  if (tsSec == null) return "—";
+  try { return new Date(tsSec * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); }
+  catch { return "—"; }
+}
+
 const AUX_TERMS = [
-  ["report", "Report", MCOLORS.blue],
-  ["broadcast", "Broadcast", MCOLORS.aqua],
-  ["selectivity", "Selectivity", MCOLORS.gold],
-  ["modulation", "Modulation", MCOLORS.green],
-  ["half_life", "Half-life", MCOLORS.violet],
-  ["inter_mi", "Inter-MI", MCOLORS.red],
-  ["routing", "Routing KL", MCOLORS.magenta],
+  ["report", "Report", MCOLORS.blue, "aux_report"],
+  ["broadcast", "Broadcast", MCOLORS.aqua, "aux_broadcast"],
+  ["selectivity", "Selectivity", MCOLORS.gold, "aux_selectivity"],
+  ["modulation", "Modulation", MCOLORS.green, "aux_modulation"],
+  ["half_life", "Half-life", MCOLORS.violet, "aux_half_life"],
+  ["inter_mi", "Inter-MI", MCOLORS.red, "aux_inter_mi"],
+  ["routing", "Routing KL", MCOLORS.magenta, "aux_routing"],
 ];
 const ROUTE_NAMES = ["S1 automatic", "S2 deliberate", "Critic", "Planner"];
 const ROUTE_COLORS = [MCOLORS.blue, MCOLORS.aqua, MCOLORS.gold, MCOLORS.green];
@@ -961,66 +1069,73 @@ function renderTrain(d) {
     ? route.map((p,i) => `R${i}:${(Number(p)*100).toFixed(0)}%`).join(" ")
     : "—";
   document.getElementById("trainStats").innerHTML = `
-    <div class="stat"><div class="k">Step${helpChip("step")}</div><div class="v">${last.step ?? "—"}</div></div>
-    <div class="stat"><div class="k">Tokens seen${helpChip("tokens_seen")}</div><div class="v sm">${fmt(last.tokens)}</div></div>
-    <div class="stat"><div class="k">lm / total${helpChip("lm_total")}</div><div class="v sm">${last.lm_loss != null ? Number(last.lm_loss).toFixed(3) : "—"} / ${last.total != null ? Number(last.total).toFixed(3) : "—"}</div></div>
-    <div class="stat"><div class="k">tok/s${helpChip("tok_s")}</div><div class="v sm">${last.tok_s != null ? Math.round(last.tok_s) : "—"}</div></div>
-    <div class="stat"><div class="k">lr${helpChip("lr")}</div><div class="v sm">${last.lr != null ? Number(last.lr).toExponential(1) : "—"}</div></div>
-    <div class="stat"><div class="k">grad${helpChip("grad")}</div><div class="v sm">${last.grad_norm != null ? Number(last.grad_norm).toFixed(2) : "—"}</div></div>
+    <div class="stat"><div class="k">Step${tipEl('step')}</div><div class="v">${last.step ?? "—"}</div></div>
+    <div class="stat"><div class="k">Tokens seen${tipEl('tokens_seen')}</div><div class="v sm">${fmt(last.tokens)}</div></div>
+    <div class="stat"><div class="k">lm / total${tipEl('lm_total')}</div><div class="v sm">${last.lm_loss != null ? Number(last.lm_loss).toFixed(3) : "—"} / ${last.total != null ? Number(last.total).toFixed(3) : "—"}</div></div>
+    <div class="stat"><div class="k">tok/s${tipEl('tok_s')}</div><div class="v sm">${last.tok_s != null ? Math.round(last.tok_s) : "—"}</div></div>
+    <div class="stat"><div class="k">lr${tipEl('lr')}</div><div class="v sm">${last.lr != null ? Number(last.lr).toExponential(1) : "—"}</div></div>
+    <div class="stat"><div class="k">grad${tipEl('grad')}</div><div class="v sm">${last.grad_norm != null ? Number(last.grad_norm).toFixed(2) : "—"}</div></div>
   `;
   document.getElementById("trainDetail").innerHTML = `
-    <div class="k">broadcast</div><div>${last.broadcast != null ? Number(last.broadcast).toFixed(4) : "—"}</div>
-    <div class="k">report</div><div>${last.report != null ? Number(last.report).toFixed(3) : "—"}</div>
-    <div class="k">routing</div><div>${last.routing != null ? Number(last.routing).toFixed(4) : "—"}</div>
-    <div class="k">mass</div><div>${last.verbalizable_mass != null ? Number(last.verbalizable_mass).toFixed(3) : "—"}</div>
-    <div class="k">routes</div><div>${routeStr}</div>
-    <div class="k">phase name</div><div>${last.phase != null ? "P"+last.phase : "—"}</div>
+    <div class="k">broadcast${tipEl('broadcast_kv')}</div><div>${last.broadcast != null ? Number(last.broadcast).toFixed(4) : "—"}</div>
+    <div class="k">report${tipEl('report_kv')}</div><div>${last.report != null ? Number(last.report).toFixed(3) : "—"}</div>
+    <div class="k">routing${tipEl('routing_kv')}</div><div>${last.routing != null ? Number(last.routing).toFixed(4) : "—"}</div>
+    <div class="k">mass${tipEl('mass_kv')}</div><div>${last.verbalizable_mass != null ? Number(last.verbalizable_mass).toFixed(3) : "—"}</div>
+    <div class="k">routes${tipEl('routes_kv')}</div><div>${routeStr}</div>
+    <div class="k">phase name${tipEl('phase_name')}</div><div>${last.phase != null ? "P"+last.phase : "—"}</div>
   `;
 
-  const s = tr.series || {};
-  const xs = s.step || [];
+  const s = tr.series || {};                    // current run only (exact, for stat cards/table)
+  const fs = tr.full_series || {};               // whole history, downsampled, restarts included
+  // cum_step, not raw step: the trainer's own counter resets/rolls back on
+  // every restart, so it isn't monotonic across the full history the way it
+  // is within one run — cum_step keeps counting up instead of jumping
+  // backward. steps/times ride along for the tooltip (exact raw step + when).
+  const xs = fs.cum_step || [];
+  const restarts = (tr.restarts || []).map(r => r.cum_step);
+  const chartOpts = { xTickFmt: fmtStep, restarts, steps: fs.step, times: fs.ts, xLabel: "step " };
 
   document.getElementById("lossCv").textContent = fmtLoss(lastNonNull(s.lm_loss));
   drawChart(document.getElementById("chartLoss"), {
-    chartId: "loss", xs,
+    chartId: "loss", xs, ...chartOpts,
     lines: [
-      { label: "lm_loss", color: MCOLORS.blue, ys: s.lm_loss || [] },
-      { label: "total", color: MCOLORS.aqua, ys: s.total || [] },
+      { label: "lm_loss", color: MCOLORS.blue, ys: fs.lm_loss || [] },
+      { label: "total", color: MCOLORS.aqua, ys: fs.total || [] },
     ],
-    xTickFmt: fmtStep, yTickFmt: fmtLoss,
+    yTickFmt: fmtLoss,
   });
 
   document.getElementById("lrCv").textContent = fmtLr(lastNonNull(s.lr));
   drawChart(document.getElementById("chartLr"), {
-    chartId: "lr", xs,
-    lines: [{ label: "lr", color: MCOLORS.gold, ys: s.lr || [] }],
-    xTickFmt: fmtStep, yTickFmt: fmtLr,
+    chartId: "lr", xs, ...chartOpts,
+    lines: [{ label: "lr", color: MCOLORS.gold, ys: fs.lr || [] }],
+    yTickFmt: fmtLr,
   });
 
   const clip = (d.objective && d.objective.grad_clip) || 1.0;
   document.getElementById("gradCv").textContent = fmtGrad(lastNonNull(s.grad_norm));
   drawChart(document.getElementById("chartGrad"), {
-    chartId: "grad", xs,
-    lines: [{ label: "grad_norm", color: MCOLORS.violet, ys: s.grad_norm || [] }],
+    chartId: "grad", xs, ...chartOpts,
+    lines: [{ label: "grad_norm", color: MCOLORS.violet, ys: fs.grad_norm || [] }],
     refLines: [{ value: clip, color: MCOLORS.red, label: `clip ${clip}` }],
-    xTickFmt: fmtStep, yTickFmt: fmtGrad,
+    yTickFmt: fmtGrad,
   });
 
   document.getElementById("tokCv").textContent = fmtTokS(lastNonNull(s.tok_s));
   drawChart(document.getElementById("chartTok"), {
-    chartId: "tok", xs,
-    lines: [{ label: "tok/s", color: MCOLORS.green, ys: s.tok_s || [] }],
-    xTickFmt: fmtStep, yTickFmt: fmtTokS,
+    chartId: "tok", xs, ...chartOpts,
+    lines: [{ label: "tok/s", color: MCOLORS.green, ys: fs.tok_s || [] }],
+    yTickFmt: fmtTokS,
   });
 
   document.getElementById("jsCv").textContent = fmtFrac(lastNonNull(s.verbalizable_mass));
   drawChart(document.getElementById("chartJspace"), {
-    chartId: "jspace", xs,
+    chartId: "jspace", xs, ...chartOpts,
     lines: [
-      { label: "verbalizable_mass", color: MCOLORS.blue, ys: s.verbalizable_mass || [] },
-      { label: "broadcast_strength", color: MCOLORS.orange, ys: s.broadcast_strength || [] },
+      { label: "verbalizable_mass", color: MCOLORS.blue, ys: fs.verbalizable_mass || [] },
+      { label: "broadcast_strength", color: MCOLORS.orange, ys: fs.broadcast_strength || [] },
     ],
-    xTickFmt: fmtStep, yTickFmt: fmtFrac,
+    yTickFmt: fmtFrac,
   });
 
   renderRouteMix(d);
@@ -1028,8 +1143,12 @@ function renderTrain(d) {
   renderAux(d);
   renderTable(d);
 
+  const stepSpan = xs.length >= 2 ? `step ${fmtStep(xs[0])} → ${fmtStep(xs[xs.length - 1])}` : "—";
+  const times = fs.ts || [];
+  const timeSpan = times.length >= 2 && times[0] != null && times[times.length - 1] != null
+    ? ` (${fmtClockTime(times[0])} → ${fmtClockTime(times[times.length - 1])})` : "";
   document.getElementById("trainCaption").textContent =
-    `Source: ${tr.metrics_path || "metrics"} · ${xs.length} points in current run · ${tr.n_points || 0} recent jsonl lines`;
+    `Source: ${tr.metrics_path || "metrics"} · ${xs.length} points, ${stepSpan}${timeSpan} · ${restarts.length} restart${restarts.length === 1 ? "" : "s"} (amber tick marks) · ${tr.n_points || 0} recent jsonl lines read`;
 }
 
 function renderRouteMix(d) {
@@ -1067,45 +1186,32 @@ function renderEqn(d) {
 }
 
 function renderAux(d) {
-  const s = (d.trainer && d.trainer.series) || {};
-  document.getElementById("auxGrid").innerHTML = AUX_TERMS.map(([key, label, color]) => {
-    const ys = s[key] || [];
+  const fs = (d.trainer && d.trainer.full_series) || {};
+  document.getElementById("auxGrid").innerHTML = AUX_TERMS.map(([key, label, color, tipKey]) => {
+    const ys = fs[key] || [];
     const last = lastNonNull(ys);
     return `<div class="aux-cell">
-      <div class="lab"><i style="background:${color}"></i>${label}${helpChip("aux_" + key)}</div>
+      <div class="lab"><i style="background:${color}"></i>${label}${tipEl(tipKey)}</div>
       <div class="val">${last != null ? Number(last).toFixed(4) : "—"}</div>
       ${sparkline(ys, color)}
     </div>`;
   }).join("");
 }
 
-const TABLE_HELP = {
-  step: "Training step number — one weight update per step.",
-  lm_loss: "Next-word error. Lower = better.",
-  total: "lm_loss plus all the J-space extra terms.",
-  grad_norm: "How hard the model pulled on its weights this step.",
-  lr: "Size of the learning nudge at this step.",
-  tok_s: "Reading speed, tokens per second.",
-  verbalizable_mass: "How much of the inner workspace could be put into words (0–1).",
-  broadcast_strength: "How loudly workspaces share results with each other (0–1).",
-};
-
 function renderTable(d) {
-  const s = (d.trainer && d.trainer.series) || {};
-  const n = (s.step || []).length;
+  const fs = (d.trainer && d.trainer.full_series) || {};
+  const n = (fs.step || []).length;
   document.getElementById("seriesThead").innerHTML =
-    `<tr>${TABLE_COLS.map(c => {
-      const t = TABLE_HELP[c] || (HELP["aux_" + c] || "").split(":").slice(1).join(":").trim();
-      return `<th title="${(t || c).replace(/"/g, "&quot;")}">${c}</th>`;
-    }).join("")}</tr>`;
+    `<tr><th>time</th>${TABLE_COLS.map(c => `<th>${c}</th>`).join("")}</tr>`;
   const start = Math.max(0, n - 30);
   let rows = "";
   for (let i = n - 1; i >= start; i--) {
-    rows += "<tr>" + TABLE_COLS.map(c => {
-      const v = (s[c] || [])[i];
+    const cells = TABLE_COLS.map(c => {
+      const v = (fs[c] || [])[i];
       if (v == null) return "<td>—</td>";
       return `<td>${typeof v === "number" ? (Number.isInteger(v) ? v : v.toFixed(4)) : v}</td>`;
-    }).join("") + "</tr>";
+    }).join("");
+    rows += `<tr><td>${fmtClockTime(fs.ts && fs.ts[i])}</td>${cells}</tr>`;
   }
   document.getElementById("seriesTbody").innerHTML = rows;
 }
@@ -1136,11 +1242,11 @@ function renderDemand(d) {
   const reasonStr = (dem.reasons || []).join(" · ") || "—";
   el.innerHTML = `
     <div class="row">
-      <div class="stat"><div class="k">Demand step${helpChip("demand_step")}</div><div class="v">${dem.step ?? "—"}</div>
+      <div class="stat"><div class="k">Demand step${tipEl('demand_step')}</div><div class="v">${dem.step ?? "—"}</div>
         <div class="sub">age ${fmtAge(dem.age_s)} · phase P${dem.trainer_phase ?? "—"}</div></div>
-      <div class="stat"><div class="k">Curate stricter${helpChip("curate_stricter")}</div><div class="v sm"><span class="pill ${dem.curate_stricter ? "warn" : "ok"}">${dem.curate_stricter ? "yes" : "no"}</span></div></div>
-      <div class="stat"><div class="k">Task boosts${helpChip("task_boosts")}</div><div class="v sm">${boostStr}</div></div>
-      <div class="stat"><div class="k">Reasons${helpChip("demand_reasons")}</div><div class="v sm">${reasonStr}</div></div>
+      <div class="stat"><div class="k">Curate stricter${tipEl('curate_stricter')}</div><div class="v sm"><span class="pill ${dem.curate_stricter ? "warn" : "ok"}">${dem.curate_stricter ? "yes" : "no"}</span></div></div>
+      <div class="stat"><div class="k">Task boosts${tipEl('task_boosts')}</div><div class="v sm">${boostStr}</div></div>
+      <div class="stat"><div class="k">Reasons${tipEl('demand_reasons')}</div><div class="v sm">${reasonStr}</div></div>
     </div>
     <div class="phase-grid" style="margin-top:0.75rem">
       ${[0,1,2,3,4,5].map(p => {
@@ -1161,6 +1267,7 @@ async function refresh() {
     const r = await fetch("/pipeline/status");
     const d = await r.json();
     lastPayload = d;
+    renderNarrative(d);
     renderMode(d);
     renderGates(d);
     renderTop(d);
@@ -1213,7 +1320,6 @@ document.getElementById("tableToggle").onclick = () => {
   document.getElementById("tableToggle").textContent = showing ? "Hide data table ▴" : "Show data table ▾";
 };
 
-installHelp();
 refresh();
 setInterval(refresh, 3000);
 </script>

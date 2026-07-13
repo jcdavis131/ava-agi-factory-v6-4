@@ -17,8 +17,8 @@ torch = pytest.importorskip("torch")
 from ava.config import AvaConfig, ConfigError
 from ava.model import build_model, count_params, set_router_bias
 from model_1b import (
-    AvaModel1B, DeltaNetBlock, TransformerBlock1B, apply_rope_scaling,
-    apply_rotary_emb, rotate_half,
+    AvaModel1B, DeltaNetBlock, LongRoPE2ScaledRoPE, TransformerBlock1B,
+    apply_rope_scaling, apply_rotary_emb, rotate_half,
 )
 
 
@@ -372,6 +372,137 @@ def test_swiglu_shapes_and_causality():
     with torch.no_grad():
         after = m(input_ids=p)["lm_logits"]
     torch.testing.assert_close(base[:, :4], after[:, :4], atol=1e-5, rtol=1e-5)
+
+
+# ---------------------------------------------------------------------------
+# LongRoPE2 / Peri-LN / attention sinks (ported from an independent line of
+# work that built them on the *unfixed* rotate_half()/get_cos_sin() -- see
+# tasks/plan-longrope2-port.md). All three are config-gated and default off.
+
+def test_attention_sinks_default_off_preserves_existing_model():
+    m = AvaModel1B(vocab_size=64, d_model=32, n_text=1, n_fusion=1, n_reason=1,
+                    n_heads=2, head_dim=16, multi_jspace_enabled=False, multimodal=False)
+    assert m.text_layers[0].sink_k is None and m.text_layers[0].sink_v is None
+    assert isinstance(m.text_layers[0].peri_norm_attn, torch.nn.Identity)
+    assert isinstance(m.text_layers[0].peri_norm_mlp, torch.nn.Identity)
+
+
+def test_attention_sinks_causal_with_gqa():
+    """Sinks are shaped per KV-head group so they compose with GQA; this must
+    still hold end to end: future tokens cannot change past logits, and the
+    sinks (always-attended) must not be a back door around that."""
+    cfg = _tiny(model={"n_heads": 4, "head_dim": 8, "d_model": 32, "n_kv_heads": 2,
+                        "n_sinks": 3})
+    m = build_model(cfg).eval()
+    assert m.text_layers[0].sink_k.shape == (2, 3, 8)  # (n_kv_heads, n_sinks, head_dim)
+
+    ids = torch.randint(0, 64, (1, 6))
+    with torch.no_grad():
+        base = m(input_ids=ids)["lm_logits"]
+    assert base.shape == (1, 6, 64)
+
+    p = ids.clone()
+    p[0, 3] = (p[0, 3] + 1) % 64
+    with torch.no_grad():
+        after = m(input_ids=p)["lm_logits"]
+    torch.testing.assert_close(base[:, :3], after[:, :3], atol=1e-5, rtol=1e-5)
+    assert not torch.allclose(base[:, 3], after[:, 3], atol=1e-5)
+
+
+def test_peri_ln_adds_output_norm_and_stays_causal():
+    cfg = _tiny(model={"use_peri_ln": True})
+    m = build_model(cfg).eval()
+    assert isinstance(m.text_layers[0].peri_norm_attn, torch.nn.modules.module.Module)
+    assert not isinstance(m.text_layers[0].peri_norm_attn, torch.nn.Identity)
+    assert not isinstance(m.text_layers[0].peri_norm_mlp, torch.nn.Identity)
+
+    ids = torch.randint(0, 64, (1, 6))
+    with torch.no_grad():
+        base = m(input_ids=ids)["lm_logits"]
+    p = ids.clone()
+    p[0, 4] = (p[0, 4] + 1) % 64
+    with torch.no_grad():
+        after = m(input_ids=p)["lm_logits"]
+    torch.testing.assert_close(base[:, :4], after[:, :4], atol=1e-5, rtol=1e-5)
+
+
+def test_rope_type_rejects_unknown_value():
+    with pytest.raises(ConfigError, match="rope_type"):
+        _tiny(model={"rope_type": "bogus"})
+    with pytest.raises(ValueError, match="rope_type"):
+        TransformerBlock1B(d_model=32, n_heads=2, head_dim=16, rope_type="bogus")
+
+
+def test_longrope2_rope_scaling_updates_lambda_factors():
+    cfg = _tiny(model={"rope_type": "longrope2"})
+    m = build_model(cfg)
+    from model_1b import LongRoPE2ScaledRoPE
+    assert isinstance(m.rope, LongRoPE2ScaledRoPE)
+    assert isinstance(m.text_layers[0].rope, LongRoPE2ScaledRoPE)
+
+    base_lambda = m.rope.lambda_factors.clone()
+    apply_rope_scaling(m, 1_000_000, 50.0)
+    assert m.rope.base == 1_000_000 and m.rope.scale == 50.0
+    assert not torch.allclose(m.rope.lambda_factors, base_lambda), \
+        "lambda_factors must change with scale, or LongRoPE2 isn't doing anything"
+    assert m.rope.critical < 31.0, "critical dim must shift down (31->25 direction) as scale grows"
+    assert m.rope.attn_factor > 1.0 and 1.0 <= m.rope.mscale <= 1.414
+    assert m.text_layers[0].rope.base == 1_000_000, "per-block rope must stay in sync"
+
+
+def test_longrope2_rotary_preserves_norm_and_relative_position():
+    """The exact regression the port exists to avoid: an independent line of
+    work built LongRoPE2 on top of the *original* interleaved rotate_half(),
+    which didn't match get_cos_sin()'s half-split cos/sin layout. Ported
+    through the fixed apply_rotary_emb()/rotate_half() instead, so this must
+    hold exactly like it does for YaRNScaledRoPE."""
+    torch.manual_seed(11)
+    d = 16
+    rope = LongRoPE2ScaledRoPE(dim=d)
+    rope.update(base=1_000_000, scale=50.0)  # scale>1 so lambda_factors != 1
+    assert not torch.allclose(rope.lambda_factors, torch.ones_like(rope.lambda_factors))
+
+    # A *correct* rotation is an isometry up to the uniform `mscale` factor
+    # YaRN/LongRoPE2 both apply on purpose (the "10x less tokens" magnitude
+    # boost) -- ||rotated|| == ||orig|| * mscale, exactly, at every position.
+    # An orthogonal-but-wrong rotation (e.g. angle mismatch per dim) breaks
+    # this too, since it stops being a proper rotation at all; that's what
+    # makes this check equivalent to the plain norm-preservation one at
+    # mscale=1 while still exercising the scale>1 (non-trivial lambda) path.
+    q = torch.randn(1, 1, 5, d)
+    k = torch.randn(1, 1, 5, d)
+    cos, sin = rope.get_cos_sin(5)
+    qr, kr = apply_rotary_emb(q, k, cos, sin)
+    torch.testing.assert_close(q.norm(dim=-1) * rope.mscale, qr.norm(dim=-1), atol=1e-4, rtol=1e-4)
+    torch.testing.assert_close(k.norm(dim=-1) * rope.mscale, kr.norm(dim=-1), atol=1e-4, rtol=1e-4)
+
+    q1 = torch.randn(1, 1, 1, d)
+    k1 = torch.randn(1, 1, 1, d)
+    cos, sin = rope.get_cos_sin(12)
+
+    def score(i, j):
+        qi = apply_rotary_emb(q1, k1, cos[i:i + 1], sin[i:i + 1])[0]
+        kj = apply_rotary_emb(q1, k1, cos[j:j + 1], sin[j:j + 1])[1]
+        return (qi * kj).sum().item()
+
+    assert score(5, 2) == pytest.approx(score(8, 5), abs=1e-3)
+    assert score(5, 2) != pytest.approx(score(5, 4), abs=1e-3)
+
+
+def test_longrope2_forward_runs_and_is_causal():
+    cfg = _tiny(model={"rope_type": "longrope2"})
+    m = build_model(cfg)
+    apply_rope_scaling(m, 1_000_000, 20.0)
+    m.eval()
+    ids = torch.randint(0, 64, (1, 6))
+    with torch.no_grad():
+        base = m(input_ids=ids)["lm_logits"]
+    p = ids.clone()
+    p[0, 4] = (p[0, 4] + 1) % 64
+    with torch.no_grad():
+        after = m(input_ids=p)["lm_logits"]
+    torch.testing.assert_close(base[:, :4], after[:, :4], atol=1e-5, rtol=1e-5)
+    assert not torch.allclose(base[:, 4], after[:, 4], atol=1e-5)
 
 
 def test_gradient_checkpointing_matches_plain_forward():

@@ -289,14 +289,15 @@ def _disk_probe_label() -> str:
     return "/"
 
 
-def _tail_jsonl(path: Path, n: int = 120) -> list[dict[str, Any]]:
+def _tail_jsonl(path: Path, n: int = 120, max_bytes: int = 262_144) -> list[dict[str, Any]]:
     if not path.is_file():
         return []
     try:
-        # Read last ~256KB then take last n lines — cheap for growing files.
+        # Read the last max_bytes then take the last n lines — cheap for
+        # growing files without loading a run's whole history off disk.
         size = path.stat().st_size
         with open(path, "rb") as f:
-            f.seek(max(0, size - 262_144))
+            f.seek(max(0, size - max_bytes))
             raw = f.read().decode("utf-8", errors="replace")
         lines = [ln for ln in raw.splitlines() if ln.strip()]
         out: list[dict[str, Any]] = []
@@ -367,6 +368,72 @@ def current_run_series(metrics: list[dict[str, Any]]) -> dict[str, list[Any]]:
         for k in _SERIES_FIELDS:
             series[k].append(row.get(k))
     return series
+
+
+# Full-history charts render more points than a step-count axis can show
+# sanely across restarts (step resets each time), so downsample to this many
+# before returning -- keeps the dashboard payload and SVG path length bounded
+# on a run that's been going for days, without needing the browser to do it.
+_FULL_SERIES_MAX_POINTS = 600
+
+
+def full_run_series(metrics: list[dict[str, Any]]) -> dict[str, Any]:
+    """The whole read window's history, restarts and all -- unlike
+    ``current_run_series`` this does NOT drop pre-restart data.
+
+    x-axis for callers should be ``cum_step``, not the raw ``step``: the
+    trainer's own step counter resets (or rolls back to the last checkpoint)
+    on every restart, so it isn't monotonic across this series the way it is
+    within a single ``current_run_series`` window -- plotting raw step here
+    would draw a line that jumps backward and self-intersects. ``cum_step``
+    instead keeps counting up across restarts (continuing from the last
+    cumulative value rather than resetting), so it reads as "total training
+    progress" the way an operator actually thinks about it. The original
+    ``step`` is still returned alongside for exact correlation with logs, and
+    ``ts`` (wall-clock) is returned too for anyone who wants it.
+
+    ``restarts`` is a list of ``{"cum_step": ..., "ts": ...}`` -- both
+    coordinate systems, since either might be the active chart axis.
+    """
+    rows = _step_rows(metrics)  # _step_rows already guarantees step is not None
+    keys = ("step", "cum_step", "ts", "lm_loss", "phase", "total", *_SERIES_FIELDS)
+    if not rows:
+        return {"series": {k: [] for k in keys}, "restarts": []}
+
+    cum_steps: list[int] = []
+    restarts: list[dict[str, Any]] = []
+    offset = 0
+    prev_step: int | None = None
+    for row in rows:
+        raw = int(row["step"])
+        if prev_step is not None and raw < prev_step:
+            # Restart: continue counting up from the last cumulative value
+            # instead of jumping backward.
+            offset = cum_steps[-1] + 1 - raw
+            ts = row.get("ts")
+            restarts.append({"cum_step": raw + offset, "ts": float(ts) if ts is not None else None})
+        cum_steps.append(raw + offset)
+        prev_step = raw
+
+    paired = list(zip(rows, cum_steps))
+    if len(paired) > _FULL_SERIES_MAX_POINTS:
+        stride = math.ceil(len(paired) / _FULL_SERIES_MAX_POINTS)
+        sampled = paired[::stride]
+        if sampled[-1] is not paired[-1]:
+            sampled.append(paired[-1])  # always keep the latest point
+        paired = sampled
+
+    series: dict[str, list[Any]] = {k: [] for k in keys}
+    for row, cum in paired:
+        series["step"].append(row.get("step"))
+        series["cum_step"].append(cum)
+        series["ts"].append(row.get("ts"))
+        series["lm_loss"].append(row.get("lm_loss", row.get("lm", row.get("total"))))
+        series["phase"].append(row.get("phase"))
+        series["total"].append(row.get("total"))
+        for k in _SERIES_FIELDS:
+            series[k].append(row.get(k))
+    return {"series": series, "restarts": restarts}
 
 
 def _phase_runway(
@@ -540,7 +607,11 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
         manifest_err = str(e)
 
     metrics_path = reports / f"metrics_{preset}.jsonl"
-    metrics = _tail_jsonl(metrics_path, 200)
+    # Generous enough to cover a run's whole history at typical logging
+    # cadence (metrics_every_steps=10 => 8000 rows is ~80k steps); full_series
+    # downsamples for the chart anyway, current_run_series only needs the
+    # tail since its last restart.
+    metrics = _tail_jsonl(metrics_path, 8000, max_bytes=6_000_000)
 
     latest_ptr = ckpt / "latest"
     latest_target = None
@@ -564,6 +635,7 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
             pass
 
     series = current_run_series(metrics)
+    full_series = full_run_series(metrics)
     run_rows = _current_run_rows(metrics)
 
     last_step = run_rows[-1] if run_rows else None
@@ -734,6 +806,8 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
             "n_points": len(metrics),
             "last": last_step,
             "series": series,
+            "full_series": full_series["series"],
+            "restarts": full_series["restarts"],
             "data_starved": starved,
             "age_s": None if age_s is None else round(age_s, 1),
             "stale": stale,

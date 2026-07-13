@@ -1,5 +1,8 @@
 """Ava — real implementation package.
 
+Solo personal project, no connection to employer, built with public/free-tier
+only.
+
 The repo root holds the original v6.4 blueprint (train_1b_deepspeed.py,
 eval_branch_harness.py, ...), which is mock scaffolding kept for reference.
 Everything under `ava/` is the real, tested implementation that supersedes it.
