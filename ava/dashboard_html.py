@@ -245,6 +245,54 @@ pre.out {
 .kv { display: grid; grid-template-columns: 7.5rem 1fr; gap: 0.25rem 0.6rem; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .kv .k { color: var(--muted); }
 a { color: var(--accent); }
+
+/* -- Manim-inspired chart grid: smooth curves, precise axes, traced dots -- */
+.chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.7rem; margin-top: 0.6rem; }
+@media (max-width: 720px) { .chart-grid { grid-template-columns: 1fr; } }
+.chart-card { border: 1px solid var(--line); background: var(--bg); padding: 0.55rem 0.65rem 0.4rem; }
+.chart-card h3 {
+  margin: 0 0 0.3rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline;
+}
+.chart-card h3 .cv { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; font-size: 0.82rem; text-transform: none; letter-spacing: 0; }
+.mchart-wrap { position: relative; }
+svg.mchart { width: 100%; height: 120px; display: block; overflow: visible; }
+svg.mchart text { font-family: "IBM Plex Sans", "Segoe UI", sans-serif; }
+.mchart-tooltip {
+  position: absolute; top: 2px; pointer-events: none; background: var(--card); border: 1px solid var(--line);
+  padding: 0.3rem 0.5rem; font-size: 0.7rem; box-shadow: 0 2px 8px rgba(20,18,10,0.14); z-index: 5;
+  white-space: nowrap; line-height: 1.5;
+}
+.mchart-tooltip b { font-variant-numeric: tabular-nums; }
+.mchart-tooltip span.k { border-bottom: 2px solid; padding-bottom: 1px; margin-right: 0.3rem; }
+.tracer-dot { animation: tracer-pulse 1.8s ease-in-out infinite; }
+@keyframes tracer-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.routebar { display: flex; height: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--bar); }
+.routebar > div { height: 100%; }
+.eqn-card {
+  border: 1px solid var(--line); background: var(--bg); padding: 0.7rem 0.85rem; margin-top: 0.5rem;
+}
+.eqn-line {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
+  font-style: italic; font-size: 0.98rem; line-height: 1.7; color: var(--ink);
+}
+.eqn-line b { font-style: normal; }
+.eqn-line sub { font-style: normal; font-size: 0.7em; }
+.eqn-sub { margin-top: 0.4rem; font-family: "IBM Plex Sans", "Segoe UI", sans-serif; font-style: normal; }
+.aux-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 0.5rem; margin-top: 0.6rem; }
+.aux-cell { border: 1px solid var(--line); background: var(--bg); padding: 0.4rem 0.5rem 0.3rem; }
+.aux-cell .lab { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 0.35rem; }
+.aux-cell .lab i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.aux-cell .val { font-size: 0.92rem; font-weight: 600; font-variant-numeric: tabular-nums; margin: 0.15rem 0 0.25rem; }
+svg.spark { width: 100%; height: 26px; display: block; }
+.linkbtn {
+  background: none; border: none; padding: 0; margin-top: 0.6rem; color: var(--accent);
+  text-decoration: underline; cursor: pointer; font: inherit; font-size: 0.8rem;
+}
+.table-wrap { max-height: 260px; overflow: auto; margin-top: 0.5rem; display: none; border: 1px solid var(--line); }
+.table-wrap.show { display: block; }
+.table-wrap table { font-size: 0.72rem; }
+.table-wrap th, .table-wrap td { white-space: nowrap; padding: 0.25rem 0.5rem; }
 </style>
 </head>
 <body>
@@ -298,13 +346,44 @@ a { color: var(--accent); }
     <h2>Training — current run</h2>
     <div id="trainAlerts"></div>
     <div class="row" id="trainStats"></div>
-    <svg class="chart" id="lossChart" viewBox="0 0 800 180" preserveAspectRatio="none" style="margin-top:0.75rem"></svg>
-    <div class="legend">
-      <span><i style="background:#1e4d6b"></i>lm_loss</span>
-      <span><i style="background:#2f6b3a"></i>tok/s (scaled)</span>
-      <span class="muted">chart resets on trainer restart</span>
+
+    <h2 style="margin-top:1rem">Loss landscape</h2>
+    <div class="chart-grid">
+      <div class="chart-card"><h3><span>Loss — lm vs total</span><span class="cv" id="lossCv">—</span></h3>
+        <div class="mchart-wrap"><svg class="mchart" id="chartLoss"></svg></div></div>
+      <div class="chart-card"><h3><span>Learning rate</span><span class="cv" id="lrCv">—</span></h3>
+        <div class="mchart-wrap"><svg class="mchart" id="chartLr"></svg></div></div>
+      <div class="chart-card"><h3><span>Gradient norm</span><span class="cv" id="gradCv">—</span></h3>
+        <div class="mchart-wrap"><svg class="mchart" id="chartGrad"></svg></div></div>
+      <div class="chart-card"><h3><span>Throughput</span><span class="cv" id="tokCv">—</span></h3>
+        <div class="mchart-wrap"><svg class="mchart" id="chartTok"></svg></div></div>
+      <div class="chart-card"><h3><span>Workspace mass &amp; broadcast</span><span class="cv" id="jsCv">—</span></h3>
+        <div class="mchart-wrap"><svg class="mchart" id="chartJspace"></svg></div></div>
+      <div class="chart-card"><h3><span>Route mix (this step)</span><span class="cv" id="routeCv">—</span></h3>
+        <div id="routeMix"></div></div>
     </div>
-    <div class="kv" id="trainDetail" style="margin-top:0.75rem"></div>
+    <p class="muted" style="margin:0.5rem 0 0">Smoothed (Catmull–Rom) · hover any chart for exact values · draws in on first load or trainer restart · last ~200 logged steps.</p>
+
+    <h2 style="margin-top:1.1rem">Loss function — J-space auxiliary terms</h2>
+    <div class="eqn-card">
+      <div class="eqn-line">
+        <b>loss</b> = lm
+        + ( <span style="color:#2a78d6">report</span>·1.0
+          + <span style="color:#1baf7a">broadcast</span>·0.5
+          + <span style="color:#eda100">selectivity</span>·0.3
+          + <span style="color:#008300">modulation</span>·0.5 ) · j<sub>w</sub>
+        + Σ <span style="color:#4a3aa7">half_life</span>·hl<sub>w</sub>
+        + <span style="color:#e34948">inter_mi</span>(cos, 0.45)·0.3
+        + <span style="color:#e87ba4">routing_KL</span>·0.4
+      </div>
+      <div class="eqn-sub muted" id="eqnSub"></div>
+    </div>
+    <div class="aux-grid" id="auxGrid"></div>
+
+    <div class="kv" id="trainDetail" style="margin-top:0.9rem"></div>
+    <button type="button" class="linkbtn" id="tableToggle">Show data table ▾</button>
+    <div class="table-wrap" id="tableWrap"><table><thead id="seriesThead"></thead><tbody id="seriesTbody"></tbody></table></div>
+
     <h2 style="margin-top:1rem">Watch signals</h2>
     <div class="row" id="watchStats"></div>
     <ul class="hints" id="watchHints"></ul>
@@ -568,23 +647,194 @@ function renderWatch(d) {
   }).join("");
 }
 
-function poly(xs, ys, w, h, pad) {
-  if (!xs.length) return "";
-  const xmin = Math.min(...xs), xmax = Math.max(...xs);
-  const yvals = ys.filter(v => v != null);
-  if (!yvals.length) return "";
-  const ymin = Math.min(...yvals), ymax = Math.max(...yvals);
-  const dx = Math.max(1e-9, xmax - xmin);
-  const dy = Math.max(1e-9, ymax - ymin);
-  const pts = [];
-  for (let i = 0; i < xs.length; i++) {
-    if (ys[i] == null) continue;
-    const x = pad + (w - 2*pad) * ((xs[i] - xmin) / dx);
-    const y = h - pad - (h - 2*pad) * ((ys[i] - ymin) / dy);
-    pts.push(x.toFixed(1) + "," + y.toFixed(1));
+// -- Manim-inspired chart engine --------------------------------------------
+// Smooth Catmull-Rom curves (not raw polylines), a precise gridded axis, a
+// pulsing tracer dot at the latest value (a nod to Manim's `always_redraw`
+// dot-on-graph updaters), a "Create()"-style draw-in the first time a chart
+// gets data, and a crosshair + tooltip readout on hover.
+const MCOLORS = {
+  blue: "#2a78d6", aqua: "#1baf7a", gold: "#eda100", green: "#008300",
+  violet: "#4a3aa7", red: "#e34948", magenta: "#e87ba4", orange: "#eb6834",
+};
+const _chartSeen = new Set();
+
+function catmullRomPath(pts) {
+  if (pts.length < 2) return "";
+  if (pts.length === 2) {
+    return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)} L${pts[1][0].toFixed(1)},${pts[1][1].toFixed(1)}`;
   }
-  return pts.join(" ");
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
 }
+
+function niceTicks(min, max, n) {
+  if (min === max) { min -= 1; max += 1; }
+  const out = [];
+  for (let i = 0; i <= n; i++) out.push(min + (max - min) * i / n);
+  return out;
+}
+
+function lastNonNull(arr) {
+  if (!arr) return null;
+  for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i];
+  return null;
+}
+
+function sparkline(ys, color) {
+  const w = 100, h = 26, pad = 2;
+  const pts = [];
+  for (let i = 0; i < ys.length; i++) if (ys[i] != null) pts.push(i);
+  if (pts.length < 2) return `<svg viewBox="0 0 ${w} ${h}" class="spark"></svg>`;
+  const vals = pts.map(i => ys[i]);
+  let ymin = Math.min(...vals), ymax = Math.max(...vals);
+  if (ymin === ymax) { ymin -= Math.abs(ymin) * 0.1 || 1; ymax += Math.abs(ymax) * 0.1 || 1; }
+  const xmax = ys.length - 1 || 1;
+  const coords = pts.map(i => [
+    pad + (w - 2*pad) * (i / xmax),
+    h - pad - (h - 2*pad) * ((ys[i] - ymin) / (ymax - ymin)),
+  ]);
+  const d = catmullRomPath(coords);
+  const last = coords[coords.length - 1];
+  return `<svg viewBox="0 0 ${w} ${h}" class="spark" preserveAspectRatio="none">
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle class="tracer-dot" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2" fill="${color}"/>
+  </svg>`;
+}
+
+function drawChart(svg, { chartId, xs, lines, refLines, xTickFmt, yTickFmt }) {
+  const w = 320, h = 120, padL = 40, padR = 10, padT = 8, padB = 18;
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  const wrap = svg.parentElement;
+  const goodXs = (xs || []).filter(v => v != null);
+  const anyY = lines.some(l => (l.ys || []).some(v => v != null));
+  if (goodXs.length < 2 || !anyY) {
+    svg.innerHTML = `<text x="8" y="${h/2}" font-size="10" fill="#898781">waiting for steps…</text>`;
+    svg.onpointermove = null; svg.onpointerleave = null;
+    const tip = wrap.querySelector(".mchart-tooltip");
+    if (tip) tip.style.display = "none";
+    return;
+  }
+  const xmin = Math.min(...goodXs), xmax = Math.max(...goodXs);
+  let allY = [];
+  lines.forEach(l => { allY = allY.concat((l.ys || []).filter(v => v != null)); });
+  (refLines || []).forEach(r => allY.push(r.value));
+  let ymin = Math.min(...allY), ymax = Math.max(...allY);
+  if (ymin === ymax) { ymin -= Math.abs(ymin) * 0.1 || 1; ymax += Math.abs(ymax) * 0.1 || 1; }
+  const span = ymax - ymin;
+  ymin -= span * 0.08; ymax += span * 0.08;
+
+  const X = x => padL + (w - padL - padR) * ((x - xmin) / Math.max(1e-9, xmax - xmin));
+  const Y = y => (h - padB) - (h - padT - padB) * ((y - ymin) / Math.max(1e-9, ymax - ymin));
+
+  let out = "";
+  const yTicks = niceTicks(ymin, ymax, 3);
+  yTicks.forEach(t => {
+    const y = Y(t);
+    out += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${w-padR}" y2="${y.toFixed(1)}" stroke="#e1e0d9" stroke-width="1"/>`;
+    out += `<text x="${padL-5}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="8.5" fill="#898781">${yTickFmt ? yTickFmt(t) : t.toFixed(2)}</text>`;
+  });
+  const xMid = xmin + (xmax - xmin) / 2;
+  out += `<line x1="${X(xMid).toFixed(1)}" y1="${padT}" x2="${X(xMid).toFixed(1)}" y2="${h-padB}" stroke="#e1e0d9" stroke-width="1"/>`;
+  [xmin, xMid, xmax].forEach(t => {
+    out += `<text x="${X(t).toFixed(1)}" y="${h-4}" text-anchor="middle" font-size="8.5" fill="#898781">${xTickFmt ? xTickFmt(t) : Math.round(t)}</text>`;
+  });
+  out += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h-padB}" stroke="#c3c2b7" stroke-width="1"/>`;
+  out += `<line x1="${padL}" y1="${h-padB}" x2="${w-padR}" y2="${h-padB}" stroke="#c3c2b7" stroke-width="1"/>`;
+
+  (refLines || []).forEach(r => {
+    const y = Y(r.value);
+    out += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${w-padR}" y2="${y.toFixed(1)}" stroke="${r.color || '#898781'}" stroke-width="1" stroke-dasharray="3 3"/>`;
+    if (r.label) out += `<text x="${w-padR}" y="${(y-3).toFixed(1)}" text-anchor="end" font-size="8" fill="${r.color || '#898781'}">${r.label}</text>`;
+  });
+
+  const firstDraw = !_chartSeen.has(chartId);
+  lines.forEach((l, li) => {
+    const pts = [];
+    for (let i = 0; i < xs.length; i++) if (l.ys[i] != null) pts.push([X(xs[i]), Y(l.ys[i])]);
+    if (pts.length < 2) return;
+    const d = catmullRomPath(pts);
+    out += `<path id="${chartId}-p${li}" d="${d}" fill="none" stroke="${l.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    const last = pts[pts.length - 1];
+    out += `<circle class="tracer-dot" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.6" fill="${l.color}"/>`;
+  });
+  out += `<line class="mchart-cross" x1="0" y1="${padT}" x2="0" y2="${h-padB}" stroke="#898781" stroke-width="1" opacity="0"/>`;
+  svg.innerHTML = out;
+
+  if (firstDraw) {
+    _chartSeen.add(chartId);
+    lines.forEach((l, li) => {
+      const p = svg.querySelector(`#${chartId}-p${li}`);
+      if (!p) return;
+      const len = p.getTotalLength();
+      p.style.strokeDasharray = `${len}`;
+      p.style.strokeDashoffset = `${len}`;
+      p.getBoundingClientRect();
+      p.style.transition = `stroke-dashoffset ${700 + li * 150}ms cubic-bezier(.22,.7,.2,1)`;
+      requestAnimationFrame(() => { p.style.strokeDashoffset = "0"; });
+    });
+  }
+
+  let tip = wrap.querySelector(".mchart-tooltip");
+  if (!tip) {
+    tip = document.createElement("div");
+    tip.className = "mchart-tooltip";
+    tip.style.display = "none";
+    wrap.appendChild(tip);
+  }
+  const cross = svg.querySelector(".mchart-cross");
+  svg.onpointermove = (ev) => {
+    const rect = svg.getBoundingClientRect();
+    const px = ((ev.clientX - rect.left) / rect.width) * w;
+    let bestI = 0, bestD = Infinity;
+    for (let i = 0; i < xs.length; i++) {
+      if (xs[i] == null) continue;
+      const dd = Math.abs(X(xs[i]) - px);
+      if (dd < bestD) { bestD = dd; bestI = i; }
+    }
+    const cx = X(xs[bestI]);
+    cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("opacity", "1");
+    const rows = lines.filter(l => l.ys[bestI] != null).map(l =>
+      `<div><span class="k" style="border-color:${l.color}">${l.label}</span><b>${yTickFmt ? yTickFmt(l.ys[bestI]) : l.ys[bestI]}</b></div>`
+    ).join("");
+    tip.innerHTML = `<div class="muted" style="font-size:0.65rem">step ${xTickFmt ? xTickFmt(xs[bestI]) : xs[bestI]}</div>${rows}`;
+    tip.style.display = "block";
+    const leftPct = (cx / w) * 100;
+    if (leftPct > 55) { tip.style.right = `calc(${100 - leftPct}% + 4px)`; tip.style.left = "auto"; }
+    else { tip.style.left = `calc(${leftPct}% + 4px)`; tip.style.right = "auto"; }
+  };
+  svg.onpointerleave = () => { tip.style.display = "none"; cross.setAttribute("opacity", "0"); };
+}
+
+const fmtLoss = v => v == null ? "—" : Number(v).toFixed(3);
+const fmtLr = v => v == null ? "—" : Number(v).toExponential(1);
+const fmtGrad = v => v == null ? "—" : Number(v).toFixed(2);
+const fmtTokS = v => v == null ? "—" : fmt(Math.round(v));
+const fmtFrac = v => v == null ? "—" : Number(v).toFixed(3);
+const fmtStep = v => v == null ? "—" : Math.round(v);
+
+const AUX_TERMS = [
+  ["report", "Report", MCOLORS.blue],
+  ["broadcast", "Broadcast", MCOLORS.aqua],
+  ["selectivity", "Selectivity", MCOLORS.gold],
+  ["modulation", "Modulation", MCOLORS.green],
+  ["half_life", "Half-life", MCOLORS.violet],
+  ["inter_mi", "Inter-MI", MCOLORS.red],
+  ["routing", "Routing KL", MCOLORS.magenta],
+];
+const ROUTE_NAMES = ["S1 automatic", "S2 deliberate", "Critic", "Planner"];
+const ROUTE_COLORS = [MCOLORS.blue, MCOLORS.aqua, MCOLORS.gold, MCOLORS.green];
+const TABLE_COLS = ["step", "lm_loss", "total", "grad_norm", "lr", "tok_s",
+  "report", "broadcast", "selectivity", "modulation", "half_life", "inter_mi",
+  "routing", "verbalizable_mass", "broadcast_strength"];
 
 function renderTrain(d) {
   const tr = d.trainer || {};
@@ -616,35 +866,122 @@ function renderTrain(d) {
   `;
 
   const s = tr.series || {};
-  const steps = [], losses = [], stepTok = [], toks = [];
-  for (let i = 0; i < (s.step || []).length; i++) {
-    if (s.lm_loss && s.lm_loss[i] != null && s.step[i] != null) {
-      steps.push(s.step[i]);
-      losses.push(s.lm_loss[i]);
-    }
-    if (s.tok_s && s.tok_s[i] != null && s.step[i] != null) {
-      stepTok.push(s.step[i]);
-      toks.push(s.tok_s[i]);
-    }
-  }
-  const svg = document.getElementById("lossChart");
-  const w = 800, h = 180, pad = 14;
-  let html = "";
-  if (steps.length >= 2) {
-    html += `<polyline fill="none" stroke="#1e4d6b" stroke-width="2" points="${poly(steps, losses, w, h, pad)}"/>`;
-  }
-  if (stepTok.length >= 2 && losses.length) {
-    const tmin = Math.min(...toks), tmax = Math.max(...toks);
-    const lmin = Math.min(...losses), lmax = Math.max(...losses);
-    const scaled = toks.map(t => lmin + (lmax - lmin) * ((t - tmin) / Math.max(1e-9, tmax - tmin)));
-    html += `<polyline fill="none" stroke="#2f6b3a" stroke-width="1.5" stroke-dasharray="4 3" points="${poly(stepTok, scaled, w, h, pad)}"/>`;
-  }
-  if (!html) {
-    html = `<text x="20" y="90" fill="#5c5a52" font-size="14">No steps in current run yet — data prep or waiting for trainer</text>`;
-  }
-  svg.innerHTML = html;
+  const xs = s.step || [];
+
+  document.getElementById("lossCv").textContent = fmtLoss(lastNonNull(s.lm_loss));
+  drawChart(document.getElementById("chartLoss"), {
+    chartId: "loss", xs,
+    lines: [
+      { label: "lm_loss", color: MCOLORS.blue, ys: s.lm_loss || [] },
+      { label: "total", color: MCOLORS.aqua, ys: s.total || [] },
+    ],
+    xTickFmt: fmtStep, yTickFmt: fmtLoss,
+  });
+
+  document.getElementById("lrCv").textContent = fmtLr(lastNonNull(s.lr));
+  drawChart(document.getElementById("chartLr"), {
+    chartId: "lr", xs,
+    lines: [{ label: "lr", color: MCOLORS.gold, ys: s.lr || [] }],
+    xTickFmt: fmtStep, yTickFmt: fmtLr,
+  });
+
+  const clip = (d.objective && d.objective.grad_clip) || 1.0;
+  document.getElementById("gradCv").textContent = fmtGrad(lastNonNull(s.grad_norm));
+  drawChart(document.getElementById("chartGrad"), {
+    chartId: "grad", xs,
+    lines: [{ label: "grad_norm", color: MCOLORS.violet, ys: s.grad_norm || [] }],
+    refLines: [{ value: clip, color: MCOLORS.red, label: `clip ${clip}` }],
+    xTickFmt: fmtStep, yTickFmt: fmtGrad,
+  });
+
+  document.getElementById("tokCv").textContent = fmtTokS(lastNonNull(s.tok_s));
+  drawChart(document.getElementById("chartTok"), {
+    chartId: "tok", xs,
+    lines: [{ label: "tok/s", color: MCOLORS.green, ys: s.tok_s || [] }],
+    xTickFmt: fmtStep, yTickFmt: fmtTokS,
+  });
+
+  document.getElementById("jsCv").textContent = fmtFrac(lastNonNull(s.verbalizable_mass));
+  drawChart(document.getElementById("chartJspace"), {
+    chartId: "jspace", xs,
+    lines: [
+      { label: "verbalizable_mass", color: MCOLORS.blue, ys: s.verbalizable_mass || [] },
+      { label: "broadcast_strength", color: MCOLORS.orange, ys: s.broadcast_strength || [] },
+    ],
+    xTickFmt: fmtStep, yTickFmt: fmtFrac,
+  });
+
+  renderRouteMix(d);
+  renderEqn(d);
+  renderAux(d);
+  renderTable(d);
+
   document.getElementById("trainCaption").textContent =
-    `Source: ${tr.metrics_path || "metrics"} · ${steps.length} points in current run · ${tr.n_points || 0} recent jsonl lines`;
+    `Source: ${tr.metrics_path || "metrics"} · ${xs.length} points in current run · ${tr.n_points || 0} recent jsonl lines`;
+}
+
+function renderRouteMix(d) {
+  const last = (d.trainer && d.trainer.last) || {};
+  const probs = last.route_probs || [];
+  const el = document.getElementById("routeMix");
+  const cv = document.getElementById("routeCv");
+  if (!probs.length) {
+    el.innerHTML = `<p class="muted" style="margin:0.3rem 0 0">No route data yet.</p>`;
+    cv.textContent = "—";
+    return;
+  }
+  const domI = probs.reduce((best, p, i) => (p > probs[best] ? i : best), 0);
+  cv.textContent = `${ROUTE_NAMES[domI] || "r"+domI} ${(probs[domI]*100).toFixed(0)}%`;
+  const segs = probs.map((p, i) =>
+    `<div title="${ROUTE_NAMES[i] || 'r'+i} ${(p*100).toFixed(0)}%" style="width:${Math.max(0,p*100).toFixed(1)}%;background:${ROUTE_COLORS[i] || '#898781'}"></div>`
+  ).join("");
+  const legend = probs.map((p, i) =>
+    `<span><i style="background:${ROUTE_COLORS[i] || '#898781'}"></i>${ROUTE_NAMES[i] || 'r'+i} ${(p*100).toFixed(0)}%</span>`
+  ).join("");
+  el.innerHTML = `<div class="routebar" style="margin-top:0.35rem">${segs}</div><div class="legend" style="margin-top:0.4rem">${legend}</div>`;
+}
+
+function renderEqn(d) {
+  const o = d.objective;
+  const el = document.getElementById("eqnSub");
+  if (!o) { el.textContent = ""; return; }
+  const phase = (d.flow && d.flow.trainer_phase) || 0;
+  const jw = phase <= 2 ? o.j_weight.early : o.j_weight.late;
+  const hl = o.half_life_target || {};
+  el.textContent =
+    `j_w = ${o.j_weight.early} (P0–P2) / ${o.j_weight.late} (P3–P5) — active ${jw} at P${phase} · ` +
+    `grad clip ${o.grad_clip} (dashed line, right) · ` +
+    `hl targets S1 ${hl.system1} · S2 ${hl.system2} · Critic ${hl.critic} · Planner ${hl.planner} tok`;
+}
+
+function renderAux(d) {
+  const s = (d.trainer && d.trainer.series) || {};
+  document.getElementById("auxGrid").innerHTML = AUX_TERMS.map(([key, label, color]) => {
+    const ys = s[key] || [];
+    const last = lastNonNull(ys);
+    return `<div class="aux-cell">
+      <div class="lab"><i style="background:${color}"></i>${label}</div>
+      <div class="val">${last != null ? Number(last).toFixed(4) : "—"}</div>
+      ${sparkline(ys, color)}
+    </div>`;
+  }).join("");
+}
+
+function renderTable(d) {
+  const s = (d.trainer && d.trainer.series) || {};
+  const n = (s.step || []).length;
+  document.getElementById("seriesThead").innerHTML =
+    `<tr>${TABLE_COLS.map(c => `<th>${c}</th>`).join("")}</tr>`;
+  const start = Math.max(0, n - 30);
+  let rows = "";
+  for (let i = n - 1; i >= start; i--) {
+    rows += "<tr>" + TABLE_COLS.map(c => {
+      const v = (s[c] || [])[i];
+      if (v == null) return "<td>—</td>";
+      return `<td>${typeof v === "number" ? (Number.isInteger(v) ? v : v.toFixed(4)) : v}</td>`;
+    }).join("") + "</tr>";
+  }
+  document.getElementById("seriesTbody").innerHTML = rows;
 }
 
 function renderCkpts(d) {
@@ -742,6 +1079,12 @@ document.getElementById("probeBtn").onclick = async () => {
   } catch (e) {
     document.getElementById("probeOut").textContent = String(e);
   }
+};
+
+document.getElementById("tableToggle").onclick = () => {
+  const w = document.getElementById("tableWrap");
+  const showing = w.classList.toggle("show");
+  document.getElementById("tableToggle").textContent = showing ? "Hide data table ▴" : "Show data table ▾";
 };
 
 refresh();

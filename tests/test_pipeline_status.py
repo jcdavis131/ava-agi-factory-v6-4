@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ava.pipeline_status import current_run_series
+from ava.pipeline_status import _SERIES_FIELDS, current_run_series
 
 
 def test_current_run_series_drops_pre_restart_history():
@@ -26,10 +26,25 @@ def test_current_run_series_empty():
     assert current_run_series([]) == {
         "step": [],
         "lm_loss": [],
-        "tok_s": [],
         "phase": [],
         "total": [],
+        **{k: [] for k in _SERIES_FIELDS},
     }
+
+
+def test_current_run_series_carries_aux_loss_and_optimizer_fields():
+    metrics = [
+        {"event": "step", "step": 1, "lm": 9.0, "total": 9.4, "phase": 0,
+         "grad_norm": 0.8, "lr": 1e-4, "report": 0.2, "broadcast": 0.1,
+         "selectivity": 0.05, "modulation": 0.03, "half_life": 0.02,
+         "inter_mi": 0.01, "routing": 0.09,
+         "verbalizable_mass": 0.06, "broadcast_strength": 0.2},
+    ]
+    series = current_run_series(metrics)
+    assert series["grad_norm"] == [0.8]
+    assert series["lr"] == [1e-4]
+    assert series["routing"] == [0.09]
+    assert series["verbalizable_mass"] == [0.06]
 
 
 def test_current_run_series_ignores_non_step_events():
