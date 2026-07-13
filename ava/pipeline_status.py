@@ -349,40 +349,54 @@ _FULL_SERIES_MAX_POINTS = 600
 
 def full_run_series(metrics: list[dict[str, Any]]) -> dict[str, Any]:
     """The whole read window's history, restarts and all -- unlike
-    ``current_run_series`` this does NOT drop pre-restart data. Restarts are
-    reported separately (as timestamps) so the dashboard can mark them rather
-    than pretend training has been one smooth line the whole time.
+    ``current_run_series`` this does NOT drop pre-restart data.
 
-    x-axis for callers should be ``ts`` (wall-clock), not ``step``: step
-    resets on every restart, so it isn't monotonic across this series the way
-    it is within a single ``current_run_series`` window.
+    x-axis for callers should be ``cum_step``, not the raw ``step``: the
+    trainer's own step counter resets (or rolls back to the last checkpoint)
+    on every restart, so it isn't monotonic across this series the way it is
+    within a single ``current_run_series`` window -- plotting raw step here
+    would draw a line that jumps backward and self-intersects. ``cum_step``
+    instead keeps counting up across restarts (continuing from the last
+    cumulative value rather than resetting), so it reads as "total training
+    progress" the way an operator actually thinks about it. The original
+    ``step`` is still returned alongside for exact correlation with logs, and
+    ``ts`` (wall-clock) is returned too for anyone who wants it.
+
+    ``restarts`` is a list of ``{"cum_step": ..., "ts": ...}`` -- both
+    coordinate systems, since either might be the active chart axis.
     """
-    rows = _step_rows(metrics)
-    keys = ("step", "ts", "lm_loss", "phase", "total", *_SERIES_FIELDS)
+    rows = _step_rows(metrics)  # _step_rows already guarantees step is not None
+    keys = ("step", "cum_step", "ts", "lm_loss", "phase", "total", *_SERIES_FIELDS)
     if not rows:
         return {"series": {k: [] for k in keys}, "restarts": []}
 
-    restarts: list[float] = []
+    cum_steps: list[int] = []
+    restarts: list[dict[str, Any]] = []
+    offset = 0
     prev_step: int | None = None
     for row in rows:
-        step = row.get("step")
-        if prev_step is not None and step is not None and int(step) < prev_step:
+        raw = int(row["step"])
+        if prev_step is not None and raw < prev_step:
+            # Restart: continue counting up from the last cumulative value
+            # instead of jumping backward.
+            offset = cum_steps[-1] + 1 - raw
             ts = row.get("ts")
-            if ts is not None:
-                restarts.append(float(ts))
-        if step is not None:
-            prev_step = int(step)
+            restarts.append({"cum_step": raw + offset, "ts": float(ts) if ts is not None else None})
+        cum_steps.append(raw + offset)
+        prev_step = raw
 
-    if len(rows) > _FULL_SERIES_MAX_POINTS:
-        stride = math.ceil(len(rows) / _FULL_SERIES_MAX_POINTS)
-        sampled = rows[::stride]
-        if sampled[-1] is not rows[-1]:
-            sampled.append(rows[-1])  # always keep the latest point
-        rows = sampled
+    paired = list(zip(rows, cum_steps))
+    if len(paired) > _FULL_SERIES_MAX_POINTS:
+        stride = math.ceil(len(paired) / _FULL_SERIES_MAX_POINTS)
+        sampled = paired[::stride]
+        if sampled[-1] is not paired[-1]:
+            sampled.append(paired[-1])  # always keep the latest point
+        paired = sampled
 
     series: dict[str, list[Any]] = {k: [] for k in keys}
-    for row in rows:
+    for row, cum in paired:
         series["step"].append(row.get("step"))
+        series["cum_step"].append(cum)
         series["ts"].append(row.get("ts"))
         series["lm_loss"].append(row.get("lm_loss", row.get("lm", row.get("total"))))
         series["phase"].append(row.get("phase"))
