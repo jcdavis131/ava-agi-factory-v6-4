@@ -2,11 +2,118 @@
   "builder": {
     "current_phase_idx": 0,
     "current_phase": "phase0_logic",
-    "writes_this_phase": 2000,
-    "total_shards": 2000,
+    "writes_this_phase": 384326,
+    "total_shards": 32,
     "phase_progress": 1.0,
-    "ts": 1783613184.3219557,
-    "lake_gb": 1.8182e-05
+    "ts": 1783943886,
+    "lake_gb": 1.8182e-05,
+    "last_expansion": {
+      "timestamp": "2026-07-13T11:58:06.450136+00:00",
+      "tokens": 500099,
+      "docs": 5049,
+      "shards": [
+        "packed_20260713_115529_00031_8018.jsonl.gz"
+      ],
+      "manifest": "manifest_20260713_115529.jsonl",
+      "dup_filtered": 9531,
+      "qual_filtered": 8319,
+      "upload_manifest": "data/for_upload/upload_manifest_20260713_115555.json",
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "mode": "500K_HatchVM_4h_local_GDrive_uploaded",
+      "phases": [
+        "p0_logic",
+        "p1_math",
+        "p2_foundation"
+      ],
+      "guard": "Personal Drive safe - no work indicators, uploaded to personal Drive Ava-Datasets-Expansion per AGENTS.md absolute separation",
+      "gdrive_upload": {
+        "folder_name": "Ava-Datasets-Expansion",
+        "folder_id": "1pNHGaDaAS1YBVB27ALHem7ixMESQd1sY",
+        "uploaded_files": [
+          "packed_20260713_115529_00031_8018.jsonl.gz",
+          "manifest_20260713_115529.jsonl"
+        ],
+        "new_shard": {
+          "sha12": "eb1fc2a96a2c",
+          "name": "packed_20260713_115529_00031_8018.jsonl.gz",
+          "id": "1YOWdOOYa2MjfkfY2jeb4MaycL5JmyS8x",
+          "size": "165K",
+          "manifest_id": "1XGLv3f2PMkJHJPIj36Bu2R_Vus9_AXJc",
+          "manifest_sha12": "626e33aa3cd0"
+        },
+        "dedup_note": "manifest_20260713_115529 existing_id 1XGLv3f2PMkJHJPIj36Bu2R_Vus9_AXJc, packed existing_id 1YOWdOOYa2MjfkfY2jeb4MaycL5JmyS8x after retry"
+      },
+      "disk_usage": "9.2G/100G 10% safe (df -h), daily_expanded 32 shards total, safe <80%",
+      "global_manifest_lines": 495769,
+      "efficiency_note": "simhash dedup threshold 3 + md5 + quality filter alpha>0.6 reward>0.8, ~26s Hatch VM, low RAM O(1) window 15k, 500K tokens 5049 docs"
+    },
+    "last_expansion_detailed": {
+      "timestamp": "2026-07-13T10:00:03.068568+00:00",
+      "tokens": 10000250,
+      "docs": 31989,
+      "shards": [
+        "packed_20260713_095937_00030_6678.jsonl.gz"
+      ],
+      "manifest": "manifest_20260713_095937.jsonl",
+      "dup_filtered": 0,
+      "qual_filtered": 1599,
+      "upload_manifest": "upload_manifest_20260713_100003.json",
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "mode": "10M_HatchVM_4h_fast_local",
+      "phases": [
+        "p0_logic",
+        "p1_math",
+        "p2_foundation",
+        "p3_code"
+      ],
+      "guard": "Personal Drive safe - no work indicators, per AGENTS.md absolute separation, HF upload skipped (no token)",
+      "disk_usage": "checked df -h 90G free"
+    },
+    "last_expansion_previous": {
+      "timestamp": "2026-07-13T07:57:32.327260+00:00",
+      "tokens": 500065,
+      "docs": 5044,
+      "shards": [
+        "packed_20260713_075529_00029_3899.jsonl.gz"
+      ],
+      "manifest": "manifest_20260713_075529.jsonl",
+      "dup_filtered": 9483,
+      "qual_filtered": 8517,
+      "upload_manifest": "data/for_upload/upload_manifest_20260713_075557.json",
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "mode": "500K_HatchVM_4h_local_GDrive_uploaded",
+      "phases": [
+        "p0_logic",
+        "p1_math",
+        "p2_foundation"
+      ],
+      "guard": "Personal Drive safe - no work indicators, uploaded to personal Drive Ava-Datasets-Expansion per AGENTS.md absolute separation",
+      "gdrive_upload": {
+        "folder_name": "Ava-Datasets-Expansion",
+        "folder_id": "14Y_5TCHOUsYTD6ncNWH3XS207yjjcjC-",
+        "uploaded_files": [
+          "packed_20260713_055932_00028_4016.jsonl.gz",
+          "manifest_20260713_075529.jsonl",
+          "packed_20260713_075529_00029_3899.jsonl.gz"
+        ],
+        "new_shard": {
+          "sha12": "5270380cbd9b",
+          "name": "packed_20260713_075529_00029_3899.jsonl.gz",
+          "id": "1P99TxSs_hlV5k8dPJikyAXzhCOhIQk8N",
+          "size": "164K",
+          "manifest_id": "1BqG_u5lb8IL356UtLzLgI6JrdKeI-kYN",
+          "manifest_sha12": "3a5e29390d5f"
+        },
+        "also_uploaded_previous_retry": {
+          "sha12": "959eb127d629",
+          "name": "packed_20260713_055932_00028_4016.jsonl.gz",
+          "id": "1nJLQJeCpG-_-BsXSZIC-QFoGwR1hrmON"
+        }
+      },
+      "disk_usage": "9.1G/100G 10% safe (df -h), daily_expanded 29 shards total (see 19+ show), safe <80%",
+      "global_manifest_lines": 458731,
+      "efficiency_note": "simhash dedup threshold 3 + md5 + quality filter alpha>0.6 reward>0.8, ~26s Hatch VM, low RAM O(1) window 15k, 500K tokens 5044 docs"
+    }
   },
   "curriculum": {
     "current": "phase0_logic",
@@ -21,9 +128,9 @@
     ]
   },
   "lake": {
-    "last_manifest_lines": 0,
+    "last_manifest_lines": 32022,
     "sources": [],
-    "total_gb": 0
+    "total_gb": 0.0146
   },
   "open_source_tools": {
     "chunking": "chonkie - TokenChunker, RecursiveChunker, SentenceChunker, CodeChunker, 505KB wheel, 32+ integrations",
@@ -42,6 +149,42 @@
     "rope_base": 10000,
     "steps": 0,
     "tokens_seen": 0,
-    "ts": 0
+    "ts": 1783825244.961354,
+    "last_weekly_check": "2026-07-12T03:00:44.961272Z"
+  },
+  "weekly_training": {
+    "job_id": "ava-training-weekly",
+    "timestamp_utc": "2026-07-12T03:00:44.961272Z",
+    "scheduled_for_local": "Sat 2026-07-11 22:00:00 CDT",
+    "status": "BLOCKED_NO_GPU",
+    "blocker": "no GPU in Hatch VM - nvidia-smi not found, docker not found. Expected behavior per task notes. Skip gracefully.",
+    "prereqs": {
+      "nvidia_smi": false,
+      "docker": false,
+      "ollama_reachable": false,
+      "disk_free_gb": 92,
+      "disk_target_gb": 100,
+      "disk_ok": false,
+      "checkpoints_exists": true
+    },
+    "phase": "phase0_logic",
+    "shards": {
+      "total_shards": 2001,
+      "writes_this_phase": 33991,
+      "last_expansion_tokens": 10000049
+    },
+    "metrics": {
+      "loss": 0.0,
+      "lr": 0.0002,
+      "tokens_seen": 0,
+      "steps": 0,
+      "note": "No real training metrics - no GPU. Not faking loss numbers per failure handling policy."
+    },
+    "wsd_target": "warmup 2k, stable 736k tokens 92%, decay 2e-5",
+    "log_file": "logs/weekly-train-2026-07-12T03:00:38+00:00.log",
+    "next_action_host": "./scripts/local_train.sh torchrun --nproc_per_node=1 train_1b_deepspeed.py --preset mini --deepspeed deepspeed_zero3_bf16.json --tokens_total 2500000000 --resume checkpoints/mini/latest.pt",
+    "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only. Home-life only.",
+    "prefect_available": true,
+    "prefect_cmd": "python prefect_flows.py --run train --preset mini --tokens 2500000000"
   }
 }
