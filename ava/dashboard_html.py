@@ -303,6 +303,7 @@ svg.spark { width: 100%; height: 26px; display: block; }
     · <span id="clock">—</span>
     · poll 3s
     · <a href="/pipeline/status">json</a>
+    · <a href="/ecosystem">ecosystem</a>
     · <a href="/health">/health</a>
     · <a href="/jspace/viewer">viewer</a>
     · <a href="/report">report</a>
