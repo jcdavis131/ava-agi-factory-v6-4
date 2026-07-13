@@ -136,8 +136,15 @@ a { color: var(--accent); }
   </section>
 
   <section class="card" id="reportCard">
-    <h2>Report</h2>
+    <h2>Report — pretraining quality</h2>
+    <p class="muted" style="margin:0 0 0.5rem">Perplexity, probes, J-Space routing — raw model quality, no tool use.</p>
     <div id="reportBody" class="md-body"><p class="muted">Loading…</p></div>
+  </section>
+
+  <section class="card" id="agentEvalCard">
+    <h2>Agentic hill-climb — Ava-claw / AgenticOS</h2>
+    <p class="muted" style="margin:0 0 0.5rem">A different axis: can this checkpoint act as the brain behind a real ReAct tool-calling agent? See <code>agent-eval/scripts/ava_claw_run.py</code>.</p>
+    <div id="agentEvalBody" class="md-body"><p class="muted">Loading…</p></div>
   </section>
 </main>
 <script>
@@ -264,6 +271,19 @@ async function load() {
     }
   } catch (e) {
     document.getElementById("reportBody").innerHTML = `<div class="alert">Fetch failed: ${escapeHtml(String(e))}</div>`;
+  }
+
+  try {
+    const r = await fetch("/agent_eval/scoreboard");
+    if (r.ok) {
+      const j = await r.json();
+      document.getElementById("agentEvalBody").innerHTML = renderMarkdown(j.scoreboard_markdown || "");
+    } else {
+      document.getElementById("agentEvalBody").innerHTML =
+        `<div class="alert">No agent-eval scoreboard yet — run <code>python scripts/ava_claw_run.py --tag &lt;name&gt;</code> from the agent-eval repo once there's RAM headroom (HTTP ${r.status}).</div>`;
+    }
+  } catch (e) {
+    document.getElementById("agentEvalBody").innerHTML = `<div class="alert">Fetch failed: ${escapeHtml(String(e))}</div>`;
   }
 }
 

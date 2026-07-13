@@ -144,6 +144,7 @@ services:
       AVA_TOKENIZER: /state/tokenizer.json
       AVA_SKIP_ENGINE_BOOT: ${AVA_SKIP_ENGINE_BOOT:-0}
       ENABLE_JSPACE_WRITE: ${ENABLE_JSPACE_WRITE:-0}
+      AGENT_EVAL_DIR: /agent-eval
     ports:
       - "8000:8000"
     volumes:
@@ -151,6 +152,14 @@ services:
       - ava_state:/state
       - ava_reports:/reports
       - *host-disk
+      # Read-only: lets /evals show agent-eval's scoreboard (the Ava-claw /
+      # AgenticOS agentic hill-climb, a different axis than the pretraining
+      # evals above) alongside it. ava_claw_run.py writes here from the host;
+      # the dashboard only ever reads. User-confirmed 2026-07-13.
+      - type: bind
+        source: ${AGENT_EVAL_HOST_PATH:-C:/Users/jcdav/agent-eval}
+        target: /agent-eval
+        read_only: true
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/pipeline/status"]
