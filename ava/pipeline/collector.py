@@ -333,14 +333,20 @@ def iter_records(
     filtering. Only `Exception` is treated as transient; `BaseException`
     (e.g. a real kill) propagates so the caller aborts without committing."""
     pos = start_pos
-    it = factory(pos)
+    it: Iterator[dict] | None = None
     fails = 0
     while True:
         try:
+            if it is None:
+                # Establishment is inside the try: load_dataset() itself can
+                # fail transiently (e.g. HF 429 when several collectors boot
+                # at once), and that must back off, not kill the process.
+                it = factory(pos)
             rec = next(it)
         except StopIteration:
             return
         except Exception as e:  # transient network / stream error -> backoff + resume
+            it = None  # re-establish and skip back to where we were
             fails += 1
             if fails > cfg.http_retries:
                 log("source_give_up", level="error", source=spec.name,
@@ -350,7 +356,6 @@ def iter_records(
             log("stream_retry", level="warn", source=spec.name, attempt=fails,
                 position=pos, delay_s=round(delay, 2), error=f"{type(e).__name__}: {e}")
             sleep_fn(delay)
-            it = factory(pos)  # re-establish and skip back to where we were
             continue
         fails = 0
         yield pos, rec
