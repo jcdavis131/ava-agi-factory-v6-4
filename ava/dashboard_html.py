@@ -293,6 +293,29 @@ svg.spark { width: 100%; height: 26px; display: block; }
 .table-wrap.show { display: block; }
 .table-wrap table { font-size: 0.72rem; }
 .table-wrap th, .table-wrap td { white-space: nowrap; padding: 0.25rem 0.5rem; }
+/* ELI5 help chips — hover / focus any "?" for a plain-English explainer. */
+.help {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 13px; height: 13px; border-radius: 50%; flex: none;
+  border: 1px solid #b9b4a6; color: var(--muted); background: transparent;
+  font-size: 9px; font-weight: 600; font-style: normal;
+  cursor: help; position: relative; margin-left: 0.35rem; vertical-align: 1px;
+  text-transform: none; letter-spacing: 0;
+}
+.help::after {
+  content: attr(data-tip);
+  position: absolute; left: 50%; top: calc(100% + 7px); transform: translateX(-50%);
+  width: 240px; max-width: 66vw;
+  background: var(--ink); color: var(--card);
+  font-size: 0.72rem; font-weight: 400; line-height: 1.45;
+  text-transform: none; letter-spacing: 0; white-space: normal; text-align: left;
+  font-variant-numeric: normal;
+  padding: 0.5rem 0.6rem; border-radius: 3px;
+  z-index: 60; opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.help:hover::after, .help:focus::after { opacity: 1; visibility: visible; }
+.help.flip::after { left: auto; right: -6px; transform: none; }
 </style>
 </head>
 <body>
@@ -311,61 +334,61 @@ svg.spark { width: 100%; height: 26px; display: block; }
 </header>
 <main>
   <section class="card span2">
-    <h2>Operator view</h2>
+    <h2>Operator view <span class="help" tabindex="0" data-help="sec_operator">?</span></h2>
     <div id="modeBanner"></div>
     <div class="gates" id="gates"></div>
     <div class="row" id="topStats" style="margin-top:0.85rem"></div>
   </section>
 
   <section class="card span2">
-    <h2>Curriculum — where we are</h2>
+    <h2>Curriculum — where we are <span class="help" tabindex="0" data-help="sec_curriculum">?</span></h2>
     <div id="curriculumHero"></div>
     <div class="curric" id="curriculum"></div>
     <p class="muted" id="curriculumCaption" style="margin:0.75rem 0 0">Six-phase logic-first curriculum. Active phase is outlined.</p>
   </section>
 
   <section class="card span2">
-    <h2>Closed-loop demand (train → miners)</h2>
+    <h2>Closed-loop demand (train → miners) <span class="help" tabindex="0" data-help="sec_demand">?</span></h2>
     <div id="demandPanel"></div>
     <p class="muted" style="margin:0.75rem 0 0">Only collectors fetch outside data. Trainer publishes expand / curate / examples; miners reweight sources.</p>
   </section>
 
   <section class="card">
-    <h2>Shard lifecycle</h2>
+    <h2>Shard lifecycle <span class="help" tabindex="0" data-help="sec_lifecycle">?</span></h2>
     <div id="prepAlerts"></div>
     <div class="funnel" id="funnel"></div>
     <div class="glossary" id="lifecycleGlossary"></div>
   </section>
 
   <section class="card">
-    <h2>Packed runway by phase</h2>
+    <h2>Packed runway by phase <span class="help" tabindex="0" data-help="sec_runway">?</span></h2>
     <div class="phase-grid" id="phases"></div>
     <p class="muted" id="runwayCaption" style="margin:0.75rem 0 0">Fill = tokens vs packed_min. Outlined = trainer phase; amber = collector target.</p>
   </section>
 
   <section class="card span2">
-    <h2>Training — current run</h2>
+    <h2>Training — current run <span class="help" tabindex="0" data-help="sec_training">?</span></h2>
     <div id="trainAlerts"></div>
     <div class="row" id="trainStats"></div>
 
     <h2 style="margin-top:1rem">Loss landscape</h2>
     <div class="chart-grid">
-      <div class="chart-card"><h3><span>Loss — lm vs total</span><span class="cv" id="lossCv">—</span></h3>
+      <div class="chart-card"><h3><span>Loss — lm vs total <span class="help" tabindex="0" data-help="chart_loss">?</span></span><span class="cv" id="lossCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartLoss"></svg></div></div>
-      <div class="chart-card"><h3><span>Learning rate</span><span class="cv" id="lrCv">—</span></h3>
+      <div class="chart-card"><h3><span>Learning rate <span class="help" tabindex="0" data-help="chart_lr">?</span></span><span class="cv" id="lrCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartLr"></svg></div></div>
-      <div class="chart-card"><h3><span>Gradient norm</span><span class="cv" id="gradCv">—</span></h3>
+      <div class="chart-card"><h3><span>Gradient norm <span class="help" tabindex="0" data-help="chart_grad">?</span></span><span class="cv" id="gradCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartGrad"></svg></div></div>
-      <div class="chart-card"><h3><span>Throughput</span><span class="cv" id="tokCv">—</span></h3>
+      <div class="chart-card"><h3><span>Throughput <span class="help" tabindex="0" data-help="chart_tok">?</span></span><span class="cv" id="tokCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartTok"></svg></div></div>
-      <div class="chart-card"><h3><span>Workspace mass &amp; broadcast</span><span class="cv" id="jsCv">—</span></h3>
+      <div class="chart-card"><h3><span>Workspace mass &amp; broadcast <span class="help" tabindex="0" data-help="chart_jspace">?</span></span><span class="cv" id="jsCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartJspace"></svg></div></div>
-      <div class="chart-card"><h3><span>Route mix (this step)</span><span class="cv" id="routeCv">—</span></h3>
+      <div class="chart-card"><h3><span>Route mix (this step) <span class="help" tabindex="0" data-help="chart_route">?</span></span><span class="cv" id="routeCv">—</span></h3>
         <div id="routeMix"></div></div>
     </div>
     <p class="muted" style="margin:0.5rem 0 0">Smoothed (Catmull–Rom) · hover any chart for exact values · draws in on first load or trainer restart · last ~200 logged steps.</p>
 
-    <h2 style="margin-top:1.1rem">Loss function — J-space auxiliary terms</h2>
+    <h2 style="margin-top:1.1rem">Loss function — J-space auxiliary terms <span class="help" tabindex="0" data-help="sec_eqn">?</span></h2>
     <div class="eqn-card">
       <div class="eqn-line">
         <b>loss</b> = lm
@@ -385,22 +408,22 @@ svg.spark { width: 100%; height: 26px; display: block; }
     <button type="button" class="linkbtn" id="tableToggle">Show data table ▾</button>
     <div class="table-wrap" id="tableWrap"><table><thead id="seriesThead"></thead><tbody id="seriesTbody"></tbody></table></div>
 
-    <h2 style="margin-top:1rem">Watch signals</h2>
+    <h2 style="margin-top:1rem">Watch signals <span class="help" tabindex="0" data-help="sec_watch">?</span></h2>
     <div class="row" id="watchStats"></div>
     <ul class="hints" id="watchHints"></ul>
     <p class="muted" id="trainCaption">Source: metrics jsonl</p>
   </section>
 
   <section class="card">
-    <h2>Checkpoints</h2>
+    <h2>Checkpoints <span class="help" tabindex="0" data-help="sec_ckpts">?</span></h2>
     <table>
-      <thead><tr><th>File</th><th>MB</th><th>Age</th></tr></thead>
+      <thead><tr><th title="Snapshot filename — step_N.pt was saved at training step N">File</th><th title="Snapshot size on disk in megabytes">MB</th><th title="How long ago this snapshot was written">Age</th></tr></thead>
       <tbody id="ckpts"></tbody>
     </table>
   </section>
 
   <section class="card">
-    <h2>Live inspect</h2>
+    <h2>Live inspect <span class="help" tabindex="0" data-help="sec_inspect">?</span></h2>
     <p class="muted">Forward pass on the hot-reloaded checkpoint (needs engine boot). Mass / route should change with input.</p>
     <div class="probe">
       <input id="probeText" value="The number of legs on the animal that spins webs is"/>
@@ -412,6 +435,93 @@ svg.spark { width: 100%; height: 26px; display: block; }
 <script>
 const STATES = ["RAW","CLAIMED_CURATE","PACKED","CLAIMED_TRAIN","CONSUMED","FAILED","DELETED"];
 let lastPayload = null;
+
+// -- ELI5 help system ---------------------------------------------------------
+// Every metric/axis gets a "?" chip. One dictionary, plain English, no jargon
+// without an immediate translation. Hover or keyboard-focus to read.
+const HELP = {
+  // Sections
+  sec_operator: "The 30-second view: what the pipeline is doing right now, plus five pass/fail gates (D1–D5). Green everywhere = nothing needs you.",
+  sec_curriculum: "The model learns in six lessons (phases), like school: logic first, then math, general knowledge, reasoning, long documents, and a final high-quality polish. Each card shows that lesson's token budget and data diet.",
+  sec_demand: "The feedback loop. The trainer regularly tells the data-gatherers what it's hungry for ('more examples', 'expand this phase'), and they re-weight their sources to match.",
+  sec_lifecycle: "Every chunk of text (a 'shard') moves through these stages: gathered raw → being cleaned → packed (ready to train on) → being read → consumed (safe to delete when disk is tight).",
+  sec_runway: "Fuel gauges, one per lesson: how many prepped tokens are stacked up vs the minimum needed so the trainer never runs out mid-lesson.",
+  sec_training: "Live vital signs of the model actually learning: how wrong its guesses are, how fast it reads, and how hard it's adjusting itself.",
+  sec_eqn: "The full score the trainer is minimizing. 'lm' is plain next-word error; every colored term is a gentle extra pressure shaping the model's inner workspaces, each multiplied by its weight (how much it counts).",
+  sec_watch: "Auto-generated 'things worth a glance' — with warnings when a number looks off.",
+  sec_ckpts: "Saved snapshots of the model's brain. After a crash, training resumes from the newest one — you only ever lose the steps since it was written.",
+  sec_inspect: "Type a sentence and peek inside the live model: which inner workspaces light up and where its attention routes. Needs the engine booted (off during training so it doesn't fight the trainer for the GPU).",
+  // Gates
+  gate_D1: "Free space left on the computer's disk. If it drops below the target, data-gathering pauses so training can never fill the whole drive.",
+  gate_D2: "Tokens (word-pieces) already prepped and waiting for the current lesson — like firewood stacked by the stove. Short pile = trainer could go hungry.",
+  gate_D3: "Are the data-gathering workers running? They pause themselves when the disk gets too full.",
+  gate_D4: "Unprocessed raw text sitting in the inbox waiting to be cleaned. Kept under a cap so it can't flood the disk.",
+  gate_D5: "Share of text chunks that broke during processing. A few is normal; a climbing number means something upstream is wrong.",
+  // Top stats
+  loop: "One-word health check for the whole gather→clean→train loop. 'healthy' means data is flowing and the trainer is stepping.",
+  host_free: "Free disk space on the actual Windows drive (probed directly — Docker's own numbers can lie about this).",
+  collectors: "The workers that fetch and generate training text. 'paused' usually means low disk, not a crash.",
+  trainer_phase: "Which of the six lessons (P0–P5) the model is on right now.",
+  step: "One step = the model reads one big batch of text and updates itself once. 'Age' is how long since a step was last logged — slow lessons legitimately log less often.",
+  lm_loss: "How surprised the model is by the next word, on average. Lower = better. Watching it fall is watching the model learn.",
+  raw_backlog: "How much raw, not-yet-cleaned text is queued up, vs the cap that keeps it from flooding the disk.",
+  ckpt: "The newest saved snapshot of the model. Crash-insurance: training resumes from here.",
+  // Training stats
+  tokens_seen: "Total word-pieces the model has read so far this run.",
+  lm_total: "Two versions of the score: 'lm' is pure next-word error; 'total' adds the J-space extra terms. The gap between them is how much the extras currently cost.",
+  tok_s: "Reading speed in tokens (word-pieces) per second. Drops sharply when a new lesson uses longer texts — that's expected, not a problem.",
+  lr: "Learning rate: how big each self-correction nudge is. Ramps up at the start, cruises flat, then eases down at the end (that shape is deliberate).",
+  grad: "Gradient norm: how hard the model wants to change itself this step. Spikes = turbulence. The dashed line is the safety clamp (clip) — changes bigger than that get scaled down.",
+  // Charts (axes explained)
+  chart_loss: "The main 'is it learning?' picture. Down-and-to-the-right = learning. Blue 'lm' = pure next-word error; teal 'total' adds the J-space extras. X axis: training step. Y axis: loss — lower is better.",
+  chart_lr: "How big the learning nudges are over time — warm-up, long cruise, cool-down. X axis: training step. Y axis: learning rate (scientific notation).",
+  chart_grad: "How hard the model is pulling on its own weights. The dashed red line is the clip: pulls stronger than this get trimmed. Frequent visits to the line = turbulence. X axis: training step. Y axis: gradient size.",
+  chart_tok: "Reading speed over time. Cliff-drops line up with lesson changes to longer texts. X axis: training step. Y axis: tokens per second.",
+  chart_jspace: "Two J-space vitals: 'verbalizable_mass' ≈ how much of the model's inner workspace could be put into words; 'broadcast_strength' ≈ how loudly workspaces share results with each other. X axis: training step. Y axis: 0–1 score.",
+  chart_route: "Where the model routed its thinking on the latest step, across its four inner workspaces: fast autopilot (S1), slow deliberate thought (S2), an inner critic, and a planner.",
+  // Aux loss terms
+  aux_report: "Report: pressure for each workspace to be able to faithfully describe what it's holding — keeps inner states honest and readable.",
+  aux_broadcast: "Broadcast: pressure for workspaces to actually share their conclusions with each other instead of hoarding them.",
+  aux_selectivity: "Selectivity: pressure for each workspace to be picky about what it lets in, rather than soaking up everything.",
+  aux_modulation: "Modulation: pressure for workspaces to adjust how they operate based on context — turning knobs, not just passing data along.",
+  aux_half_life: "Half-life: how long each workspace holds a thought before letting it fade. Reflexes (S1) should forget fast; the planner should hold on. This term penalizes drifting from those targets.",
+  aux_inter_mi: "Inter-MI: keeps the workspaces from becoming copies of each other — siblings, not clones. Measures overlap between spaces against a target.",
+  aux_routing: "Routing KL: pressure on the traffic director to send each kind of text to the right workspace (math → deliberate, safety → critic, and so on).",
+  // Watch signals
+  dominant_route: "Which inner workspace is getting most of the traffic right now. 'Entropy' below it = how spread-out the traffic is; near zero means everything funnels one way (usually bad).",
+  j_aux_share: "How much of the total score comes from the J-space extras vs plain next-word learning. Above ~50% means the extras are drowning out the main lesson.",
+  lm_delta: "Change in next-word error vs the previous log point. Negative = improving. One bad reading is noise; a streak is a trend.",
+  mass_watch: "Verbalizable mass (could the model say what it's thinking?) and broadcast strength (how loudly workspaces share). Both 0–1.",
+  half_lives_watch: "How many tokens each workspace currently holds a thought for: S1/S2, then Critic and Planner. Compare against the targets in the equation card.",
+  // Demand panel
+  demand_step: "The trainer step at which this 'shopping list' was last published to the data-gatherers.",
+  curate_stricter: "When loss trends the wrong way, the trainer asks the cleaners to tighten quality filters — fewer, better shards.",
+  task_boosts: "Multipliers nudging collectors toward the kinds of text the trainer wants more of right now (e.g. deliberate ×1.5).",
+  demand_reasons: "The trainer's own words for why it's asking: deficits, loss trends, or 'all healthy, keep the mixture'.",
+  // Curriculum hero
+  cur_hero: "seq = how long each practice text is, in tokens. rope = the position-encoding dial that lets the model handle longer texts. mix = this lesson's diet of data types. tool_use = agentic tool-and-skill transcripts.",
+};
+
+function helpChip(key) {
+  const t = HELP[key];
+  if (!t) return "";
+  return `<span class="help" tabindex="0" data-tip="${t.replace(/"/g, "&quot;")}">?</span>`;
+}
+// Static HTML carries <span class="help" data-help="key">?</span>; fill data-tip once.
+function installHelp() {
+  document.querySelectorAll(".help[data-help]").forEach(el => {
+    const t = HELP[el.getAttribute("data-help")];
+    if (t) el.setAttribute("data-tip", t); else el.style.display = "none";
+  });
+}
+// Flip tooltips that would run off the right edge of the window.
+document.addEventListener("mouseover", (e) => {
+  const h = e.target.closest(".help");
+  if (!h) return;
+  h.classList.remove("flip");
+  const r = h.getBoundingClientRect();
+  if (r.left + 245 > window.innerWidth - 10) h.classList.add("flip");
+});
 
 function fmt(n) {
   if (n == null || Number.isNaN(n)) return "—";
@@ -453,7 +563,7 @@ function renderGates(d) {
   document.getElementById("gates").innerHTML = gates.map(g => `
     <div class="gate ${g.ok ? "ok" : "bad"}">
       <div class="id">${g.id}</div>
-      <div class="name">${g.name}</div>
+      <div class="name">${g.name}${helpChip("gate_" + g.id)}</div>
       <div class="val">${g.value || "—"}</div>
       <div class="tgt">${g.target || ""}</div>
     </div>`).join("");
@@ -477,21 +587,21 @@ function renderTop(d) {
   document.getElementById("preset").textContent = d.preset || "—";
   document.getElementById("clock").textContent = fmtTs(d.ts);
   document.getElementById("topStats").innerHTML = `
-    <div class="stat"><div class="k">Loop</div><div class="v sm"><span class="pill ${health}">${healthLabel}</span></div>
+    <div class="stat"><div class="k">Loop${helpChip("loop")}</div><div class="v sm"><span class="pill ${health}">${healthLabel}</span></div>
       <div class="sub">${flow.data_detail || ""}</div></div>
-    <div class="stat"><div class="k">Host free</div><div class="v sm"><span class="pill ${freeCls}">${free != null ? free + " GB" : "—"}</span></div>
+    <div class="stat"><div class="k">Host free${helpChip("host_free")}</div><div class="v sm"><span class="pill ${freeCls}">${free != null ? free + " GB" : "—"}</span></div>
       <div class="sub">probe ${disk.probe || "—"} · low ${disk.low_water_gb ?? "—"}</div></div>
-    <div class="stat"><div class="k">Collectors</div><div class="v sm"><span class="pill ${pause.paused ? "warn" : "ok"}">${pause.paused ? "paused" : "running"}</span></div>
+    <div class="stat"><div class="k">Collectors${helpChip("collectors")}</div><div class="v sm"><span class="pill ${pause.paused ? "warn" : "ok"}">${pause.paused ? "paused" : "running"}</span></div>
       <div class="sub">${pause.reason || "feeding target phase"}</div></div>
-    <div class="stat"><div class="k">Trainer phase</div><div class="v">${flow.trainer_phase != null ? flow.trainer_phase : "—"}</div>
+    <div class="stat"><div class="k">Trainer phase${helpChip("trainer_phase")}</div><div class="v">${flow.trainer_phase != null ? flow.trainer_phase : "—"}</div>
       <div class="sub">${(d.watch && d.watch.phase_progress && d.watch.phase_progress.short) || "target P"+(flow.target_phase != null ? flow.target_phase : "—")}</div></div>
-    <div class="stat"><div class="k">Step</div><div class="v">${step}</div>
+    <div class="stat"><div class="k">Step${helpChip("step")}</div><div class="v">${step}</div>
       <div class="sub">age ${fmtAge(tr.age_s)}</div></div>
-    <div class="stat"><div class="k">lm loss</div><div class="v sm">${loss}</div>
+    <div class="stat"><div class="k">lm loss${helpChip("lm_loss")}</div><div class="v sm">${loss}</div>
       <div class="sub">${toks} tok/s</div></div>
-    <div class="stat"><div class="k">Raw backlog</div><div class="v sm">${m.raw_gb != null ? m.raw_gb + " GB" : "—"}</div>
+    <div class="stat"><div class="k">Raw backlog${helpChip("raw_backlog")}</div><div class="v sm">${m.raw_gb != null ? m.raw_gb + " GB" : "—"}</div>
       <div class="sub">${Math.round((m.raw_fill || 0)*100)}% of max ${m.raw_max_gb ?? "—"} GB</div></div>
-    <div class="stat"><div class="k">Ckpt</div><div class="v sm">${(d.ckpt && d.ckpt.latest_pointer) || "—"}</div>
+    <div class="stat"><div class="k">Ckpt${helpChip("ckpt")}</div><div class="v sm">${(d.ckpt && d.ckpt.latest_pointer) || "—"}</div>
       <div class="sub">tok ${m.tokenizer_sha || "—"}</div></div>
   `;
 }
@@ -524,6 +634,7 @@ function renderCurriculum(d) {
       <div>
         <div class="title">Now training:
           <span class="pill ok">P${active} · ${activePh.short || activePh.name}</span>
+          ${helpChip("cur_hero")}
         </div>
         <div class="detail">
           seq ${activePh.seq} · rope ${activePh.rope_base} · mix ${mixStr(activePh.mix)}
@@ -628,17 +739,17 @@ function renderWatch(d) {
   const hl = last.hl_est || {};
   const dom = w.dominant_route || {};
   document.getElementById("watchStats").innerHTML = `
-    <div class="stat"><div class="k">Dominant route</div><div class="v sm">${dom.name || "—"} ${dom.p != null ? (dom.p*100).toFixed(0)+"%" : ""}</div>
+    <div class="stat"><div class="k">Dominant route${helpChip("dominant_route")}</div><div class="v sm">${dom.name || "—"} ${dom.p != null ? (dom.p*100).toFixed(0)+"%" : ""}</div>
       <div class="sub">entropy ${w.route_entropy != null ? w.route_entropy : "—"} bits</div></div>
-    <div class="stat"><div class="k">J-aux share</div><div class="v sm">${w.j_aux_share != null ? (w.j_aux_share*100).toFixed(0)+"%" : "—"}</div>
+    <div class="stat"><div class="k">J-aux share${helpChip("j_aux_share")}</div><div class="v sm">${w.j_aux_share != null ? (w.j_aux_share*100).toFixed(0)+"%" : "—"}</div>
       <div class="sub">of total loss</div></div>
-    <div class="stat"><div class="k">Δ lm (log)</div><div class="v sm">${w.lm_delta_10 != null ? (w.lm_delta_10 > 0 ? "+" : "")+w.lm_delta_10 : "—"}</div>
+    <div class="stat"><div class="k">Δ lm (log)${helpChip("lm_delta")}</div><div class="v sm">${w.lm_delta_10 != null ? (w.lm_delta_10 > 0 ? "+" : "")+w.lm_delta_10 : "—"}</div>
       <div class="sub">vs prior step log</div></div>
-    <div class="stat"><div class="k">grad</div><div class="v sm">${w.grad_vs_clip != null ? w.grad_vs_clip : "—"}</div>
+    <div class="stat"><div class="k">grad${helpChip("grad")}</div><div class="v sm">${w.grad_vs_clip != null ? w.grad_vs_clip : "—"}</div>
       <div class="sub">clip target ~1.0</div></div>
-    <div class="stat"><div class="k">mass</div><div class="v sm">${last.verbalizable_mass != null ? Number(last.verbalizable_mass).toFixed(3) : "—"}</div>
+    <div class="stat"><div class="k">mass${helpChip("mass_watch")}</div><div class="v sm">${last.verbalizable_mass != null ? Number(last.verbalizable_mass).toFixed(3) : "—"}</div>
       <div class="sub">broadcast ${last.broadcast_strength != null ? Number(last.broadcast_strength).toFixed(3) : "—"}</div></div>
-    <div class="stat"><div class="k">half-lives</div><div class="v sm">${hl.system1 != null ? Math.round(hl.system1)+"/"+Math.round(hl.system2||0) : "—"}</div>
+    <div class="stat"><div class="k">half-lives${helpChip("half_lives_watch")}</div><div class="v sm">${hl.system1 != null ? Math.round(hl.system1)+"/"+Math.round(hl.system2||0) : "—"}</div>
       <div class="sub">S1/S2 · C ${hl.critic != null ? Math.round(hl.critic) : "—"} · P ${hl.planner != null ? Math.round(hl.planner) : "—"}</div></div>
   `;
   const hints = w.hints || [];
@@ -850,12 +961,12 @@ function renderTrain(d) {
     ? route.map((p,i) => `R${i}:${(Number(p)*100).toFixed(0)}%`).join(" ")
     : "—";
   document.getElementById("trainStats").innerHTML = `
-    <div class="stat"><div class="k">Step</div><div class="v">${last.step ?? "—"}</div></div>
-    <div class="stat"><div class="k">Tokens seen</div><div class="v sm">${fmt(last.tokens)}</div></div>
-    <div class="stat"><div class="k">lm / total</div><div class="v sm">${last.lm_loss != null ? Number(last.lm_loss).toFixed(3) : "—"} / ${last.total != null ? Number(last.total).toFixed(3) : "—"}</div></div>
-    <div class="stat"><div class="k">tok/s</div><div class="v sm">${last.tok_s != null ? Math.round(last.tok_s) : "—"}</div></div>
-    <div class="stat"><div class="k">lr</div><div class="v sm">${last.lr != null ? Number(last.lr).toExponential(1) : "—"}</div></div>
-    <div class="stat"><div class="k">grad</div><div class="v sm">${last.grad_norm != null ? Number(last.grad_norm).toFixed(2) : "—"}</div></div>
+    <div class="stat"><div class="k">Step${helpChip("step")}</div><div class="v">${last.step ?? "—"}</div></div>
+    <div class="stat"><div class="k">Tokens seen${helpChip("tokens_seen")}</div><div class="v sm">${fmt(last.tokens)}</div></div>
+    <div class="stat"><div class="k">lm / total${helpChip("lm_total")}</div><div class="v sm">${last.lm_loss != null ? Number(last.lm_loss).toFixed(3) : "—"} / ${last.total != null ? Number(last.total).toFixed(3) : "—"}</div></div>
+    <div class="stat"><div class="k">tok/s${helpChip("tok_s")}</div><div class="v sm">${last.tok_s != null ? Math.round(last.tok_s) : "—"}</div></div>
+    <div class="stat"><div class="k">lr${helpChip("lr")}</div><div class="v sm">${last.lr != null ? Number(last.lr).toExponential(1) : "—"}</div></div>
+    <div class="stat"><div class="k">grad${helpChip("grad")}</div><div class="v sm">${last.grad_norm != null ? Number(last.grad_norm).toFixed(2) : "—"}</div></div>
   `;
   document.getElementById("trainDetail").innerHTML = `
     <div class="k">broadcast</div><div>${last.broadcast != null ? Number(last.broadcast).toFixed(4) : "—"}</div>
@@ -961,18 +1072,32 @@ function renderAux(d) {
     const ys = s[key] || [];
     const last = lastNonNull(ys);
     return `<div class="aux-cell">
-      <div class="lab"><i style="background:${color}"></i>${label}</div>
+      <div class="lab"><i style="background:${color}"></i>${label}${helpChip("aux_" + key)}</div>
       <div class="val">${last != null ? Number(last).toFixed(4) : "—"}</div>
       ${sparkline(ys, color)}
     </div>`;
   }).join("");
 }
 
+const TABLE_HELP = {
+  step: "Training step number — one weight update per step.",
+  lm_loss: "Next-word error. Lower = better.",
+  total: "lm_loss plus all the J-space extra terms.",
+  grad_norm: "How hard the model pulled on its weights this step.",
+  lr: "Size of the learning nudge at this step.",
+  tok_s: "Reading speed, tokens per second.",
+  verbalizable_mass: "How much of the inner workspace could be put into words (0–1).",
+  broadcast_strength: "How loudly workspaces share results with each other (0–1).",
+};
+
 function renderTable(d) {
   const s = (d.trainer && d.trainer.series) || {};
   const n = (s.step || []).length;
   document.getElementById("seriesThead").innerHTML =
-    `<tr>${TABLE_COLS.map(c => `<th>${c}</th>`).join("")}</tr>`;
+    `<tr>${TABLE_COLS.map(c => {
+      const t = TABLE_HELP[c] || (HELP["aux_" + c] || "").split(":").slice(1).join(":").trim();
+      return `<th title="${(t || c).replace(/"/g, "&quot;")}">${c}</th>`;
+    }).join("")}</tr>`;
   const start = Math.max(0, n - 30);
   let rows = "";
   for (let i = n - 1; i >= start; i--) {
@@ -1011,11 +1136,11 @@ function renderDemand(d) {
   const reasonStr = (dem.reasons || []).join(" · ") || "—";
   el.innerHTML = `
     <div class="row">
-      <div class="stat"><div class="k">Demand step</div><div class="v">${dem.step ?? "—"}</div>
+      <div class="stat"><div class="k">Demand step${helpChip("demand_step")}</div><div class="v">${dem.step ?? "—"}</div>
         <div class="sub">age ${fmtAge(dem.age_s)} · phase P${dem.trainer_phase ?? "—"}</div></div>
-      <div class="stat"><div class="k">Curate stricter</div><div class="v sm"><span class="pill ${dem.curate_stricter ? "warn" : "ok"}">${dem.curate_stricter ? "yes" : "no"}</span></div></div>
-      <div class="stat"><div class="k">Task boosts</div><div class="v sm">${boostStr}</div></div>
-      <div class="stat"><div class="k">Reasons</div><div class="v sm">${reasonStr}</div></div>
+      <div class="stat"><div class="k">Curate stricter${helpChip("curate_stricter")}</div><div class="v sm"><span class="pill ${dem.curate_stricter ? "warn" : "ok"}">${dem.curate_stricter ? "yes" : "no"}</span></div></div>
+      <div class="stat"><div class="k">Task boosts${helpChip("task_boosts")}</div><div class="v sm">${boostStr}</div></div>
+      <div class="stat"><div class="k">Reasons${helpChip("demand_reasons")}</div><div class="v sm">${reasonStr}</div></div>
     </div>
     <div class="phase-grid" style="margin-top:0.75rem">
       ${[0,1,2,3,4,5].map(p => {
@@ -1088,6 +1213,7 @@ document.getElementById("tableToggle").onclick = () => {
   document.getElementById("tableToggle").textContent = showing ? "Hide data table ▴" : "Show data table ▾";
 };
 
+installHelp();
 refresh();
 setInterval(refresh, 3000);
 </script>
