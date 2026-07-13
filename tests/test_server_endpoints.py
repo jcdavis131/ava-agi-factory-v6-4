@@ -174,6 +174,39 @@ def test_generate_ok(client):
     assert "tokens" in body and "route_probs" in body and "latency_ms" in body
 
 
+def test_chat_empty_messages_422(client):
+    r = client.post("/chat", json={"messages": []})
+    assert r.status_code == 422
+
+
+def test_chat_ok(client):
+    r = client.post("/chat", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert r.status_code == 200
+    body = r.json()
+    assert "content" in body and "tokens" in body and "latency_ms" in body
+    # _FakeEngine.generate() echoes the formatted prompt back — confirms the
+    # <|user|>/<|assistant|> convention actually reached ServeEngine.generate().
+    assert "<|user|>hi<|assistant|>" in body["content"] or body["content"].startswith("out:")
+
+
+def test_chat_truncates_at_next_turn(client, monkeypatch):
+    """ServeEngine.generate() has no early-stop, so an undertrained checkpoint
+    can ramble into a fabricated follow-up turn — /chat must cut that off."""
+
+    class _RamblingEngine(_FakeEngine):
+        def generate(self, text, max_tokens=64, temperature=0.8, task_type="chat", **kwargs):
+            return {
+                "text": "the answer is 4<|user|>and another question<|assistant|>ignored",
+                "tokens": 12, "route_probs": [], "latency_ms": 1.0,
+            }
+
+    fake = _RamblingEngine()
+    monkeypatch.setattr("server.get_engine", lambda: fake)
+    r = client.post("/chat", json={"messages": [{"role": "user", "content": "what is 2+2"}]})
+    assert r.status_code == 200
+    assert r.json()["content"] == "the answer is 4"
+
+
 def test_inspect_ok(client):
     r = client.post("/jspace/inspect", json={"text": "spider webs"})
     assert r.status_code == 200
