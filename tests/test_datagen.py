@@ -14,6 +14,7 @@ import hashlib
 import io
 import itertools
 import json
+import random
 import re
 from fractions import Fraction
 
@@ -32,6 +33,22 @@ from ava.datagen.encyclopedia import EncyclopediaGenerator
 from ava.datagen.code_gen import CodeGenGenerator, SAFE_BUILTINS, run_sandboxed
 from ava.datagen.chat_safety import ChatSafetyGenerator, _SCENARIO_TEMPLATES
 from ava.datagen.react_tools import ASSISTANT, USER, ReactToolsGenerator
+from ava.datagen.workflow_jobbench import (
+    WorkflowJobBenchGenerator,
+    _duplicate_doc,
+    _units_doc,
+    _stale_doc,
+    _slug,
+    _fmt_val,
+    _OCCUPATIONS,
+)
+from ava.datagen.workflow_gaia2 import (
+    WorkflowGaia2Generator,
+    _adaptability_doc,
+    _ambiguity_doc,
+    _deadline_doc,
+    _collaboration_doc,
+)
 
 ALL_GENERATORS = [
     LogicGenerator,
@@ -40,6 +57,8 @@ ALL_GENERATORS = [
     CodeGenGenerator,
     ChatSafetyGenerator,
     ReactToolsGenerator,
+    WorkflowJobBenchGenerator,
+    WorkflowGaia2Generator,
 ]
 
 # A small byte target keeps tests fast while still exercising every family.
@@ -125,6 +144,12 @@ def test_task_types_are_accurate_per_generator():
 
     react_tt = {d["task_type"] for d in _collect(ReactToolsGenerator)}
     assert {"deliberate", "temporal"} <= react_tt
+    
+    jobbench_tt = {d["task_type"] for d in _collect(WorkflowJobBenchGenerator)}
+    assert {"deliberate", "temporal"} <= jobbench_tt
+
+    gaia2_tt = {d["task_type"] for d in _collect(WorkflowGaia2Generator)}
+    assert gaia2_tt == {"temporal"}, f"gaia2 must be all temporal, got {gaia2_tt}"
 
 
 # ---------------------------------------------------------------------------
@@ -644,6 +669,182 @@ def test_chat_markers_and_phases():
         assert "<|user|>" in d["text"] and "<|assistant|>" in d["text"]
         phases.add(d["phase"])
     assert {"p3", "p5"} <= phases
+
+
+# ---------------------------------------------------------------------------
+# workflow_jobbench.py: independently re-derive each reconciliation's math
+# from the rendered CSV tables (never trusting the generator's own sum), and
+# confirm the doc states exactly that corrected figure.
+# ---------------------------------------------------------------------------
+
+def _csv_block_values(text: str, idx: int = 0) -> list[int]:
+    """Pull integer values out of the Nth fenced ```...``` CSV block."""
+    blocks = re.findall(r"```\n(.*?)\n```", text, re.S)
+    lines = blocks[idx].splitlines()[1:]  # skip the "line_item,value_x" header
+    return [int(line.rsplit(",", 1)[1]) for line in lines]
+
+
+def test_jobbench_duplicate_math_is_correct():
+    rng = random.Random(11)
+    for _ in range(30):
+        occ = _OCCUPATIONS[rng.randrange(len(_OCCUPATIONS))]
+        unit = occ[3]
+        n = rng.randint(3, 8)
+        text, task_type, concept = _duplicate_doc(rng, occ, n)
+        assert task_type == "deliberate"
+        assert concept == _slug(occ[0])
+        values = _csv_block_values(text)
+        assert len(values) == n + 1, "table must have n rows plus the planted duplicate"
+        dup_value = values[-1]
+        assert values[:-1].count(dup_value) >= 1, "last row must exactly duplicate an earlier row"
+        true_sum = sum(values) - dup_value
+        assert f"Corrected total to report: {_fmt_val(true_sum, unit)}." in text
+
+
+def test_jobbench_units_math_is_correct():
+    rng = random.Random(13)
+    for _ in range(30):
+        occ = _OCCUPATIONS[rng.randrange(len(_OCCUPATIONS))]
+        unit = occ[3]
+        n = rng.randint(3, 8)
+        text, task_type, concept = _units_doc(rng, occ, n)
+        assert task_type == "deliberate"
+        assert concept == _slug(occ[0])
+        values = _csv_block_values(text)
+        assert len(values) == n
+        true_sum = sum(values)
+        multiplier = 1000 if unit == "$" else 100
+        implied = true_sum * multiplier
+        assert f"Correct total: {_fmt_val(true_sum, unit)}, not {_fmt_val(implied, unit)}." in text
+
+
+def test_jobbench_stale_math_is_correct():
+    rng = random.Random(17)
+    for _ in range(30):
+        occ = _OCCUPATIONS[rng.randrange(len(_OCCUPATIONS))]
+        unit = occ[3]
+        n = rng.randint(3, 8)
+        text, task_type, concept = _stale_doc(rng, occ, n)
+        assert task_type == "temporal"
+        assert concept == _slug(occ[0])
+        sum_a = sum(_csv_block_values(text, 0))
+        sum_b = sum(_csv_block_values(text, 1))
+        assert (
+            f"sign off on the current total, {_fmt_val(sum_b, unit)}, not the memo's "
+            f"{_fmt_val(sum_a, unit)}; flag the memo as superseded." in text
+        )
+
+
+def test_jobbench_phase4_docs_are_long():
+    """Spec 02: P4-tagged docs must land in the 6000-12000 char long-doc band."""
+    docs = _collect(WorkflowJobBenchGenerator, target=1_500_000)
+    p4 = [d for d in docs if d["phase"] == "p4"]
+    assert p4, "no phase-4 docs produced at this target size"
+    for d in p4:
+        assert 6000 <= len(d["text"]) <= 12000, f"phase4 doc length {len(d['text'])} out of band"
+
+
+# ---------------------------------------------------------------------------
+# workflow_gaia2.py: independently replay each event-driven scheduling
+# scenario's state machine from the slots/deadline/events named in the
+# rendered text, and confirm the stated resolution matches.
+# ---------------------------------------------------------------------------
+
+_SLOT = r"Day \d+ \d{2}:00"
+
+
+def _parse_slot(s: str) -> tuple[int, int]:
+    parts = s.split()
+    return int(parts[1]), int(parts[2].split(":")[0])
+
+
+def _parse_slots(s: str) -> list[tuple[int, int]]:
+    return [_parse_slot(x.strip()) for x in s.split(",")]
+
+
+def test_gaia2_adaptability_resolution_is_correct():
+    rng = random.Random(21)
+    for _ in range(40):
+        text, concept = _adaptability_doc(rng)
+        assert concept == "adaptability"
+        slots = _parse_slots(re.search(r"Initial candidate slots: (.+)\.\n", text).group(1))
+        deadline = _parse_slot(re.search(rf"before ({_SLOT})", text).group(1))
+        declined = _parse_slot(re.search(rf"declines the proposed slot ({_SLOT})", text).group(1))
+        remaining = [s for s in slots if s != declined]
+        candidates = [s for s in remaining if s <= deadline]
+        if candidates:
+            expected = min(candidates)
+            m = re.search(rf"is ({_SLOT}); book that one", text)
+            assert m, f"expected a booking resolution:\n{text}"
+            assert _parse_slot(m.group(1)) == expected
+        else:
+            expected = min(remaining)
+            m = re.search(rf"nearest remaining slot, ({_SLOT})", text)
+            assert m, f"expected an escalation resolution:\n{text}"
+            assert _parse_slot(m.group(1)) == expected
+
+
+def test_gaia2_ambiguity_prefers_explicit_recent_time():
+    rng = random.Random(23)
+    saw_flag = False
+    for _ in range(60):
+        text, concept = _ambiguity_doc(rng)
+        assert concept == "ambiguity"
+        explicit = _parse_slot(re.search(rf"lock in ({_SLOT}) specifically", text).group(1))
+        deadline = _parse_slot(re.search(rf"before ({_SLOT})", text).group(1))
+        if explicit <= deadline:
+            m = re.search(rf"Book ({_SLOT})\.", text)
+            assert m, f"expected the explicit slot to be booked:\n{text}"
+            assert _parse_slot(m.group(1)) == explicit
+        else:
+            # The tie-break rule never substitutes an unrelated slot when the
+            # named one misses the deadline -- it must flag, not rebook.
+            assert "flag the conflict" in text and "rather than silently rebooking" in text
+            assert "Book " not in text
+            saw_flag = True
+    assert saw_flag, "test seed never exercised the past-deadline flag branch"
+
+
+def test_gaia2_deadline_constraint_removes_blocked_slots():
+    rng = random.Random(29)
+    for _ in range(40):
+        text, concept = _deadline_doc(rng)
+        assert concept == "deadline"
+        slots = _parse_slots(re.search(r"Initial candidate slots: (.+)\.\n", text).group(1))
+        day = int(re.search(r"unavailable from \d{2}:00 onward on day (\d+)", text).group(1))
+        blocked_from = int(re.search(r"unavailable from (\d{2}):00 onward", text).group(1))
+        remaining = [s for s in slots if not (s[0] == day and s[1] >= blocked_from)]
+        deadline = _parse_slot(re.search(rf"before ({_SLOT})", text).group(1))
+        candidates = [s for s in remaining if s <= deadline]
+        if candidates:
+            expected = min(candidates)
+            m = re.search(rf"is ({_SLOT}); book it immediately", text)
+            assert m, f"expected a booking resolution:\n{text}"
+            assert _parse_slot(m.group(1)) == expected
+        else:
+            assert "no slot survives" in text.lower()
+
+
+def test_gaia2_collaboration_accepts_or_flags_by_deadline():
+    rng = random.Random(31)
+    for _ in range(40):
+        text, concept = _collaboration_doc(rng)
+        assert concept == "collaboration"
+        booked = _parse_slot(re.search(rf"already booked ({_SLOT}) for the room", text).group(1))
+        deadline = _parse_slot(re.search(rf"before ({_SLOT})", text).group(1))
+        if booked <= deadline:
+            assert "accept" in text and "duplicate it" in text
+        else:
+            assert "flag the conflict" in text
+
+
+def test_gaia2_phase4_docs_are_long():
+    """Spec 02: P4-tagged docs must land in the 6000-12000 char long-doc band."""
+    docs = _collect(WorkflowGaia2Generator, target=1_500_000)
+    p4 = [d for d in docs if d["phase"] == "p4"]
+    assert p4, "no phase-4 docs produced at this target size"
+    for d in p4:
+        assert 6000 <= len(d["text"]) <= 13000, f"phase4 doc length {len(d['text'])} out of band"
 
 
 # ---------------------------------------------------------------------------

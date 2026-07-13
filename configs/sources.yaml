@@ -9,9 +9,9 @@
 #   P0 logic       : synthetic only
 #   P1 math        : open-web-math (light) + synthetic math
 #   P2 foundation  : fineweb-edu (edu>=2) + github-code + cosmopedia + synthetic facts
-#   P3 reasoning   : proof-pile-2 + open-web-math + synthetic CoT/temporal
-#   P4 long        : fineweb-edu (long docs) + synthetic needle-in-haystack
-#   P5 anneal      : fineweb-edu (edu>=4.5) + proof-pile-2 (verified) + synthetic safety
+#   P3 reasoning   : proof-pile-2 + open-web-math + synthetic CoT/temporal + synthetic workflows
+#   P4 long        : fineweb-edu (long docs) + synthetic needle-in-haystack + synthetic workflows
+#   P5 anneal      : fineweb-edu (edu>=4.5) + proof-pile-2 (verified) + synthetic safety + workflows
 #
 # Every `dataset` + `config` pair below was verified against the HF API to exist
 # and to be `gated:false` before being committed here. Changing a config name
@@ -85,7 +85,7 @@ sources:
     generator: math
     text_field: text
     phases: [3]
-    weight: {3: 0.30}
+    weight: {3: 0.25}
     task_type: temporal
     filters: {min_chars: 1}
     license: synthetic
@@ -98,7 +98,7 @@ sources:
     generator: ency
     text_field: text
     phases: [4]
-    weight: {4: 0.30}
+    weight: {4: 0.20}
     task_type: automatic
     filters: {min_chars: 1}
     license: synthetic
@@ -109,8 +109,37 @@ sources:
     generator: chat
     text_field: text
     phases: [5]
-    weight: {5: 0.20}
+    weight: {5: 0.15}
     task_type: safety
+    filters: {min_chars: 1}
+    license: synthetic
+    gated: false
+
+  # JobBench-style delegation dossiers (occupation x reconciliation task) and
+  # Gaia2-style async/dynamic scheduling scenarios -- see
+  # ava/datagen/workflow_jobbench.py and workflow_gaia2.py. Weights follow the
+  # blueprint's own p3/p4/p5 emphasis (inner_monologue_research.md): jobbench
+  # skews toward reasoning (p3), gaia2 skews toward long/async context (p4).
+  # Existing p3/p4/p5 source weights above were rescaled down proportionally
+  # to make room so each phase still sums to ~1.0.
+  - name: synth_jobbench
+    kind: synthetic
+    generator: jobbench
+    text_field: text
+    phases: [3, 4, 5]
+    weight: {3: 0.10, 4: 0.10, 5: 0.05}
+    task_type: deliberate
+    filters: {min_chars: 1}
+    license: synthetic
+    gated: false
+
+  - name: synth_gaia2
+    kind: synthetic
+    generator: gaia2
+    text_field: text
+    phases: [3, 4, 5]
+    weight: {3: 0.05, 4: 0.15, 5: 0.10}
+    task_type: temporal
     filters: {min_chars: 1}
     license: synthetic
     gated: false
@@ -123,7 +152,7 @@ sources:
     split: train
     text_field: text
     phases: [1, 3]
-    weight: {1: 0.5, 3: 0.35}
+    weight: {1: 0.5, 3: 0.30}
     task_type: deliberate
     filters: {min_chars: 200}
     license: odc-by
@@ -137,7 +166,7 @@ sources:
     text_field: text
     score_field: score
     phases: [2, 4, 5]
-    weight: {2: 0.45, 4: 0.70, 5: 0.40}
+    weight: {2: 0.45, 4: 0.55, 5: 0.35}
     task_type: automatic
     filters:
       min_chars: {2: 200, 4: 4000, 5: 200}   # P4 = long documents only
@@ -180,7 +209,7 @@ sources:
     text_field: text
     trust_remote_code: true
     phases: [3, 5]
-    weight: {3: 0.35, 5: 0.40}
+    weight: {3: 0.30, 5: 0.35}
     task_type: deliberate
     filters: {min_chars: 200}
     license: various
