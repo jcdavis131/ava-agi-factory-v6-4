@@ -1,111 +1,122 @@
-# Ava AGI Factory v6.4 — End-to-End Execution Plan
-### Data → Tokenizer → Train → Eval → Deploy-Live, foreman + worker-bee orchestration
+# Ava — Continuous Gather → Clean → Train → Serve
 
-**Status: READY FOR EXECUTION** · Tracker: [`TODOS.md`](TODOS.md) · Protocol: [`ORCHESTRATION.md`](ORCHESTRATION.md) · Specs: [`specs/`](specs/)
+Collection, curation, and training run **concurrently** as five Docker services coordinated by a
+SQLite manifest. Training on the local RTX 4080; everything else in containers.
+
+Live tracker: [`TODOS.md`](TODOS.md) · Agent protocol: [`ORCHESTRATION.md`](ORCHESTRATION.md) · Contracts: [`specs/`](specs/)
+
+*(Supersedes the previous plan, which assumed no GPU and a firewalled HuggingFace. Both premises are
+false on this machine.)*
 
 ---
 
-## 1. Why this plan exists
+## Why this exists
 
-The v6.4 repo is a **design blueprint, not a working trainer**. An audit (2026-07-09) found:
+The v6.4 repo was a blueprint, not a system. The audit found, and this project fixed or is fixing:
 
-**Real, reusable code**
-- `model_1b.py` — actual `nn.Module` architecture (3-regime transformer + YaRN RoPE + QK-Norm), *with bugs* (no causal mask, broken rotary pairing, autograd leak — full list in `specs/04_model_and_configs.md`)
-- `multi_jspace_module.py` — Multi-J-Space (S1/S2/Critic/Planner slot-attention workspaces, Router, Arbitration) + `MultiJSpaceLosses`
-- WSD/RoPE/branch schedules in `train_1b_deepspeed.py`; curriculum manifests `dolma_config.yaml`, `nemo_curator_pipeline.yaml`
-
-**Mock / must be built**
-- No tokenizer exists anywhere ("ava-tokenizer" is referenced, never defined; vocab inconsistent 128000 vs 32000)
-- Training loop = 5 steps of `loss=torch.tensor(1.0)` writing *text files* as "checkpoints"; DeepSpeed never initialized
-- Eval harness returns hardcoded PASS; `server.py` returns canned JSON and crashes on import; `convert_to_hf.py` writes a fake config; wandb logging is print-only; zero tests
-
-This plan turns the blueprint into a real system in which **every stage is genuinely executed**: real synthetic data, real BPE tokenizer, real training with the Multi-J-Space losses, real WSD stable checkpoint + branch fine-tune, real measured evals, and a live deployed server backed by real inference.
-
-## 2. Hard constraints (verified)
-
-| Constraint | Consequence |
+| Blueprint claim | Reality |
 |---|---|
-| Build container: 4 CPU cores, 15 GB RAM, **no GPU**, ephemeral | container trains the **nano** pilot only; everything committed; artifacts regenerable from seeds |
-| huggingface.co **blocked** by proxy; PyPI open | 100% locally-generated synthetic data (blueprint's Phase 0 is 60% synthetic by design); `tokenizers` lib trains BPE locally |
-| wandb assumed blocked in container | JSONL metrics + self-contained HTML dashboard; wandb-offline optional on the GPU machine |
-| Real GPU: **Alienware m16, RTX 4080 Laptop 12 GB, Windows + WSL2** | bf16 + 8-bit AdamW + gradient checkpointing + SDPA-flash; no DeepSpeed dependency |
+| "1B model, trains with `torchrun`" | Training loop was 5 steps of `loss=torch.tensor(1.0)`; checkpoints were **text files** |
+| Transformer | **No causal mask** — attention saw the future. Not a language model. |
+| Global Workspace | Mean-pooled the **whole sequence** and broadcast it to every position — leaked the future even after the mask was added |
+| "AutoInit std=0.02" | Dead code. nano started at cross-entropy **196** where ln(8192)=9.01 |
+| `verbalizable_mass` | The literal constant **0.06** (a `hasattr` guard that was always False) |
+| 5 canonical eval tests | Every score **hardcoded**; the "intervention engine" edited a `torch.randn` matrix indexed by `sha256(concept) % vocab` |
+| "ava-tokenizer" | Does not exist anywhere |
+| `server.py` | `NameError` on import (`Optional` never imported) |
 
-## 3. The scale ladder
+## Measured environment (not assumed)
 
-Validation is incremental — each rung gates the next:
+| Fact | Value | Consequence |
+|---|---|---|
+| GPU | RTX 4080 Laptop, 12.2GB | ~11.6GB usable |
+| GPU in Docker | `--gpus all` **works** | train in a container |
+| HF from Windows host | **connection reset** | unusable |
+| HF from Docker | **reliable** | *Docker is the network fix, not just packaging* |
+| HF streaming | needs `datasets==2.20.0` + `pyarrow==16.1.0` | unpinned → `NoneType.ArrowInvalid` |
+| Disk | 28.5GB free, single drive | **the binding constraint** |
+| RAM / CPU | 15.7GB (Docker 8.1GB) / 32 cores | curation is CPU-parallel |
 
-| Rung | Params | Where | Tokens | Wall-clock | Purpose |
-|---|---|---|---|---|---|
-| **smoke** | ~2M | container CPU | ~1M | ~5 min | `scripts/smoke_e2e.sh` rehearsal gate before any long run |
-| **nano** | ~14M | container CPU | 30M (fallback 15M) | 5–12 h background | proves every stage real; produces the **live-deploy checkpoint** |
-| **mini** | ~160M | RTX 4080 12GB | ~2.5B | ~3–5 days | GPU-scale validation of curriculum + J-losses; GO/NO-GO gate for base1b |
-| **base1b** | ~1.0–1.2B | RTX 4080 12GB | milestones: 2B → 10B → 30B+ | ~9–12 days / 1B tokens | the target. Vocab-32k **tied** embeddings (trims blueprint's accidental ~2.9B); stop-anytime WSD stable checkpoints; code/math/chat branches fork from any stable ckpt |
+> ⚠️ **Never run `docker system prune --volumes`.** The 29 volumes are other projects' live data
+> (`p0_postgres_data`, `p0_neo4j_data`, `p1_minio_data`, `p2_pgdata`, `infra_synthaembed_pg`, …).
+> `docker builder prune -a` is safe and reclaimed **25GB**.
 
-Honest math: Chinchilla-optimal for 1B ≈ 20B tokens ≈ ~6 months on this GPU. Hence milestones with decision gates, not one heroic run. Full arithmetic and VRAM budgets: `specs/08_alienware_runbook.md`.
-
-**Nano config (the container pilot):** d_model 256, 4 heads × 64, layers 2 text / 6 fusion / 2 reasoning, J-slots 32/64/16/32 (unchanged from blueprint — slot counts are d_model-independent), half-life targets scaled 8/60/30/50, vocab 8192 BPE, verbalizer tied to lm_head → **≈14M params**. Curriculum compressed to 6 phases (P0 logic 5M → P5 anneal 3M, seq 256→1024, RoPE 10k→32k NTK 1.2), step = 8,192 tokens → ~3,662 steps. WSD: warmup 110 → stable 1e-3 → **stable checkpoint at step 3,369 (92%)** → cosine to 1e-4. Chat branch: 3M tokens from stable ckpt, `system1`+`system2` frozen.
-
-## 4. Phase graph
+## Architecture
 
 ```
-P0 scaffold (Sonnet) ─┬─→ P1 datagen B1–B4 (4 × Sonnet, parallel) ─→ P2 tokenizer (Sonnet) ─→ P3 packing (Sonnet) ─┐
-                      └─→ P1' model fixes (Opus) ─────────────────────→ P4 trainer + J-losses (Opus) ─→ P5 bench ──┤
-                                                                                                                   ▼
-                            P6 NANO TRAIN  (foreman-monitored background run; stable ckpt @92% → chat branch)
-                            ├─→ P7 eval harness   (Opus — built DURING P6, run after)
-                            ├─→ P8 serving        (Opus engine + Sonnet report/Docker/smoke — built DURING P6)
-                            └─→ P9 convert+release (Sonnet) ─→ P10 LIVE DEPLOY + smoke_live.sh ─→ P11 Alienware handoff
+ collector ×4 (CPU)        curator ×6 (CPU)          trainer ×1 (GPU)      server (GPU)
+ ─────────────────         ─────────────────         ─────────────────     ────────────
+ HF streaming    ─┐                                                        hot-reloads
+ synthetic gens  ─┼─▶ raw/*.jsonl.zst ─▶ clean·dedup·decon·split· ─▶ packed/{phase}/ ─▶ ckpt/latest
+ (resumable       │      [RAW]           tokenize·pack              {split}/*.bin         ▲
+  cursors)        │                          [PACKED]                    │                │
+                  └──────── backpressure ◀── janitor: watermarks, ───────┴────────────────┘
+                                             delete CONSUMED, rotate ckpts
 ```
 
-Maximum parallelism: after P0, the four data generators, the model-fix task, and doc/serving skeletons all proceed concurrently. P7/P8 are built while P6 trains, so wall-clock is dominated by the training run itself.
+**Shard lifecycle** (`ava/pipeline/manifest.py`, enforced):
+`RAW → CLAIMED_CURATE → PACKED → CLAIMED_TRAIN → CONSUMED → DELETED` (+`FAILED`), leases requeued on
+worker death. Claims are `SELECT`+`UPDATE` inside one `BEGIN IMMEDIATE` — proven by a negative
+control: weakening it to `BEGIN DEFERRED` makes the 12-claimer test fail immediately.
 
-## 5. Deliverables per phase (detail in specs/)
+**Flow control** (`ava/pipeline/flow.py`) keeps the system *training-bound*:
+- collector pauses on `free_disk < 12GB` **or** `raw > 4GB` **or** `packed_runway > 3B tokens`
+- trainer emits `DATA_STARVED` (never crashes) and collectors re-prioritize that phase
+- collector prefetches `phase_current` **and** `phase_next` so transitions don't stall the GPU
+- **delete-after-consume** is safe because training is single-pass; `val`/`test` shards are
+  structurally protected (the trainer cannot claim them; the janitor refuses to delete them)
 
-| Phase | Spec | Key outputs | Done-gate (foreman runs) |
-|---|---|---|---|
-| P0 | `specs/01_environment.md` | `scripts/setup_env.sh`, `ava/config.py`, configs, Makefile, pytest scaffold | import check + `--count-params` ≈ 14M |
-| P1 | `specs/02_data_generation.md` | `ava/datagen/{logic,math_gen,encyclopedia,code_gen,chat_safety}.py`, ≥140MB raw JSONL | double-run sha256 identical; `pytest -k datagen` |
-| P1' | `specs/04_model_and_configs.md` | surgical fixes to `model_1b.py` + `multi_jspace_module.py`, `tests/test_model.py` | causality/rotary/resume tests green < 60 s |
-| P2 | `specs/03_tokenizer.md` | `ava/tokenizer.py`, BPE-8192 artifact | round-trip 1k docs; ≥3.0 chars/token |
-| P3 | `specs/05_training.md` §packing | `ava/data.py`, per-phase uint16 memmaps + heldout | phase token counts ±10% of budget |
-| P4 | `specs/05_training.md` | `ava/train.py`, `ava/jlosses.py` | 50-step loss ↓; kill+`--resume` bit-exact |
-| P5 | `specs/05_training.md` §bench | `runs/bench.json`, budget lock | projected ≤ 12 h else auto nano_quick |
-| P6 | — (foreman op) | `ava_nano_stable.pt`, `ava_nano_final.pt`, `ava_nano_chat.pt` | heldout PPL ≪ step-200 PPL; no NaNs |
-| P7 | `specs/06_evaluation.md` | `evals/*`, real 5-test J-Space harness | measured results, anti-mock grep clean |
-| P8 | `specs/07_serving_deployment.md` | real `server.py` backend, `reports/index.html`, Dockerfile | `scripts/smoke_live.sh` all green |
-| P9 | `specs/09_conversion_release.md` | `export/ava-nano/` safetensors | reload-equivalence atol 1e-5 |
-| P10 | `specs/07_serving_deployment.md` §deploy | live uvicorn :8000 · Vercel static dashboard · self-host package | curl suite + public URL |
-| P11 | `specs/08_alienware_runbook.md` | WSL2 runbook, `configs/mini.yaml`, `configs/base1b.yaml` | user executes on Alienware |
+## Data
 
-## 6. Orchestration model
+Hybrid. Real corpora for breadth; synthetic for the logic-first phases and for the `task_type` /
+`concept` tags the J-Space routing and Critic losses need (nothing on the Hub carries them).
 
-This session = **foreman**. Workers are dispatched per `ORCHESTRATION.md`:
-- **Sonnet workers** — mechanical, well-specified tasks (scaffolding, generators, tokenizer, packing, bench, HTML report, Docker, docs)
-- **Opus workers** — complex/correctness-critical tasks (model bug fixes, trainer + J-losses, eval harness, serve engine)
-- Foreman never marks a task done on a worker's word: it **runs the spec's acceptance command(s)** first, then updates `TODOS.md` and commits.
-- Long runs (P6) execute via `nohup … --resume`-able background process; foreman polls `runs/*/metrics.jsonl` and restarts on crash.
-- `.claude/workflows/ava-build.js` encodes the build fan-out (P0–P5) as an executable workflow for one-command dispatch.
+| Phase | Real (streamed) | Synthetic |
+|---|---|---|
+| P0 logic | — | truth tables, natural-deduction proofs valid *by construction*, syllogisms, FOL |
+| P1 math | open-web-math | staged arithmetic→probability, answers computed not templated |
+| P2 foundation | fineweb-edu (`score≥2`), github-code, cosmopedia | canonical fact corpus |
+| P3 reasoning | proof-pile-2, open-web-math | CoT traces, temporal workflow logs |
+| P4 long | fineweb-edu long docs | needle-in-haystack |
+| P5 anneal | fineweb-edu (`score≥4.5`), proof-pile-2 | safety dialogues + benign twins |
 
-## 7. Deployment ("test live") — three targets
+**Splits:** doc-level, hash-stable — `bucket(sha1(doc_id))` → train 98 / val 1 / test 1. Reruns and
+reordering reproduce identical assignments.
 
-1. **Container live test (the gate):** `AVA_CKPT=runs/chat/ava_nano_chat.pt uvicorn server:app --host 0.0.0.0 --port 8000` — real `/generate`, `/jspace/inspect`, gated `/jspace/intervene` with audit log, real eval JSON, WS stream. Verified by `scripts/smoke_live.sh`.
-2. **Vercel static dashboard:** `reports/` (self-contained HTML, no CDN) deployed for a persistent public URL — training curves, J-Space metrics, eval table.
-3. **Self-host package:** Dockerfile (CPU + CUDA variants) + `run.sh` so the Alienware can serve any checkpoint it trains.
+**Decontamination** (13-gram) is the gate on every published number. The subtlety: `encyclopedia.py`
+deliberately teaches "a spider has eight legs" — the model *must* learn the fact. We decontaminate
+against the eval **prompt strings**, not the underlying facts. Too lax poisons the evals; too strict
+lobotomizes the model.
 
-## 8. Success criteria
+## Scale ladder
 
-- All pytest suites green (causality, rotary, determinism, round-trip, resume-equivalence)
-- Nano run: smoothed lm_loss monotonically decreasing; final heldout PPL substantially below early-run PPL; three real `torch.load`-able checkpoints
-- Eval report contains **only measured numbers** (anti-mock grep enforced)
-- Live server: every `smoke_live.sh` check passes; inspect output is input-dependent; intervention gating enforced (403 without env flag)
-- Alienware runbook validated at least through environment-check steps
+| Rung | Params | Tokens | Wall-clock | Purpose |
+|---|---|---|---|---|
+| nano | **13.8M** ✅ | ~50M | ~10 min | proves the loop; not a capability claim |
+| mini | **171.3M** ✅ | ~2.5B | 3–5 days | the real validation; GO/NO-GO for base1b |
+| base1b | **1409M** ⚠️ | M1 2B → M2 10B → M3 30B+ | ~100M tok/day | the target |
 
-## 9. Risks & mitigations
+Param counts are **measured**, and the specs undercounted: each of the 4 workspaces carries
+`10·d_model²` (two MHA + gate + broadcast proj), plus 4 cross-attentions at `4·d_model²`.
+At d=2048 the J-Space alone is ~235M. base1b lands at 1409M, not the spec'd 1.17B — VRAM is tight
+(8.4GB before activations); trim decision at the Stage 9 gate.
 
-| Risk | Mitigation |
-|---|---|
-| CPU throughput below estimate → nano run > 12 h | P5 bench gates budget; auto-fallback to `nano_quick` (15M tokens) |
-| J-losses destabilize tiny model | j_weight schedule 0.08→0.15 per blueprint; per-loss finiteness asserts; loss-spike alarm in foreman monitoring |
-| 14M params too weak for canonical eval flips | eval bars set honestly (report MEASURED values; PASS bars are nano-scaled); mini rung re-runs same harness at 160M |
-| Container dies mid-run | checkpoints every 250 steps + `--resume` bit-exact; code always committed; data regenerable from seed 1234 |
-| 1B on a 12GB laptop GPU is months at Chinchilla scale | milestone schedule (2B/10B/30B+) with WSD stable ckpts = stop-anytime value; mini rung is the GO/NO-GO gate |
+Chinchilla-optimal for base1b (~20B tokens) is ~6 months on this GPU. Hence milestones with WSD
+stable checkpoints at every phase boundary, making it **stop-anytime** and fork-anytime (code/math/chat
+branches per `BRANCH_CONFIGS`).
+
+## Verification
+
+```bash
+docker builder prune -a          # safe. NEVER: docker system prune --volumes
+make test                        # manifest concurrency, causality, dedup, decon, splits, resume
+docker compose up -d             # collector RAW↑ → curator PACKED↑ → trainer step↑ → janitor DELETED↑
+make ps                          # shard counts by state
+bash scripts/smoke_live.sh       # health, generate, inspect, intervene-403, hot-reload
+pytest tests/test_no_mock.py     # no hardcoded eval literals may survive
+```
+
+**Steady state = success:** GPU utilization stays high, `DATA_STARVED` never fires for more than a
+few seconds at phase transitions, disk stays under the high watermark indefinitely, val PPL falls,
+and `curl localhost:8000/jspace/inspect` returns input-dependent workspace data from the checkpoint
+being trained *right now*.

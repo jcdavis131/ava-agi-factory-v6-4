@@ -2,6 +2,13 @@
 
 > Solo personal project, no connection to employer, built with public/free-tier only
 > Source review: https://share.google/ApbX6CzAGagVjbpGY — 6 local LLMs that prove they're not just smaller versions of cloud models
+>
+> **Note (post model_1b.py merge):** the LongRoPE2 / Peri-LN / attention-sinks
+> claim below described the pre-merge `model_1b.py`. That file was merged with
+> a bug-fixed but simpler version and those three features are currently
+> **not** in the tree — see `tasks/plan-longrope2-port.md` for what was kept,
+> what was dropped, and why (master's RoPE rotation had a pairing bug the
+> other version fixed).
 
 ## TL;DR — Why Local ≠ Smaller Cloud in 2026
 
