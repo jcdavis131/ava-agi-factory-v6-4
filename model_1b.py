@@ -31,6 +31,13 @@ import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint as _ckpt
 
 
+#: F.rms_norm was added in torch 2.4 (pinned in docker/requirements.gpu.txt for the
+#: real training/serving image). Older torch (e.g. a local dev host running whatever
+#: CPU wheel happens to be installed) lacks it entirely -- checked once at import
+#: time rather than per-forward-call.
+_HAS_FUSED_RMS_NORM = hasattr(F, "rms_norm")
+
+
 class RMSNorm(nn.Module):
     def __init__(self, dim, eps=1e-5):
         super().__init__()
@@ -38,8 +45,12 @@ class RMSNorm(nn.Module):
         self.weight = nn.Parameter(torch.ones(dim))
 
     def forward(self, x):
-        # F.rms_norm requires torch>=2.4 (pinned in docker/requirements.gpu.txt)
-        return F.rms_norm(x, (x.shape[-1],), self.weight, self.eps)
+        if _HAS_FUSED_RMS_NORM:
+            return F.rms_norm(x, (x.shape[-1],), self.weight, self.eps)
+        # Fallback for torch<2.4: numerically identical to F.rms_norm --
+        # x / sqrt(mean(x**2, dim=-1) + eps) * weight -- just not the fused kernel.
+        variance = x.float().pow(2).mean(-1, keepdim=True)
+        return (x * torch.rsqrt(variance + self.eps)).to(x.dtype) * self.weight
 
 
 class YaRNScaledRoPE(nn.Module):
@@ -191,9 +202,11 @@ class TransformerBlock1B(nn.Module):
             v = v.repeat_interleave(self.n_rep, dim=1)
 
         # CAUSAL. Was an unmasked full-softmax einsum: the model saw the future.
-        out = F.scaled_dot_product_attention(
-            q, k, v, is_causal=True, scale=attn_factor / math.sqrt(self.head_dim)
-        )
+        # SDPA's `scale=` kwarg needs torch>=2.1; pre-scaling q gets the identical
+        # (q@k^T) * (attn_factor/sqrt(head_dim)) softmax argument via SDPA's own
+        # default scale (1/sqrt(head_dim)) instead, so this works on torch>=2.0
+        # without a version check and without changing the math.
+        out = F.scaled_dot_product_attention(q * attn_factor, k, v, is_causal=True)
         out = out.transpose(1, 2).reshape(B, L, -1)
         x = x + self.o_proj(out)
         x = x + self.mlp(self.norm2(x))
