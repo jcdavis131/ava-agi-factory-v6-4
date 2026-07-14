@@ -88,8 +88,8 @@ class WikiGenerator(Generator):
 
     def _star_page(self, star, cls, lum, planets) -> str:
         rows = [f"# {star}", "",
-                f"| class | {cls} |", f"| luminosity | {lum} L_sun |",
-                f"| planets | {len(planets)} |", "",
+                f"Class: {cls}. Luminosity: {lum} L_sun. "
+                f"Known planets: {len(planets)}.", "",
                 f"{star} is a class-{cls} star with a luminosity of {lum} "
                 f"L_sun. Its snow line lies at {planets[0].snow_line} AU; "
                 f"worlds inside it are rocky, worlds beyond it accrete into "
@@ -107,9 +107,9 @@ class WikiGenerator(Generator):
         if i < len(planets) - 1:
             nbrs.append(f"Beyond it lies {_link(planets[i + 1].name)}")
         rows = [f"# {p.name}", "",
-                f"| type | {p.kind} |", f"| orbit | {p.orbit_au} AU |",
-                f"| period | {p.period_y} yr |", f"| radius | {p.radius_e} R_earth |",
-                f"| eq. temperature | {p.temp_k} K |", f"| moons | {p.moons} |", "",
+                f"Type: {p.kind}. Orbit: {p.orbit_au} AU. "
+                f"Period: {p.period_y} yr. Radius: {p.radius_e} R_earth. "
+                f"Equilibrium temperature: {p.temp_k} K. Moons: {p.moons}.", "",
                 f"{p.name} is a {p.kind} of the star {_link(star)}. It "
                 f"completes one orbit every {p.period_y} years at "
                 f"{p.orbit_au} AU, with an equilibrium temperature of "
@@ -168,6 +168,9 @@ class WikiGenerator(Generator):
 
     def generate(self, target_bytes: int) -> Iterator[dict]:
         produced = 0
+        volume: list[str] = []          # every 3rd system also emits a long
+        volume_star = ""                # p4 "collected volume" of 3 atlases
+        n_systems = 0
         while produced < target_bytes:
             star, cls, lum, planets = self._system()
             pages: list[tuple[str, str, str]] = []      # (title, summary, text)
@@ -184,25 +187,35 @@ class WikiGenerator(Generator):
             index = self._index_page(star, [(t, s) for t, s, _ in pages])
             log = self._log_page(star, [t for t, _, _ in pages])
 
-            for title, _, text in pages:
-                d = self.doc(text=text, task_type="automatic",
-                             concept=title.lower(), phase=2, source=self.name)
-                produced += len(text)
-                yield d
-            for text in (index, log):
-                d = self.doc(text=text, task_type="automatic",
-                             concept=f"{star.lower()} wiki", phase=2,
-                             source=self.name)
-                produced += len(text)
-                yield d
-            for text, concept in self._query_docs(star, planets):
-                d = self.doc(text=text, task_type="deliberate",
-                             concept=concept.lower(), phase=3, source=self.name)
-                produced += len(text)
-                yield d
-            book = "\n\n---\n\n".join([index] + [t for _, _, t in pages] + [log])
-            d = self.doc(text=book, task_type="automatic",
-                         concept=f"{star.lower()} atlas", phase=4,
+            # ONE atlas doc per wiki, not per-page micro-docs: the curator's
+            # Gopher prose gate (ava/pipeline/clean.py) rejects docs under 50
+            # words, and the first deployment shipped 695,842 page-docs of
+            # which it kept exactly zero. Bundling is also what seq-1024
+            # window packing wants.
+            atlas = "\n\n".join([index] + [t for _, _, t in pages] + [log])
+            d = self.doc(text=atlas, task_type="automatic",
+                         concept=f"{star.lower()} atlas", phase=2,
                          source=self.name)
-            produced += len(book)
+            produced += len(atlas)
             yield d
+
+            queries = self._query_docs(star, planets)
+            qa = "\n\n".join(q for q, _ in queries)
+            d = self.doc(text=qa, task_type="deliberate",
+                         concept=queries[0][1].lower(), phase=3,
+                         source=self.name)
+            produced += len(qa)
+            yield d
+
+            n_systems += 1
+            volume.append(atlas)
+            if n_systems % 3 == 1:
+                volume_star = star
+            if len(volume) == 3:
+                vol = "\n\n\n".join(volume)
+                d = self.doc(text=vol, task_type="automatic",
+                             concept=f"{volume_star.lower()} volume", phase=4,
+                             source=self.name)
+                produced += len(vol)
+                volume = []
+                yield d

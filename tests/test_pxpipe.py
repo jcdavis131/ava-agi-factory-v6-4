@@ -92,19 +92,18 @@ def test_wiki_is_deterministic():
 
 
 def test_wiki_links_resolve():
-    """Karpathy-pattern integrity: every [[link]] targets a page that exists
-    (or the system index/log, which are pages too)."""
+    """Karpathy-pattern integrity: every [[link]] in an atlas targets one of
+    that atlas's own section pages (docs are now whole-wiki bundles)."""
     import re
 
-    docs = _pages()
-    titles = {d["text"].splitlines()[0].lstrip("# ") for d in docs}
-    links = set()
-    for d in docs:
-        if d["phase"] == "p4":                       # the book duplicates pages
+    for d in _pages():
+        if d["phase"] != "p2":                       # atlases carry the pages
             continue
-        links |= set(re.findall(r"\[\[([^\]]+)\]\]", d["text"]))
-    unresolved = {l for l in links if l not in titles}
-    assert not unresolved, f"dangling wiki links: {sorted(unresolved)[:5]}"
+        titles = {m.group(1).strip() for m in
+                  re.finditer(r"^#+ (.+)$", d["text"], re.M)}
+        links = set(re.findall(r"\[\[([^\]]+)\]\]", d["text"]))
+        unresolved = {l for l in links if l not in titles}
+        assert not unresolved, f"dangling wiki links: {sorted(unresolved)[:5]}"
 
 
 def test_wiki_physics_recomputes():
@@ -112,10 +111,9 @@ def test_wiki_physics_recomputes():
     import re
 
     for d in _pages():
-        orbit = re.search(r"\| orbit \| ([\d.]+) AU \|", d["text"])
-        period = re.search(r"\| period \| ([\d.]+) yr \|", d["text"])
-        if orbit and period:
-            a, p = float(orbit.group(1)), float(period.group(1))
+        for m in re.finditer(r"Orbit: ([\d.]+) AU\. Period: ([\d.]+) yr\.",
+                             d["text"]):
+            a, p = float(m.group(1)), float(m.group(2))
             assert abs(p - round(a ** 1.5, 2)) < 1e-9, d["text"].splitlines()[0]
 
 
@@ -125,3 +123,17 @@ def test_wiki_pages_render_to_patches():
     assert patches.shape[0] % 16 == 0                # whole patch-rows
     assert patches.shape[1] == PATCH_DIM
     assert patches.max() == 1.0
+
+
+def test_wiki_docs_pass_production_quality_filter():
+    """The regression that mattered: the first deployment shipped 695,842
+    per-page micro-docs and the curator's Gopher gate kept exactly ZERO
+    (too_short at <50 words; pipe-table infoboxes also broke mean word
+    length). Every emitted doc must pass the REAL filter, not a proxy."""
+    from ava.pipeline.clean import gopher_quality
+
+    docs = _pages(seed=3, target=60_000)
+    assert len(docs) >= 10
+    for d in docs:
+        ok, reason = gopher_quality(d["text"])
+        assert ok, (reason, d["text"][:120])
