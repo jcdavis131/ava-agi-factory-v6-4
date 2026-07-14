@@ -22,6 +22,13 @@ scaling-law self-report refuted 0-3 under independent benchmarking
 (Stanford "Fantastic Pretraining Optimizers") — do not plan around it.
 Gate to flip it on: nano A/B (same data/seed, adamw vs muon) — adopt for
 the mini successor if muon reaches adamw's step-3000 loss in ≤0.8x steps.
+**First datapoint (2026-07-14, scripts/muon_ab_ocr.py, CPU pilot scale —
+d=128, byte vocab, OCR task): AdamW won.** Final loss 0.1325 vs Muon's
+0.1804 at identical init/data/LR; Muon never reached AdamW's bar in 300
+steps. Published Muon gains live at 124M+ (768-dim) — Ava's small-matrix
+J-space regime may sit outside them. The gate stands, the prior is now
+skeptical: do NOT enable Muon for any real run until the nano-preset GPU
+A/B clears it.
 
 ## Next in line (ordered, each gated on the previous)
 
