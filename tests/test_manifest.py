@@ -334,3 +334,42 @@ def test_release_claim_returns_train_shard_to_packed(db_path):
         assert m.tokens_ready(0) == 0                 # locked while claimed
         assert m.release_claim(s.id, by="trainer-1") == PACKED
         assert m.tokens_ready(0) == 100              # available again
+
+
+# --------------------------------------------------------------------------
+# Crash-loop stranding: attempts ratchet, runway honesty, and rescue.
+
+def test_tokens_ready_excludes_attempt_capped_shards(db_path):
+    """A PACKED shard at the attempts cap is invisible to claim(); counting it
+    as runway reported 1.5B tokens 'ready' while the trainer starved."""
+    with Manifest(db_path) as m:
+        m.add_shard("ok", source="t", phase=2, path="/p/ok.bin", state=PACKED)
+        m.add_shard("stranded", source="t", phase=2, path="/p/st.bin", state=PACKED)
+        m.db.execute("UPDATE shards SET tokens=100, split='train'")
+        m.db.execute("UPDATE shards SET attempts=3 WHERE id='stranded'")
+        assert m.tokens_ready(2) == 100
+
+
+def test_rescue_stranded_resets_packed_but_not_failed(db_path):
+    """Ordinary crash-restarts strand good shards at the cap; poison shards
+    live in FAILED and must stay parked."""
+    with Manifest(db_path) as m:
+        m.add_shard("st", source="t", phase=2, path="/p/st.bin", state=PACKED)
+        m.add_shard("poison", source="t", phase=2, path="/p/bad.bin", state=FAILED)
+        m.db.execute("UPDATE shards SET attempts=3")
+        assert m.rescue_stranded() == ["st"]
+        row = m.db.execute("SELECT attempts, state FROM shards WHERE id='st'").fetchone()
+        assert row["attempts"] == 0 and row["state"] == PACKED
+        row = m.db.execute("SELECT attempts, state FROM shards WHERE id='poison'").fetchone()
+        assert row["attempts"] == 3 and row["state"] == FAILED
+
+
+def test_claim_lease_override_outlives_default(db_path):
+    """The trainer consumes a packed shard for hours; its claim must be able
+    to take a longer lease than the 900s manifest default."""
+    with Manifest(db_path, lease_seconds=900) as m:
+        m.add_shard("s", source="t", phase=0, path="/p.zst")
+        s = m.claim("curate", by="w", lease_seconds=3600)
+        assert s is not None
+        row = m.db.execute("SELECT lease_expires_at FROM shards WHERE id='s'").fetchone()
+        assert row["lease_expires_at"] > time.time() + 1800

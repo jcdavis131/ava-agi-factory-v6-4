@@ -96,3 +96,45 @@ def test_full_run_series_downsamples_but_keeps_latest_point():
     n = len(result["series"]["step"])
     assert n <= 610, f"expected downsampling to roughly _FULL_SERIES_MAX_POINTS, got {n}"
     assert result["series"]["step"][-1] == 2000, "must always keep the most recent point"
+
+
+# ---------------------------------------------------------------------------
+# Staleness: the false-alarm regressions behind 'Trainer Stale' during every
+# post-crash recovery window.
+
+from ava.pipeline_status import _mode, _stale_threshold_s
+
+
+def test_stale_threshold_falls_back_to_pre_restart_cadence():
+    """Fresh run (<2 step rows) must inherit the pre-restart cadence, not
+    collapse to the 180s floor while a P2 recovery takes ~15 min."""
+    all_rows = [
+        {"event": "step", "step": 3690, "ts": 1000.0, "tokens": 967_311_360,
+         "tok_s": 3000, "lm": 4.4},
+        {"event": "step", "step": 3700, "ts": 1874.0, "tokens": 969_932_800,
+         "tok_s": 3000, "lm": 4.4},
+        {"event": "model_built", "ts": 1900.0},
+        {"event": "resumed", "ts": 1910.0, "step": 3700},
+    ]
+    # tokens delta 2_621_440 at 3000 tok/s => ~874s expected, x2.5 => ~2185s
+    assert _stale_threshold_s([], all_rows=all_rows) > 2000
+    # without history the floor still applies
+    assert _stale_threshold_s([]) == 180.0
+
+
+def test_mode_recovering_between_resume_and_first_step():
+    mode = _mode(last_step={"event": "step", "step": 3700}, starved=False,
+                 age_s=120.0, stale_after_s=2185.0, gates=[], recovering=True)
+    assert mode["id"] == "recovering"
+
+
+def test_mode_stale_wins_over_recovering_when_age_exceeds_threshold():
+    mode = _mode(last_step={"event": "step", "step": 3700}, starved=False,
+                 age_s=5000.0, stale_after_s=2185.0, gates=[], recovering=True)
+    assert mode["id"] == "stale"
+
+
+def test_mode_training_when_stepping_normally():
+    mode = _mode(last_step={"event": "step", "step": 3700}, starved=False,
+                 age_s=300.0, stale_after_s=2185.0, gates=[], recovering=False)
+    assert mode["id"] == "training"

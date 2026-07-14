@@ -308,3 +308,44 @@ def test_weighted_round_robin_respects_weights():
 def test_weighted_round_robin_skips_zero_weight():
     rr = collector.WeightedRR([("a", 1.0), ("z", 0.0)])
     assert set(rr.next() for _ in range(10)) == {"a"}
+
+
+# ---------------------------------------------------------------------------
+# RR persistence across serve() iterations. Rebuilding the smooth-RR fresh
+# each tick reset its state, so next() always returned the max-weight source
+# and P2 shipped as 100% encyclopedia instead of the configured mixture.
+
+
+def test_serve_honors_phase_mixture_across_iterations(tmp_path, monkeypatch):
+    picked: list[str] = []
+
+    def fake_run_source(spec, phase, m, cfg, raw_dir, log, once=True, rng=None,
+                        sleep_fn=None):
+        picked.append(spec.name)
+        return 0
+
+    monkeypatch.setattr(collector, "collector_should_pause",
+                        lambda *a, **k: PauseReason(False))
+    monkeypatch.setattr(collector, "pick_target_phase", lambda *a, **k: 2)
+    monkeypatch.setattr(collector, "run_source", fake_run_source)
+
+    specs = [
+        SourceSpec(name="enc", kind="synthetic", generator="logic", phases=(2,), weight={2: 3.0}),
+        SourceSpec(name="code", kind="synthetic", generator="logic", phases=(2,), weight={2: 2.0}),
+        SourceSpec(name="chat", kind="synthetic", generator="logic", phases=(2,), weight={2: 1.0}),
+    ]
+    fcfg = FlowConfig(
+        low_water_gb=0, janitor_trigger_gb=0, critical_gb=0, raw_max_bytes=10**12,
+        packed_ahead_max_tokens=10**12, packed_min_tokens=1,
+        starved_poll_seconds=0.01, starved_warn_seconds=60,
+        prefetch_phases=2, delete_consumed=True,
+    )
+    log, _ = _log()
+    with _manifest(tmp_path) as m:
+        serve(m, fcfg, _cfg(), specs, tmp_path / "raw", log,
+              max_iterations=18, poll_seconds=0.001, sleep_fn=lambda s: None)
+
+    from collections import Counter
+    counts = Counter(picked)
+    # smooth weighted RR with weights 3/2/1 over 18 draws is exactly 9/6/3
+    assert counts == {"enc": 9, "code": 6, "chat": 3}, counts

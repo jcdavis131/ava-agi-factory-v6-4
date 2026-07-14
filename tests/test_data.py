@@ -104,3 +104,70 @@ def test_empty_task_type_yields_nothing_rather_than_raising(tmp_path):
     s = _write_shard(tmp_path, [300], ["automatic"], [1])
     loaded = _LoadedShard(s)
     assert list(loaded.windows("safety", 64, random.Random(0))) == []
+
+
+# ---------------------------------------------------------------------------
+# The data treadmill: a shard's windows must be yielded ONCE per claim. The
+# old round-robin drew len(TASK_TYPES) times regardless of how many types were
+# present, so the P2 norm (single-type shards) was silently trained 4x each.
+
+def _mk_sampler(m: Manifest, packed_dir: Path):
+    from ava.data import StreamingShardSampler
+    from ava.pipeline.flow import FlowConfig
+    flow = FlowConfig(
+        low_water_gb=0, janitor_trigger_gb=0, critical_gb=0, raw_max_bytes=1,
+        packed_ahead_max_tokens=1, packed_min_tokens=1,
+        starved_poll_seconds=0.05, starved_warn_seconds=60,
+        prefetch_phases=2, delete_consumed=True,
+    )
+    return StreamingShardSampler(None, m, flow, packed_dir=str(packed_dir))
+
+
+def test_single_task_shard_yields_each_present_type_once(tmp_path):
+    s = _write_shard(tmp_path, [100] * 8, ["automatic"] * 8, [-1] * 8)
+    loaded = _LoadedShard(s)
+    m = Manifest(str(tmp_path / "m.db"))
+    sampler = _mk_sampler(m, tmp_path)
+    assert sampler._present_task_types(loaded) == ["automatic"]
+    assert sampler._present_task_types(loaded) == ["automatic"]  # cursor moves, list never repeats a type
+
+
+def test_multi_task_shard_rotates_lead_type_without_repeats(tmp_path):
+    s = _write_shard(tmp_path, [100] * 4,
+                     ["automatic", "deliberate", "automatic", "deliberate"], [-1] * 4)
+    loaded = _LoadedShard(s)
+    m = Manifest(str(tmp_path / "m.db"))
+    sampler = _mk_sampler(m, tmp_path)
+    first = sampler._present_task_types(loaded)
+    second = sampler._present_task_types(loaded)
+    assert sorted(first) == sorted(second) == ["automatic", "deliberate"]
+    assert len(first) == len(set(first)) == 2
+    assert first != second, "lead type should rotate across shards for fairness"
+
+
+def test_single_task_shard_not_re_epoched(tmp_path):
+    """End to end: pull every window of a single-type shard through batches();
+    the next pull must BLOCK on new data (shard consumed), not restart the
+    same shard's windows for a second epoch."""
+    import random as _random
+
+    s = _write_shard(tmp_path, [100] * 10, ["automatic"] * 10, [-1] * 10)
+    expected = len(list(_LoadedShard(s).windows("automatic", 64, _random.Random(0))))
+    assert expected > 0
+
+    m = Manifest(str(tmp_path / "m.db"))
+    m.add_shard("s", source="t", phase=0, path=s.path, state=PACKED)
+    sampler = _mk_sampler(m, tmp_path)
+    gen = sampler.batches(0, 64, 1, log=lambda *_: None)
+    got = [next(gen) for _ in range(expected)]
+    assert all(b.task_type == "automatic" for b in got)
+
+    # Resuming the generator must CONSUME the shard and go wait for new data
+    # (patched to raise), not restart the same shard's windows for epoch 2.
+    def _no_more_data(*a, **k):
+        raise TimeoutError("no more data")
+
+    sampler._wait_for_data = _no_more_data
+    with pytest.raises(TimeoutError):
+        next(gen)
+    assert m.counts_by_state().get("CONSUMED", 0) == 1

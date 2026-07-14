@@ -65,12 +65,18 @@ class FlowConfig:
     starved_warn_seconds: float
     prefetch_phases: int
     delete_consumed: bool
+    # leases: was in pipeline.yaml from the start but never parsed -- every
+    # worker silently used the manifest's 900s default, so the trainer's
+    # multi-hour consumption of a packed shard always outlived its own lease.
+    curate_lease_seconds: int = 900
+    train_lease_seconds: int = 3600
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> "FlowConfig":
         p = Path(path or os.environ.get("AVA_PIPELINE_CONFIG", _DEFAULT_CONFIG))
         cfg = yaml.safe_load(p.read_text())
         disk, bp = cfg["disk"], cfg["backpressure"]
+        leases = cfg.get("leases", {})
         return cls(
             low_water_gb=float(disk["low_water_gb"]),
             janitor_trigger_gb=float(disk["janitor_trigger_gb"]),
@@ -82,6 +88,8 @@ class FlowConfig:
             starved_warn_seconds=float(bp["starved_warn_seconds"]),
             prefetch_phases=int(cfg["collector"]["prefetch_phases"]),
             delete_consumed=bool(cfg["retention"]["delete_consumed"]),
+            curate_lease_seconds=int(leases.get("curate_seconds", 900)),
+            train_lease_seconds=int(leases.get("train_seconds", 3600)),
         )
 
 

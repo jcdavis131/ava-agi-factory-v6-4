@@ -41,6 +41,11 @@ from ava.pipeline.manifest import Manifest
 from model_1b import apply_rope_scaling
 
 MAX_MICRO_BATCH = 8
+# Activation ceiling per micro-batch. Without it mb stayed at 8 regardless of
+# seq, so the P2->P3 seq doubling (1024->2048) would double activation memory
+# on a GPU already at 97% -- a deterministic OOM at the phase boundary. 8192
+# == 8 x 1024, i.e. the P2 working point; later phases trade mb for accum.
+MAX_MICRO_TOKENS = 8192
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +76,7 @@ def phase_for_step(cfg: AvaConfig, tokens_done: int) -> int:
 
 
 def micro_batch_for(seq: int, tokens_per_step: int) -> tuple[int, int]:
-    mb = max(1, min(MAX_MICRO_BATCH, tokens_per_step // seq))
+    mb = max(1, min(MAX_MICRO_BATCH, tokens_per_step // seq, MAX_MICRO_TOKENS // seq))
     accum = max(1, tokens_per_step // (mb * seq))
     return mb, accum
 
@@ -293,6 +298,11 @@ def main(argv=None) -> int:
                 save_ckpt(stable, model=model, opt=opt, step=step, phase=phase,
                           tokens_done=tokens_done, cfg=cfg, sampler=sampler)
                 log("stable_ckpt", path=str(stable), phase=phase, step=step)
+                # Hand the old phase's partially-consumed shard back. The new
+                # stream claims only the new phase; without this the abandoned
+                # generator's shard leaked into it via sampler._held and the
+                # old phase's docs were re-trained under the new phase's config.
+                sampler.release_held(f"phase transition p{phase}->p{new_phase}")
                 phase = new_phase
                 pc = apply_phase(model, cfg, phase, log)
                 heartbeat(step, phase)
@@ -306,36 +316,53 @@ def main(argv=None) -> int:
 
             agg: dict[str, float] = {}
             step_tokens = 0
-            for _ in range(accum):
-                b = next(stream)
-                ids = torch.from_numpy(b.input_ids).to(device, non_blocking=True)
-                cids = torch.from_numpy(b.concept_ids).to(device, non_blocking=True)
+            try:
+                for _ in range(accum):
+                    b = next(stream)
+                    ids = torch.from_numpy(b.input_ids).to(device, non_blocking=True)
+                    cids = torch.from_numpy(b.concept_ids).to(device, non_blocking=True)
 
-                ctx = (torch.autocast("cuda", dtype=torch.bfloat16) if use_bf16
-                       else torch.autocast("cpu", enabled=False))
-                with ctx:
-                    out = model(input_ids=ids, task_type=b.task_type)
-                    parts = obj(model, out, ids, phase=phase, task_type=b.task_type,
-                                concept_ids=cids)
+                    ctx = (torch.autocast("cuda", dtype=torch.bfloat16) if use_bf16
+                           else torch.autocast("cpu", enabled=False))
+                    with ctx:
+                        out = model(input_ids=ids, task_type=b.task_type)
+                        parts = obj(model, out, ids, phase=phase, task_type=b.task_type,
+                                    concept_ids=cids)
 
-                (parts.total / accum).backward()
-                step_tokens += b.tokens
-                for k, v in parts.as_floats().items():
-                    agg[k] = agg.get(k, 0.0) + v / accum
-                agg["route_" + b.task_type] = float(out["jspace"]["route_probs"].mean(0).max())
+                    (parts.total / accum).backward()
+                    step_tokens += b.tokens
+                    for k, v in parts.as_floats().items():
+                        agg[k] = agg.get(k, 0.0) + v / accum
+                    mj = out["jspace"]
+                    last_j = {
+                        "verbalizable_mass": float(mj["system2"]["verbalizable_mass"]),
+                        "broadcast_strength": float(mj["broadcast_strength"]),
+                        "route_probs": [round(x, 4) for x in mj["route_probs"].mean(0).tolist()],
+                    }
+                    agg["route_" + b.task_type] = max(last_j["route_probs"])
+                    # Drop the graph outputs NOW. Holding `out` across the loop
+                    # pinned ~0.5GB of logits (plus workspace tensors) through
+                    # the optimizer step on a GPU already at 97% VRAM.
+                    del out, parts, mj
 
-            gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(),
-                                                   cfg.training.optimizer.grad_clip)
-            if not torch.isfinite(torch.tensor(agg["total"])):
-                raise RuntimeError(f"non-finite loss at step {step}: {agg}")
-            opt.step()
-            opt.zero_grad(set_to_none=True)
+                gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(),
+                                                       cfg.training.optimizer.grad_clip)
+                if not torch.isfinite(torch.tensor(agg["total"])):
+                    raise RuntimeError(f"non-finite loss at step {step}: {agg}")
+                opt.step()
+                opt.zero_grad(set_to_none=True)
+            except RuntimeError as exc:
+                # CUDA 'unknown error' / CUBLAS_INTERNAL_ERROR land here. The
+                # process must die (the CUDA context is poisoned) but the crash
+                # signature must survive in metrics: docker logs rotate away on
+                # restart, which is why 42 crashes left one visible traceback.
+                log("trainer_crash", step=step, phase=phase, error=str(exc)[:500])
+                raise
 
             step += 1
             tokens_done += step_tokens
 
             if step % cfg.training.metrics_every_steps == 0 or step == 1:
-                mj = out["jspace"]
                 dt = time.time() - t0
                 log("step", step=step, phase=phase, lr=lr, tokens=tokens_done,
                     grad_norm=float(gnorm), tok_s=round(step_tokens * cfg.training.metrics_every_steps / max(dt, 1e-6)) if step > 1 else None,
@@ -344,9 +371,9 @@ def main(argv=None) -> int:
                     **{k: float(f"{v:.4g}") for k, v in agg.items()},
                     hl_est={s: round(getattr(model.multi_jspace, s).hl_est(), 2)
                             for s in ("system1", "system2", "critic", "planner")},
-                    verbalizable_mass=round(float(mj["system2"]["verbalizable_mass"]), 5),
-                    broadcast_strength=round(float(mj["broadcast_strength"]), 5),
-                    route_probs=[round(x, 4) for x in mj["route_probs"].mean(0).tolist()])
+                    verbalizable_mass=round(last_j["verbalizable_mass"], 5),
+                    broadcast_strength=round(last_j["broadcast_strength"], 5),
+                    route_probs=last_j["route_probs"])
                 lm_val = float(agg.get("lm", agg.get("total", 0.0)))
                 lm_hist.append(lm_val)
                 if len(lm_hist) > 5:
