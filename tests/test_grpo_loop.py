@@ -109,3 +109,40 @@ def test_loop_learns_single_digit_sums_through_text():
     # to >4x that through the FULL text path (tokenize/sample/decode/verify)
     # is the loop-correctness claim. Capacity ceilings belong to real models.
     assert last > max(0.18, first + 0.12), (first, last)
+
+
+# ---------------------------------------------------------------------------
+# Self-verification shaping (specs/13 item 2): pay for honest checking.
+
+from ava.rl.tasks import SelfVerifyWrapper
+
+
+def _sv_sample(seed=9):
+    task = SelfVerifyWrapper(ArithmeticTask(digits=1))
+    s = task.sample(random.Random(seed))
+    return s, s.meta["answer"]
+
+
+def test_selfverify_reward_matrix():
+    s, ans = _sv_sample()
+    wrong = ans + 1
+    full = lambda p, v, f: f" {p}\nCheck: {v}\nFinal answer: {f}"
+    # right answer, honest PASS, committed: 1.0 + 0.2 + 0.1
+    assert abs(s.check(full(ans, "PASS", ans)) - 1.3) < 1e-9
+    # wrong proposal, honest FAIL, corrected final: 1.0 + 0.2 + 0.1
+    assert abs(s.check(full(wrong, "FAIL", ans)) - 1.3) < 1e-9
+    # wrong proposal, dishonest PASS, wrong final: format only
+    assert abs(s.check(full(wrong, "PASS", wrong)) - 0.1) < 1e-9
+    # ignored its own FAIL (committed the flagged answer): 0.2 + 0.1 - 0.3
+    assert abs(s.check(full(wrong, "FAIL", wrong)) - 0.0) < 1e-9
+    # no verdict, no final: nothing
+    assert s.check(f" {ans}") == 0.0
+
+
+def test_selfverify_prompt_shape_and_build():
+    s, _ = _sv_sample()
+    assert s.prompt.endswith("Proposed answer:")
+    assert "Final answer:" not in s.prompt
+    tasks = build_tasks("selfverify_arithmetic,modular")
+    assert tasks[0].name == "selfverify_arithmetic"
+    assert tasks[1].name == "modular"

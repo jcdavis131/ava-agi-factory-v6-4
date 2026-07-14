@@ -83,6 +83,63 @@ class ComparisonTask:
                       {"task": self.name, "answer": max(a, b)})
 
 
+class SelfVerifyWrapper:
+    """DeepSeekMath-V2-style self-verification shaping (specs/13 item 2).
+
+    Wraps any task so the policy must propose, check its own work, then
+    commit -- and gets paid for HONEST checking, not just lucky answers:
+
+        <question>
+        Proposed answer: <int>
+        Check: PASS|FAIL
+        Final answer: <int>
+
+    Reward = base verifier on the FINAL answer
+           + 0.2 when the Check verdict correctly labels the PROPOSED answer
+             (PASS iff it was right -- agreement with the exact verifier)
+           - 0.3 when the model commits an answer its own Check flagged
+             (verdict FAIL but final == proposed: it ignored itself)
+           + 0.1 when all three fields parse (format shaping).
+
+    Pure composition over Sample.check; the GRPO core and loop are untouched.
+    """
+
+    _VERDICT_RE = re.compile(r"Check:\s*(PASS|FAIL)", re.IGNORECASE)
+    _FINAL_RE = re.compile(r"Final answer:\s*(-?\d+)")
+
+    def __init__(self, task):
+        self.task = task
+        self.name = f"selfverify_{task.name}"
+
+    def sample(self, rng: random.Random) -> Sample:
+        inner = self.task.sample(rng)
+        answer = inner.meta["answer"]
+        question = inner.prompt.rsplit("\nFinal answer:", 1)[0]
+        prompt = f"{question}\nProposed answer:"
+
+        def check(completion: str) -> float:
+            proposed_m = _INT_RE.search(completion)
+            verdict_m = self._VERDICT_RE.search(completion)
+            final_m = self._FINAL_RE.search(completion)
+
+            reward = 0.0
+            if final_m is not None and int(final_m.group(1)) == answer:
+                reward += 1.0
+            if proposed_m is not None and verdict_m is not None:
+                proposed_right = int(proposed_m.group()) == answer
+                said_pass = verdict_m.group(1).upper() == "PASS"
+                if said_pass == proposed_right:
+                    reward += 0.2                      # honest self-check
+                if (not said_pass) and final_m is not None \
+                        and int(final_m.group(1)) == int(proposed_m.group()):
+                    reward -= 0.3                      # ignored its own FAIL
+            if proposed_m and verdict_m and final_m:
+                reward += 0.1                          # full format
+            return reward
+
+        return Sample(prompt, check, {**inner.meta, "task": self.name})
+
+
 TASKS: dict[str, Callable[[], object]] = {
     ArithmeticTask.name: ArithmeticTask,
     ModularTask.name: ModularTask,
@@ -91,9 +148,17 @@ TASKS: dict[str, Callable[[], object]] = {
 
 
 def build_tasks(names: str | list[str]) -> list:
+    """'arithmetic,selfverify_modular' -> task instances. A 'selfverify_'
+    prefix wraps the base task in SelfVerifyWrapper."""
     if isinstance(names, str):
         names = [n.strip() for n in names.split(",") if n.strip()]
-    unknown = [n for n in names if n not in TASKS]
-    if unknown:
-        raise ValueError(f"unknown tasks {unknown}; available: {sorted(TASKS)}")
-    return [TASKS[n]() for n in names]
+    out = []
+    for n in names:
+        wrap = n.startswith("selfverify_")
+        base = n.removeprefix("selfverify_")
+        if base not in TASKS:
+            raise ValueError(f"unknown task {n!r}; available: {sorted(TASKS)} "
+                             f"(optionally prefixed with 'selfverify_')")
+        task = TASKS[base]()
+        out.append(SelfVerifyWrapper(task) if wrap else task)
+    return out
