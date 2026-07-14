@@ -515,6 +515,20 @@ class Manifest:
         ).fetchone()
         return int(r["t"])
 
+    def tokens_consumed(self, phase: int, *, split: str = "train") -> int:
+        """Tokens of a phase already trained or being trained right now.
+
+        Feeds the collector's phase-budget check: `budget - consumed` is what
+        the phase can still absorb. CLAIMED_TRAIN counts as consumed-enough --
+        the trainer is holding it, so it is not future demand.
+        """
+        r = self.db.execute(
+            "SELECT COALESCE(SUM(tokens),0) t FROM shards "
+            "WHERE state IN (?,?) AND phase=? AND split=?",
+            (CONSUMED, CLAIMED_TRAIN, phase, split),
+        ).fetchone()
+        return int(r["t"])
+
     def raw_bytes(self) -> int:
         r = self.db.execute(
             "SELECT COALESCE(SUM(bytes),0) b FROM shards WHERE state IN (?,?)",

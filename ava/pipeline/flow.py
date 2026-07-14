@@ -249,12 +249,61 @@ def current_training_phase(
     return int(os.environ.get("AVA_PHASE", "0"))
 
 
+def _phase_budget_tokens(phase: int, preset: str | None = None) -> int | None:
+    """Training-token budget for `phase` from the preset YAML, None if unknown."""
+    try:
+        from ava.config import AvaConfig
+
+        acfg = AvaConfig.load(preset or os.environ.get("AVA_PRESET", "nano"))
+        return int(acfg.phases[phase].tokens or 0)
+    except Exception:  # noqa: BLE001 -- collectors must run without preset yaml
+        return None
+
+
+def phase_runway_full(
+    manifest: Manifest,
+    cfg: FlowConfig,
+    phase: int,
+    *,
+    preset: str | None = None,
+) -> bool:
+    """True when collecting more for `phase` cannot help the run.
+
+    A phase is full when its PACKED runway already covers what the phase can
+    still consume (budget - consumed, plus the min-runway buffer). Without
+    this, collectors kept topping up the *current* phase to the global 3B cap:
+    P1 ended with 3.0B packed against a 500M budget (~2.5B tokens of dead
+    collection), and P2 sat 2.1x oversupplied -- with 1.55B of pre-fix shards
+    FIFO-queued ahead of any new mixed-diet data, so the configured mixture
+    could never reach the trainer within the phase. Budget unknown -> fall
+    back to the global cap.
+    """
+    ready = manifest.tokens_ready(phase)
+    budget = _phase_budget_tokens(phase, preset)
+    if budget is None or budget <= 0:
+        return ready >= cfg.packed_ahead_max_tokens
+    remaining = max(0, budget - manifest.tokens_consumed(phase))
+    return ready >= min(cfg.packed_ahead_max_tokens, remaining + cfg.packed_min_tokens)
+
+
 def pick_target_phase(manifest: Manifest, cfg: FlowConfig) -> int:
-    """A starved phase (below min runway) beats the trainer's current phase."""
+    """Starved phase wins; else the first non-full phase in the window.
+
+    Curriculum-aware: a phase whose runway already covers its remaining
+    budget is skipped so collection advances to the next phase (with the
+    correct mixture) instead of piling more onto a finished appetite. The
+    starved check runs first and unconditionally, so any estimation error in
+    the budget math degrades to the old behavior, never to starvation.
+    """
     cur = current_training_phase(manifest)
     phases = prefetch_phases(cur, cfg, N_PHASES)
     starved = starved_phase(manifest, cfg, phases)
-    return starved if starved is not None else cur
+    if starved is not None:
+        return starved
+    for p in phases:
+        if not phase_runway_full(manifest, cfg, p):
+            return p
+    return cur
 
 
 def curator_claim_phases(manifest: Manifest, cfg: FlowConfig) -> list[int]:
