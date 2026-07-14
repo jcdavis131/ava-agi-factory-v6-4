@@ -25,6 +25,7 @@ text) pairs never need to be stored.
 Doc mapping:
   entity/concept/index/log pages -> phase 2 (foundation), task automatic
   query+answer docs              -> phase 3 (reasoning),  task deliberate
+  pointing docs (where-on-page)  -> phase 3 (reasoning),  task deliberate
   whole-wiki book                -> phase 4 (long ctx),   task automatic
 """
 
@@ -33,6 +34,10 @@ from __future__ import annotations
 from typing import Iterator
 
 from ava.datagen.base import Generator
+# Importing the renderer here is deliberate: pxpipe is numpy-only and a pure
+# function of text, so re-rendering an atlas inside generate() is CPU-cheap
+# and keeps the generator byte-deterministic (same seed -> same docs).
+from ava.pipeline.pxpipe import GLYPH, PAGE_SIDE, ROWS, render_pages
 
 _SYL_A = ("Ker", "Vol", "Ash", "Bel", "Cyn", "Dor", "Er", "Fen", "Gal", "Hel",
           "Ith", "Jov", "Kel", "Lum", "Mar", "Nex", "Oph", "Pra", "Quel", "Ryn")
@@ -164,6 +169,60 @@ class WikiGenerator(Generator):
              hottest.name),
         ]
 
+    def _locate_orbit_line(self, pages, planet):
+        """(page_idx, row_px, width_px, line_text) of the rendered line that
+        states this planet's ``Orbit: <a> AU`` fact.
+
+        Anchored on the planet's own ``# <name>`` heading first: orbit values
+        are rounded to 2 dp and CAN collide across planets of one system, so
+        a bare substring search could point at another planet's infobox. The
+        heading is unique in the atlas (index/log lines mention titles but
+        never as a bare ``# <name>`` line) and always fits one 64-col line."""
+        needle = f"Orbit: {planet.orbit_au} AU"
+        heading = f"# {planet.name}"
+        seen_heading = False
+        for page_idx, page in enumerate(pages):
+            for row_px, _col_px, width_px, line_text in page.line_boxes:
+                if not seen_heading:
+                    seen_heading = line_text.strip() == heading
+                elif needle in line_text:
+                    return page_idx, row_px, width_px, line_text
+        # Unreachable by construction (the infobox always states the orbit);
+        # fail loudly rather than emit an untrue pointer into a shard.
+        raise ValueError(f"orbit line for {planet.name} not rendered")
+
+    def _pointing_doc(self, star, planets, atlas) -> str:
+        """Visual-primitives pointing doc (specs/12 item 2, DeepSeek-style
+        grounding): state WHERE on the rendered page a fact sits. Every
+        page/line/pixel value is read back from the actual render_pages
+        output -- computed, never templated -- so the pointer is true by
+        construction. The intro prose keeps the doc over the curator's
+        50-word Gopher floor (target >= 60) with no pipe tables."""
+        pages = render_pages(atlas)
+        blocks = [
+            f"The atlas of the {star} system renders deterministically onto "
+            f"{len(pages)} monospace pages of {PAGE_SIDE} by {PAGE_SIDE} "
+            f"pixels, {ROWS} lines to the page and {GLYPH} pixel rows to the "
+            f"line. Every rendered line carries a bounding box, so any "
+            f"stated fact can be pinned to the page it sits on, the line "
+            f"index within that page, and the exact pixel row where the "
+            f"glyphs are drawn."]
+        # First and last planet: a deterministic pick that consumes no rng
+        # state, so adding pointing docs cannot shift the random stream of
+        # later systems. Systems always have >= 3 planets, so the two differ.
+        for p in (planets[0], planets[-1]):
+            page_idx, row_px, width_px, line_text = \
+                self._locate_orbit_line(pages, p)
+            blocks.append(
+                f"Q: On the rendered atlas of the {star} system, where is "
+                f"the orbit of {p.name} stated?\n"
+                f"Looking at page {page_idx}, scanning line boxes for the "
+                f"orbit field of {p.name}.\n"
+                f"A: page {page_idx}, line {row_px // GLYPH} (pixel row "
+                f"{row_px}), which reads: {line_text.strip()}. The full box "
+                f"spans {width_px} pixels from column 0.")
+        return "\n\n".join(blocks)
+
     # -- generator entry point ------------------------------------------------
 
     def generate(self, target_bytes: int) -> Iterator[dict]:
@@ -205,6 +264,16 @@ class WikiGenerator(Generator):
                          concept=queries[0][1].lower(), phase=3,
                          source=self.name)
             produced += len(qa)
+            yield d
+
+            # Pointing doc: re-render THIS atlas and state where two orbit
+            # facts sit on the page (page / line / pixel row / box width),
+            # giving the optical arm DeepSeek-style grounding supervision.
+            pointing = self._pointing_doc(star, planets, atlas)
+            d = self.doc(text=pointing, task_type="deliberate",
+                         concept=f"{star.lower()} pointing", phase=3,
+                         source=self.name)
+            produced += len(pointing)
             yield d
 
             n_systems += 1

@@ -137,3 +137,77 @@ def test_wiki_docs_pass_production_quality_filter():
     for d in docs:
         ok, reason = gopher_quality(d["text"])
         assert ok, (reason, d["text"][:120])
+
+
+# ---------------------------------------------------------------------------
+# Pointing docs (visual-primitives grounding, specs/12 roadmap item 2)
+
+
+def _pointing(docs):
+    """Pointing docs share phase/task with QA docs; the 'rendered atlas'
+    phrase only ever appears in pointing docs, so it is the discriminator."""
+    return [d for d in docs if "rendered atlas" in d["text"]]
+
+
+def test_wiki_pointing_docs_exist_per_batch():
+    docs = _pages(seed=7, target=30_000)
+    pointing = _pointing(docs)
+    assert len(pointing) >= 1, "expected >= 1 pointing doc per 30KB batch"
+    for d in pointing:
+        assert d["phase"] == "p3"
+        assert d["task_type"] == "deliberate"
+        # two planets pointed at per system
+        assert d["text"].count("Q: On the rendered atlas") == 2
+
+
+def test_wiki_pointing_claims_are_true_on_rerender():
+    """The pointer must be TRUE, not merely well-formed: re-render the atlas
+    doc that precedes each pointing doc, index its line_boxes, and verify
+    every claimed (page, line, pixel row, text, width) tuple."""
+    import re
+
+    # greedy (.*): the quoted line text may itself end with a period, and
+    # ' The full box spans' occurs exactly once per answer line
+    pat = re.compile(
+        r"A: page (\d+), line (\d+) \(pixel row (\d+)\), which reads: "
+        r"(.*)\. The full box spans (\d+) pixels from column 0\.")
+    docs = _pages(seed=5, target=30_000)
+    last_atlas = None
+    checked = 0
+    for d in docs:
+        if d["phase"] == "p2":                       # atlas precedes pointer
+            last_atlas = d["text"]
+            continue
+        if "rendered atlas" not in d["text"]:
+            continue
+        assert last_atlas is not None
+        pages = render_pages(last_atlas)
+        for m in pat.finditer(d["text"]):
+            pg, line_k, row_px = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            said, w_px = m.group(4), int(m.group(5))
+            boxes = {r: (w, t) for r, _c, w, t in pages[pg].line_boxes}
+            assert row_px in boxes, "no rendered line at claimed pixel row"
+            w, t = boxes[row_px]
+            assert t.strip() == said, (t.strip(), said)
+            assert w == w_px
+            assert line_k == row_px // 8             # line index convention
+            checked += 1
+    assert checked >= 2, "no pointing claims were actually verified"
+
+
+def test_wiki_pointing_docs_pass_gopher():
+    from ava.pipeline.clean import gopher_quality
+
+    pointing = _pointing(_pages(seed=9, target=30_000))
+    assert pointing
+    for d in pointing:
+        ok, reason = gopher_quality(d["text"])
+        assert ok, (reason, d["text"][:120])
+        # charter floor: comfortably above the 50-word Gopher minimum
+        assert len(d["text"].split()) >= 60
+
+
+def test_wiki_pointing_docs_deterministic():
+    a = [d["text"] for d in _pointing(_pages(seed=13))]
+    b = [d["text"] for d in _pointing(_pages(seed=13))]
+    assert a and a == b

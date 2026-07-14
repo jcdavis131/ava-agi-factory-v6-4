@@ -673,21 +673,45 @@ class AvaModel1B(nn.Module):
         B, L = input_ids.shape
         x = self.embed(input_ids)
 
-        # early sensory — no RoPE for vision/audio
-        if self.multimodal and images is not None and self.vision_enc is not None:
-            v = self.vision_enc(images)
-            if v is not None and v.dim() == 3:
-                x = x + v.mean(dim=1, keepdim=True)
+        # early sensory — no RoPE inside the encoders themselves
         if self.multimodal and audio is not None and self.audio_enc is not None:
+            # Audio is still the pooled-mean stub (deliberately unchanged; only
+            # vision graduated to a prefix). Applied to the text embeddings
+            # BEFORE the vision prefix is prepended, so it perturbs exactly the
+            # positions it did before the prefix existed.
             a = self.audio_enc(audio)
             if a is not None and a.dim() == 3:
                 x = x + a.mean(dim=1, keepdim=True)
 
-        cos, sin = self.rope.get_cos_sin(L, device=x.device)
+        n_vis = 0
+        if self.multimodal and images is not None and self.vision_enc is not None:
+            v = self.vision_enc(images)
+            if v is not None and v.dim() == 3:
+                # Vision-prefix path (specs/12_pxpipe_optical_wiki.md, training
+                # arm item 1). The old stub here — x + v.mean(dim=1) — collapsed
+                # a whole page into one vector added at every position; it could
+                # not carry a page. Instead PREPEND the [B, N, d] patch tokens:
+                # under the causal mask every text position attends to all N
+                # vision tokens (they precede it), which is the DeepSeek-OCR
+                # decompression geometry.
+                n_vis = v.shape[1]
+                x = torch.cat([v, x], dim=1)
+
+        # cos/sin over the full prefix+text length; text tokens sit at RoPE
+        # positions n_vis..n_vis+L-1. n_vis == 0 makes this exactly the old
+        # get_cos_sin(L) call — the images=None path must stay byte-identical
+        # (a live training run depends on it).
+        cos, sin = self.rope.get_cos_sin(n_vis + L, device=x.device)
         af = self.rope.attn_factor
 
         x = self._run_layers(self.text_layers, x, cos, sin, af)
         x = self._run_layers(self.fusion_layers, x, cos, sin, af)
+        if n_vis:
+            # Drop the vision prefix AFTER the fusion stack (its content has
+            # been attended into the text positions) and BEFORE J-space: routing,
+            # reasoning layers, `fused`, and lm_logits must all stay
+            # [B, L_text, ...] exactly as every caller assumes.
+            x = x[:, n_vis:]
         fused = self.fusion_norm(x)
 
         if self.multi_jspace_enabled and self.multi_jspace is not None:
