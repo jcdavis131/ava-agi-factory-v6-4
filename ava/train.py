@@ -100,9 +100,17 @@ def gpu_stats() -> dict:
         if out.returncode != 0:
             return {}
         p, mu, mt, clk, tc, util = (v.strip() for v in out.stdout.split(","))
-        return {"gpu_power_w": float(p), "gpu_mem_mb": int(float(mu)),
-                "gpu_mem_total_mb": int(float(mt)), "gpu_sm_mhz": int(float(clk)),
-                "gpu_temp_c": int(float(tc)), "gpu_util_pct": int(float(util))}
+        stats = {"gpu_power_w": float(p), "gpu_mem_mb": int(float(mu)),
+                 "gpu_mem_total_mb": int(float(mt)), "gpu_sm_mhz": int(float(clk)),
+                 "gpu_temp_c": int(float(tc)), "gpu_util_pct": int(float(util))}
+        # nvidia-smi shows reserved cache, which sits near the historical peak
+        # forever; the allocator's own peak-since-last-reset is the number that
+        # says how close a step actually came to OOM.
+        if torch.cuda.is_available():
+            stats["torch_peak_alloc_mb"] = int(torch.cuda.max_memory_allocated() / 2**20)
+            stats["torch_reserved_mb"] = int(torch.cuda.memory_reserved() / 2**20)
+            torch.cuda.reset_peak_memory_stats()
+        return stats
     except Exception:
         return {}
 
@@ -209,6 +217,18 @@ def main(argv=None) -> int:
         line = json.dumps(rec)
         print(line, flush=True)
         mfile.write(line + "\n")
+
+    # docker stop / compose recreate delivers SIGTERM, which Python's default
+    # handler turns into an immediate death -- no exception, no context-manager
+    # unwind, so the sampler's `with` block never ran release_held() and every
+    # deploy leaked a CLAIMED_TRAIN row until its lease expired. Convert to
+    # SystemExit so the normal exit path (release + close) runs.
+    import signal
+
+    def _graceful_term(signum, frame):
+        raise SystemExit(128 + signum)
+
+    signal.signal(signal.SIGTERM, _graceful_term)
 
     random.seed(args.seed)
     np.random.seed(args.seed)
