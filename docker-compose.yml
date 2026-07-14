@@ -117,11 +117,12 @@ services:
       <<: *common-env
       # Keep the trainer off the cores the curator needs to stay ahead of it.
       OMP_NUM_THREADS: "4"
-      # 12GB WDDM GPU running at ~97%: allocator fragmentation is what turns
-      # a tight fit into 'CUDA error: unknown error' / CUBLAS_INTERNAL_ERROR
-      # mid-backward. Expandable segments lets the cache grow/shrink without
-      # fragmenting reserved blocks.
-      PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"
+      # Do NOT set PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True here: on
+      # this WSL2 driver stack it passes trivial smoke tests but the trainer's
+      # real allocation pattern dies at the first step with 'CUDA driver
+      # error: device not ready' (verified 2026-07-13, 3/3 boots failed with
+      # it, clean without). VRAM headroom comes from the chunked CE and the
+      # freed logits retention in ava/train.py instead.
     volumes:
       - ava_packed:/packed
       - ava_ckpt:/ckpt
