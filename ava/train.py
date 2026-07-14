@@ -167,6 +167,13 @@ def load_ckpt(path: Path, *, model, opt, sampler, device: str) -> tuple[int, int
 
 def build_optimizer(model, cfg: AvaConfig):
     o = cfg.training.optimizer
+    if o.name == "muon":
+        # DeepSeek-lineage recipe: Muon on hidden matrices (half the optimizer
+        # memory, fewer steps to target), AdamW on embeddings/heads/norms.
+        from ava.optim import build_hybrid
+        return build_hybrid(model, adamw_lr=cfg.training.wsd.lr_max,
+                            betas=o.betas, weight_decay=o.weight_decay)
+
     decay, no_decay = [], []
     for n, p in model.named_parameters():
         if not p.requires_grad:
@@ -358,7 +365,9 @@ def main(argv=None) -> int:
 
             lr = wsd_lr(step, total_steps, cfg)
             for g in opt.param_groups:
-                g["lr"] = lr
+                # lr_scale: Muon groups ride the same WSD shape at their own
+                # magnitude (ava/optim.py). Plain AdamW groups have no scale.
+                g["lr"] = lr * g.get("lr_scale", 1.0)
 
             agg: dict[str, float] = {}
             step_tokens = 0
