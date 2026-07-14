@@ -276,3 +276,27 @@ def test_budget_unknown_falls_back_to_global_cap(tmp_path, monkeypatch):
         assert phase_runway_full(m, cfg, 2)       # 2000 >= global cap 1000
         assert not phase_runway_full(m, cfg, 3)   # 500 < cap
         assert pick_target_phase(m, cfg) == 3
+
+
+def test_pick_target_advances_beyond_full_window(tmp_path, monkeypatch):
+    """Observed live: window {2,3} both full -> old fallback returned cur and
+    resumed collecting surplus P2 fineweb while P4 sat at zero. Target must
+    advance to the first future phase still short of its budget."""
+    monkeypatch.setenv("AVA_PRESET", "mini")
+    with Manifest(str(tmp_path / "m.db")) as m:
+        m.upsert_run("r", preset="mini", step=100, phase=2, status="running")
+        _packed_train(m, "p2full", 2, 1_600_000_000)   # >> 850M budget
+        _packed_train(m, "p3full", 3, 766_000_000)     # >> 400M budget
+        # p4 empty -> starved... give it just enough to clear packed_min so
+        # the starved check doesn't mask the advance logic
+        _packed_train(m, "p4some", 4, 2_000_000)
+        assert pick_target_phase(m, _flowcfg()) == 4
+
+
+def test_pick_target_returns_cur_when_everything_is_full(tmp_path, monkeypatch):
+    monkeypatch.setenv("AVA_PRESET", "mini")
+    with Manifest(str(tmp_path / "m.db")) as m:
+        m.upsert_run("r", preset="mini", step=100, phase=4, status="running")
+        _packed_train(m, "p4full", 4, 200_000_000)     # >= 150M budget
+        _packed_train(m, "p5full", 5, 300_000_000)     # >= 200M budget
+        assert pick_target_phase(m, _flowcfg()) == 4

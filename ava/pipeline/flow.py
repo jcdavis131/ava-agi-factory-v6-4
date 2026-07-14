@@ -303,6 +303,16 @@ def pick_target_phase(manifest: Manifest, cfg: FlowConfig) -> int:
     for p in phases:
         if not phase_runway_full(manifest, cfg, p):
             return p
+    # Whole window stocked: advance to the first FUTURE phase still short of
+    # its budget rather than falling back to `cur` -- observed live, that
+    # fallback resumed piling fineweb onto a 2.2x-oversupplied P2 while P4
+    # sat at zero. Raw for far phases just waits for the curator window to
+    # reach it, bounded by raw_max_bytes backpressure; idle-when-ahead is
+    # acceptable, collecting surplus is not.
+    start = (phases[-1] + 1) if phases else cur
+    for p in range(start, N_PHASES):
+        if not phase_runway_full(manifest, cfg, p):
+            return p
     return cur
 
 
