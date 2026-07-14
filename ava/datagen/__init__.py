@@ -13,6 +13,7 @@ from ava.datagen.encyclopedia import EncyclopediaGenerator
 from ava.datagen.logic import LogicGenerator
 from ava.datagen.math_gen import MathGenerator
 from ava.datagen.react_tools import ReactToolsGenerator
+from ava.datagen.wiki_gen import WikiGenerator
 from ava.datagen.workflow_gaia2 import WorkflowGaia2Generator
 from ava.datagen.workflow_jobbench import WorkflowJobBenchGenerator
 
@@ -26,6 +27,7 @@ GENERATORS: dict[str, type[Generator]] = {
     LogicGenerator.name: LogicGenerator,
     MathGenerator.name: MathGenerator,
     ReactToolsGenerator.name: ReactToolsGenerator,
+    WikiGenerator.name: WikiGenerator,
     WorkflowGaia2Generator.name: WorkflowGaia2Generator,
     WorkflowJobBenchGenerator.name: WorkflowJobBenchGenerator,
 }
@@ -34,5 +36,5 @@ __all__ = [
     "Generator", "write_shards", "run_cli", "validate_doc", "GENERATORS",
     "ChatSafetyGenerator", "CodeGenGenerator", "EncyclopediaGenerator",
     "LogicGenerator", "MathGenerator", "ReactToolsGenerator",
-    "WorkflowGaia2Generator", "WorkflowJobBenchGenerator",
+    "WikiGenerator", "WorkflowGaia2Generator", "WorkflowJobBenchGenerator",
 ]

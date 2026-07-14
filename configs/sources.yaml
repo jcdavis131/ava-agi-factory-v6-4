@@ -131,6 +131,26 @@ sources:
     license: synthetic
     gated: false
 
+  # Interlinked LLM-wiki corpora (Karpathy wiki pattern: entity/concept pages,
+  # index.md, log.md, [[cross-links]]; every number computed -- Kepler periods,
+  # equilibrium temperatures, aggregates). Text-first today; the same pages
+  # render deterministically into 512x512 page images via
+  # ava/pipeline/pxpipe.py for the optical-compression training arm
+  # (specs/12_pxpipe_optical_wiki.md), so (screenshot, text) pairs are derived
+  # at train time and never stored. Weights below were shaved off the largest
+  # same-phase sibling (fineweb_edu p2 0.35->0.30, open_web_math p3
+  # 0.20->0.15, fineweb_edu p4 0.55->0.45) so each phase still sums to 1.0.
+  - name: synth_wiki_px
+    kind: synthetic
+    generator: wiki
+    text_field: text
+    phases: [2, 3, 4]
+    weight: {2: 0.05, 3: 0.05, 4: 0.10}
+    task_type: automatic
+    filters: {min_chars: 1}
+    license: synthetic
+    gated: false
+
   # JobBench-style delegation dossiers (occupation x reconciliation task) and
   # Gaia2-style async/dynamic scheduling scenarios -- see
   # ava/datagen/workflow_jobbench.py and workflow_gaia2.py. Weights follow the
@@ -169,7 +189,7 @@ sources:
     split: train
     text_field: text
     phases: [1, 3]
-    weight: {1: 0.5, 3: 0.20}
+    weight: {1: 0.5, 3: 0.15}   # p3 0.20->0.15: room for synth_wiki_px
     task_type: deliberate
     filters: {min_chars: 200}
     license: odc-by
@@ -183,7 +203,7 @@ sources:
     text_field: text
     score_field: score
     phases: [2, 4, 5]
-    weight: {2: 0.35, 4: 0.55, 5: 0.20}
+    weight: {2: 0.30, 4: 0.45, 5: 0.20}   # p2/p4 shaved: room for synth_wiki_px
     task_type: automatic
     filters:
       min_chars: {2: 200, 4: 4000, 5: 200}   # P4 = long documents only
