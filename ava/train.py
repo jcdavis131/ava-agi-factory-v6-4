@@ -149,7 +149,12 @@ def _point_latest_at(ckpt_dir: Path, target: Path) -> None:
 
 
 def load_ckpt(path: Path, *, model, opt, sampler, device: str) -> tuple[int, int]:
-    blob = torch.load(path, map_location=device, weights_only=False)
+    # map_location='cpu', NOT device: loading the blob straight to CUDA
+    # briefly double-residents the model+optimizer (telemetry showed a
+    # 12.5GB resume peak on the 12.3GB card -- sysmem spill from the first
+    # breath). load_state_dict copies tensor-by-tensor onto the live params,
+    # and Optimizer.load_state_dict casts state to each param's device.
+    blob = torch.load(path, map_location="cpu", weights_only=False)
     model.load_state_dict(blob["model"])        # the blueprint printed "Loading..." and never did this
     opt.load_state_dict(blob["optimizer"])
     sampler.load_state_dict(blob["sampler"])
