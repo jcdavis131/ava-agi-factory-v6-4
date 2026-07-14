@@ -85,6 +85,37 @@ def _stale_threshold_s(
         return _STALE_STEP_S
     return min(_STALE_MAX_S, max(_STALE_STEP_S, _STALE_CADENCE_MULT * expected))
 
+def _throttle_state(metrics: list[dict[str, Any]]) -> tuple[bool, str]:
+    """Detect a power-throttled GPU from throughput collapse.
+
+    On battery the driver caps this laptop's GPU at ~17-22W and tok/s drops
+    ~6x; for three days that state was indistinguishable from a hang (14.5h of
+    'silent gaps'). A recent step whose tok/s is far below the phase median is
+    throttling, not staleness -- steps ARE landing, just slowly.
+    """
+    try:
+        srows = [r for r in metrics if r.get("event") == "step" and r.get("tok_s")]
+        if not srows:
+            return False, ""
+        phase = srows[-1].get("phase")
+        rows = [r for r in srows if r.get("phase") == phase]
+        latest = float(rows[-1].get("tok_s") or 0)
+        hist = sorted(float(r["tok_s"]) for r in rows[:-1][-20:])
+        if latest <= 0 or len(hist) < 3:
+            return False, ""
+        med = hist[len(hist) // 2]
+        if med <= 0 or latest >= 0.4 * med:
+            return False, ""
+        watts = rows[-1].get("gpu_power_w")
+        detail = (f"tok/s {latest:.0f} is {latest / med:.0%} of the phase median "
+                  f"{med:.0f}" + (f"; GPU drawing {watts:.0f}W" if watts else "")
+                  + " — host likely on battery or power-saving. Plug in / set "
+                  "High Performance to restore ~6x throughput.")
+        return True, detail
+    except (TypeError, ValueError, KeyError):
+        return False, ""
+
+
 _ROUTE_NAMES = ("automatic", "deliberate", "critic", "planner")
 
 
@@ -537,6 +568,8 @@ def _mode(
     stale_after_s: float,
     gates: list[dict[str, Any]],
     recovering: bool = False,
+    throttled: bool = False,
+    throttle_detail: str = "",
 ) -> dict[str, Any]:
     """Operator-facing mode: data_prep vs training vs blocked."""
     d1 = next((g for g in gates if g["id"] == "D1"), None)
@@ -562,6 +595,12 @@ def _mode(
                 f"expected at the current phase's cadence) — check GPU / CUDA / "
                 f"trainer logs, and whether the host is on battery or asleep."
             ),
+        }
+    if throttled:
+        return {
+            "id": "throttled",
+            "label": "GPU throttled",
+            "detail": throttle_detail or "Throughput far below phase median.",
         }
     if recovering:
         return {
@@ -722,6 +761,7 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
             break
     stale_after_s = _stale_threshold_s(run_rows, all_rows=metrics)
     stale = bool(age_s is not None and age_s > stale_after_s and not starved)
+    throttled, throttle_detail = _throttle_state(metrics)
 
     low_water = float(cfg.low_water_gb) if cfg else 12.0
     packed_min = int(cfg.packed_min_tokens) if cfg else 200_000_000
@@ -740,7 +780,8 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
         by_state=by_state,
     )
     mode = _mode(last_step=last_step, starved=starved, age_s=age_s,
-                 stale_after_s=stale_after_s, gates=gates, recovering=recovering)
+                 stale_after_s=stale_after_s, gates=gates, recovering=recovering,
+                 throttled=throttled, throttle_detail=throttle_detail)
     runway = _phase_runway(
         tokens_by_phase,
         packed_min=packed_min,
@@ -854,6 +895,7 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
             "age_s": None if age_s is None else round(age_s, 1),
             "age_basis": "any_trainer_event",
             "recovering": recovering,
+            "throttled": throttled,
             "stale": stale,
             "stale_after_s": round(stale_after_s, 1),
             # Every model_built in the metrics window is one trainer process

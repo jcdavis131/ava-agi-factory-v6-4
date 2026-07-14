@@ -138,3 +138,46 @@ def test_mode_training_when_stepping_normally():
     mode = _mode(last_step={"event": "step", "step": 3700}, starved=False,
                  age_s=300.0, stale_after_s=2185.0, gates=[], recovering=False)
     assert mode["id"] == "training"
+
+
+# ---------------------------------------------------------------------------
+# Battery/power throttling detection: 14.5h of the run's 'silent gaps' were a
+# 17-22W GPU cap on battery, invisible until tok/s is compared to its median.
+
+from ava.pipeline_status import _throttle_state
+
+
+def _steps(toks):
+    return [{"event": "step", "step": 10 * (i + 1), "phase": 2, "tok_s": t,
+             "lm": 4.4, "ts": float(i)} for i, t in enumerate(toks)]
+
+
+def test_throttle_detected_on_collapse():
+    metrics = _steps([3000, 3100, 2900, 3050, 480])
+    throttled, detail = _throttle_state(metrics)
+    assert throttled and "battery" in detail
+
+
+def test_no_throttle_at_normal_speed():
+    assert _throttle_state(_steps([3000, 3100, 2900, 3050, 2950])) == (False, "")
+
+
+def test_no_throttle_without_history():
+    assert _throttle_state(_steps([3000, 400]))[0] is False  # <3 history rows
+
+
+def test_throttle_ignores_other_phase_cadence():
+    # phase transition halves tok/s legitimately: history is same-phase only
+    metrics = _steps([9000, 9100, 9200, 9050])
+    for r in metrics:
+        r["phase"] = 1
+    metrics += [{"event": "step", "step": 60, "phase": 2, "tok_s": 3000,
+                 "lm": 4.9, "ts": 99.0}]
+    assert _throttle_state(metrics)[0] is False
+
+
+def test_mode_throttled_wins_over_training():
+    mode = _mode(last_step={"event": "step", "step": 3700}, starved=False,
+                 age_s=300.0, stale_after_s=2185.0, gates=[],
+                 throttled=True, throttle_detail="tok/s 480 is 16% of median")
+    assert mode["id"] == "throttled"

@@ -81,6 +81,32 @@ def micro_batch_for(seq: int, tokens_per_step: int) -> tuple[int, int]:
     return mb, accum
 
 
+def gpu_stats() -> dict:
+    """Power/VRAM/clock readout for the step log, {} if unavailable.
+
+    Exists because the host is a laptop: on battery the driver caps the GPU
+    at ~17-22W and throughput collapses ~6x. That state was indistinguishable
+    from a hang for three days -- 14.5h of 'silent gaps' were battery
+    throttling. One nvidia-smi call per metrics interval (~860s) is noise.
+    """
+    try:
+        import subprocess
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=power.draw,memory.used,memory.total,"
+             "clocks.sm,temperature.gpu,utilization.gpu",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if out.returncode != 0:
+            return {}
+        p, mu, mt, clk, tc, util = (v.strip() for v in out.stdout.split(","))
+        return {"gpu_power_w": float(p), "gpu_mem_mb": int(float(mu)),
+                "gpu_mem_total_mb": int(float(mt)), "gpu_sm_mhz": int(float(clk)),
+                "gpu_temp_c": int(float(tc)), "gpu_util_pct": int(float(util))}
+    except Exception:
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # checkpointing
 
@@ -373,7 +399,8 @@ def main(argv=None) -> int:
                             for s in ("system1", "system2", "critic", "planner")},
                     verbalizable_mass=round(last_j["verbalizable_mass"], 5),
                     broadcast_strength=round(last_j["broadcast_strength"], 5),
-                    route_probs=last_j["route_probs"])
+                    route_probs=last_j["route_probs"],
+                    **gpu_stats())
                 lm_val = float(agg.get("lm", agg.get("total", 0.0)))
                 lm_hist.append(lm_val)
                 if len(lm_hist) > 5:
