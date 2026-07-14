@@ -50,23 +50,35 @@ def test_newton_schulz_tightens_singular_values():
 
 
 def test_wsd_lr_coupling_matches_train_loop():
+    """Moonlight RMS matching (arXiv 2502.16982): Muon reuses AdamW's lr
+    directly, so both optimizers see the SAME schedule value."""
     m = _Tiny()
-    opt = build_hybrid(m, adamw_lr=6e-4, betas=(0.9, 0.95), weight_decay=0.1,
-                       muon_lr=0.02)
+    opt = build_hybrid(m, adamw_lr=6e-4, betas=(0.9, 0.95), weight_decay=0.1)
     wsd = 3e-4                                        # mid-schedule value
     for g in opt.param_groups:                        # exact train.py line
         g["lr"] = wsd * g.get("lr_scale", 1.0)
-    muon_lr = opt.muon.param_groups[0]["lr"]
-    adamw_lr = opt.adamw.param_groups[0]["lr"]
-    assert abs(adamw_lr - wsd) < 1e-12
-    assert abs(muon_lr - wsd * (0.02 / 6e-4)) < 1e-9  # rides the same shape
+    assert abs(opt.muon.param_groups[0]["lr"] - wsd) < 1e-12
+    assert abs(opt.adamw.param_groups[0]["lr"] - wsd) < 1e-12
+
+
+def test_muon_update_rms_matches_adamw_range():
+    """The 0.2*sqrt(max(m,n)) rescale must land update RMS near 0.2*lr --
+    the property that makes AdamW's tuned lr transferable."""
+    torch.manual_seed(4)
+    w = torch.nn.Parameter(torch.zeros(64, 128))
+    opt = Muon([w], lr=1.0, momentum=0.0, nesterov=False, weight_decay=0.0)
+    w.grad = torch.randn(64, 128)
+    before = w.detach().clone()
+    opt.step()
+    delta = (w.detach() - before)
+    rms = delta.pow(2).mean().sqrt().item()
+    assert 0.1 < rms < 0.3, rms                       # ~0.2 by construction
 
 
 def test_hybrid_converges_and_beats_zero_progress():
     torch.manual_seed(0)
     m = _Tiny()
-    opt = build_hybrid(m, adamw_lr=1e-2, betas=(0.9, 0.95), weight_decay=0.0,
-                       muon_lr=0.05)
+    opt = build_hybrid(m, adamw_lr=1e-2, betas=(0.9, 0.95), weight_decay=0.0)
     ids = torch.randint(0, 11, (64,))
     tgt = torch.randint(0, 11, (64,))
     first = None

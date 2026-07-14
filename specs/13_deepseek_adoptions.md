@@ -8,14 +8,20 @@ experiment rung, `base1b` as the target. Rule: nothing lands mid-run on
 ## Adopted now (shipped)
 
 **Muon optimizer** (`ava/optim.py`, `optimizer.name: "muon"`), the
-orthogonalized-momentum method (Jordan et al. 2024; scaled by the
-Moonlight/K2 lineage). Hidden matrices get Muon (one momentum buffer — half
-of AdamW's optimizer memory, ~0.6GB back on mini-class runs; reported
-1.3-2x step-efficiency at small scale); embeddings/heads/norms/decay-logits
-keep AdamW. Single-object facade keeps train.py's checkpoint/LR plumbing
-unchanged; Muon groups ride the same WSD schedule via `lr_scale`.
+orthogonalized-momentum method (Jordan et al. 2024) with the **Moonlight
+scaling recipe** (arXiv 2502.16982, adversarially verified 2026-07-13):
+updates rescaled by `0.2·√max(A,B)` to match AdamW's update RMS + decoupled
+weight decay, after which Muon reuses the AdamW-tuned LR directly — one WSD
+schedule drives both optimizers. Hidden matrices get Muon (one momentum
+buffer — half of AdamW's optimizer memory, ~0.6GB back on mini-class runs);
+embeddings/heads/norms/decay-logits keep AdamW (the split Jordan, Moonlight,
+and Essential AI all land on independently). Validated efficiency, honestly
+sized: **1.35x token-efficiency at 124M** (NanoGPT speedrun) and **~25%
+compute reduction at 1.5B**; the circulated "~2x" figure is a vendor
+scaling-law self-report refuted 0-3 under independent benchmarking
+(Stanford "Fantastic Pretraining Optimizers") — do not plan around it.
 Gate to flip it on: nano A/B (same data/seed, adamw vs muon) — adopt for
-the mini successor if muon reaches adamw's step-3000 loss in ≤0.75x steps.
+the mini successor if muon reaches adamw's step-3000 loss in ≤0.8x steps.
 
 ## Next in line (ordered, each gated on the previous)
 

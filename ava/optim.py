@@ -1,26 +1,31 @@
 """Muon: momentum-orthogonalized optimizer for the hidden matrices.
 
-The recipe DeepSeek-lineage labs use to cut optimizer cost (Jordan et al.
-2024, github.com/KellerJordan/Muon; scaled to frontier size by Moonlight/
-Kimi K2): SGD-momentum whose update is orthogonalized with a Newton-Schulz
-iteration before being applied. Two properties matter at Ava's scale:
+Jordan et al. 2024 (github.com/KellerJordan/Muon) with the Moonlight scaling
+recipe (arXiv 2502.16982): SGD-momentum orthogonalized by a Newton-Schulz
+iteration, updates rescaled by 0.2*sqrt(max(A, B)) so their RMS (~0.2)
+matches AdamW's typical update RMS, plus decoupled weight decay. With that
+RMS matching, Muon DIRECTLY REUSES the AdamW-tuned learning rate and weight
+decay -- verified verbatim against the paper ("with this adjustment, Muon
+can directly reuse the learning rate and weight decay tuned for AdamW"), so
+the WSD schedule drives both optimizers at the same magnitude and there is
+no second LR to tune.
+
+Two properties matter at Ava's scale:
 
 * **Half the optimizer memory of AdamW for matrices.** One momentum buffer
   per matrix instead of Adam's (m, v) pair -- on mini that is ~0.6GB back on
   a 12GB GPU that crash-looped at 97% VRAM.
-* **Fewer steps to a given loss** (reported ~1.3-2x on small transformers);
-  at 262k tokens/step and ~86s/step, step-efficiency IS wall-clock.
+* **Validated step-efficiency, honestly sized**: 1.35x token-efficiency at
+  124M (NanoGPT speedrun record) and ~25% compute reduction at 1.5B. The
+  circulated "~2x" figure is the vendor's own scaling-law fit and did not
+  survive independent benchmarking -- do not plan around it.
 
-Muon applies ONLY to 2D+ hidden weights. Embeddings, tied heads, norms,
-biases, and the J-space decay logits keep AdamW -- orthogonalizing those is
-known to hurt. `build_hybrid` wires the split and presents a single
-optimizer-shaped object (step / zero_grad / state_dict / param_groups) so
-ava/train.py's checkpoint and LR plumbing does not care.
-
-LR coupling: the WSD schedule in the train loop writes group["lr"] every
-step. Muon wants a larger LR than AdamW (rule of thumb ~0.02 vs 6e-4), so
-each group carries "lr_scale" and the loop multiplies: lr * lr_scale.
-Not a config default swap: presets opt in with optimizer.name: "muon".
+Muon applies ONLY to 2D hidden weights. Embeddings, tied heads, norms,
+biases, and the J-space decay logits keep AdamW (the split every source --
+Jordan, Moonlight, Essential AI -- lands on independently). `build_hybrid`
+wires the split behind a single optimizer-shaped object so ava/train.py's
+checkpoint and LR plumbing does not care. Presets opt in with
+optimizer.name: "muon".
 """
 
 from __future__ import annotations
@@ -82,8 +87,12 @@ class Muon(torch.optim.Optimizer):
                 upd = g.add(buf, alpha=mom) if nesterov else buf
                 flat = upd.reshape(upd.shape[0], -1)
                 ortho = newton_schulz_orthogonalize(flat, group["ns_steps"])
-                # Match RMS across shapes (Muon repo's scale rule).
-                scale = max(1.0, flat.shape[0] / flat.shape[1]) ** 0.5
+                # Moonlight RMS matching (arXiv 2502.16982 eq. 1): an
+                # orthogonalized [m, n] update has RMS ~= 1/sqrt(max(m, n));
+                # scaling by 0.2*sqrt(max(m, n)) puts update RMS at ~0.2,
+                # AdamW's empirical range -- which is exactly what lets Muon
+                # ride the SAME learning rate the WSD schedule computes.
+                scale = 0.2 * max(flat.shape) ** 0.5
                 if group["weight_decay"]:
                     p.mul_(1.0 - lr * group["weight_decay"])
                 p.add_(ortho.view_as(p), alpha=-lr * scale)
@@ -130,8 +139,7 @@ def is_muon_param(name: str, p: torch.nn.Parameter) -> bool:
 
 def build_hybrid(model: torch.nn.Module, *, adamw_lr: float,
                  betas: tuple[float, float], weight_decay: float,
-                 muon_lr: float = 0.02, momentum: float = 0.95,
-                 ns_steps: int = 5) -> HybridOptimizer:
+                 momentum: float = 0.95, ns_steps: int = 5) -> HybridOptimizer:
     muon_params, decay, no_decay = [], [], []
     for n, p in model.named_parameters():
         if not p.requires_grad:
@@ -142,11 +150,10 @@ def build_hybrid(model: torch.nn.Module, *, adamw_lr: float,
             no_decay.append(p)
         else:
             decay.append(p)
-    # lr_scale carries Muon's LR ratio through the trainer's per-step
-    # `group["lr"] = wsd_lr * group.get("lr_scale", 1)` assignment, so the
-    # WSD shape (warmup/stable/decay) applies to both optimizers.
-    muon = Muon(muon_params, lr=muon_lr, momentum=momentum, ns_steps=ns_steps)
-    muon.param_groups[0]["lr_scale"] = muon_lr / max(adamw_lr, 1e-12)
+    # Moonlight RMS matching means Muon takes the SAME lr and weight decay
+    # as AdamW -- one schedule, no lr_scale gymnastics (lr_scale stays 1.0).
+    muon = Muon(muon_params, lr=adamw_lr, momentum=momentum,
+                ns_steps=ns_steps, weight_decay=weight_decay)
     adamw = torch.optim.AdamW(
         [{"params": decay, "weight_decay": weight_decay},
          {"params": no_decay, "weight_decay": 0.0}],

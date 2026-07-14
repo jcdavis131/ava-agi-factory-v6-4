@@ -81,6 +81,20 @@ change (small, ~30 lines):
    (`multimodal: true`, d_model 256 — VisionEncoder is `Linear(1024, d)`).
 4. Eval gate: held-out page → greedy decode → char accuracy; targets:
    ≥90% at 4x (unlearned patches) before investing in the compressor.
+   **Verified external evidence calibrates this gate (2026-07-13 deep
+   research):** DeepSeek-OCR's 97%-below-10x / ~60%-at-20x numbers are
+   confirmed (independently re-measured at 59.1% @ ~20x), BUT (a) Glyph
+   (arXiv 2510.17800) finds only **3-4x** is sustainable when downstream
+   TASK accuracy must be preserved — our 4x packed-window target sits
+   exactly at that validated envelope, not by luck; and (b) VTCBench
+   (arXiv 2512.15649) shows OCR decode precision does NOT imply preserved
+   long-context comprehension (Qwen3-VL-235B drops 97.2%→81.3% from 1k to
+   32k even at 2x). Therefore the gate MUST include a comprehension probe
+   (QA over the rendered wiki page, answerable from its facts), not char
+   accuracy alone. pxpipe's own production telemetry (~3.1 chars/image
+   token, silent single-glyph confabulations on hex strings) confirms
+   optical text is a lossy gist-carrier: never route byte-exact content
+   (ids, hashes, code literals) through the optical path.
 
 ## Roadmap after the OCR rung
 
