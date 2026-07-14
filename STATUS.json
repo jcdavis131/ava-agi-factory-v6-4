@@ -2,22 +2,36 @@
   "builder": {
     "current_phase_idx": 0,
     "current_phase": "phase0_logic",
-    "writes_this_phase": 384326,
-    "total_shards": 32,
+    "writes_this_phase": 389376,
+    "total_shards": 39,
     "phase_progress": 1.0,
-    "ts": 1783943886,
+    "ts": 1783986996,
     "lake_gb": 1.8182e-05,
     "last_expansion": {
-      "timestamp": "2026-07-13T11:58:06.450136+00:00",
-      "tokens": 500099,
-      "docs": 5049,
+      "timestamp": "2026-07-13T23:56:36.052828+00:00",
+      "tokens": 500089,
+      "docs": 5054,
       "shards": [
-        "packed_20260713_115529_00031_8018.jsonl.gz"
+        "packed_20260713_235532_00038_7879.jsonl.gz"
       ],
-      "manifest": "manifest_20260713_115529.jsonl",
-      "dup_filtered": 9531,
-      "qual_filtered": 8319,
-      "upload_manifest": "data/for_upload/upload_manifest_20260713_115555.json",
+      "manifest": "manifest_20260713_235532.jsonl",
+      "dup_filtered": 9486,
+      "qual_filtered": 8479,
+      "upload_manifest": "/home/hatch/workspace/ava-agi-factory-v6-4/data/for_upload/upload_manifest_20260713_235558.json",
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "mode": "500K_HatchVM_4h_local_GDrive_uploaded"
+    },
+    "last_expansion_detailed": {
+      "timestamp": "2026-07-13T23:56:36.052828+00:00",
+      "tokens": 500089,
+      "docs": 5054,
+      "shards": [
+        "packed_20260713_235532_00038_7879.jsonl.gz"
+      ],
+      "manifest": "manifest_20260713_235532.jsonl",
+      "dup_filtered": 9486,
+      "qual_filtered": 8479,
+      "upload_manifest": "data/for_upload/upload_manifest_20260713_235558.json",
       "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
       "mode": "500K_HatchVM_4h_local_GDrive_uploaded",
       "phases": [
@@ -28,26 +42,37 @@
       "guard": "Personal Drive safe - no work indicators, uploaded to personal Drive Ava-Datasets-Expansion per AGENTS.md absolute separation",
       "gdrive_upload": {
         "folder_name": "Ava-Datasets-Expansion",
-        "folder_id": "1pNHGaDaAS1YBVB27ALHem7ixMESQd1sY",
+        "folder_id": "1QY5H-JFYW-yiAuDt5s89Dkhe6pcnVC5k",
         "uploaded_files": [
-          "packed_20260713_115529_00031_8018.jsonl.gz",
-          "manifest_20260713_115529.jsonl"
+          "packed_20260713_235532_00038_7879.jsonl.gz"
         ],
         "new_shard": {
-          "sha12": "eb1fc2a96a2c",
-          "name": "packed_20260713_115529_00031_8018.jsonl.gz",
-          "id": "1YOWdOOYa2MjfkfY2jeb4MaycL5JmyS8x",
-          "size": "165K",
-          "manifest_id": "1XGLv3f2PMkJHJPIj36Bu2R_Vus9_AXJc",
-          "manifest_sha12": "626e33aa3cd0"
-        },
-        "dedup_note": "manifest_20260713_115529 existing_id 1XGLv3f2PMkJHJPIj36Bu2R_Vus9_AXJc, packed existing_id 1YOWdOOYa2MjfkfY2jeb4MaycL5JmyS8x after retry"
+          "sha12": "95d1457c1456",
+          "name": "packed_20260713_235532_00038_7879.jsonl.gz",
+          "id": "1IzIywjrWSuFwA7SkLzxU7ScceGTKkuSx",
+          "size": "164K",
+          "full_sha": "95d1457c14561fbcef65290b0413995b6d313643cbca64741c25f749a8a3a52e"
+        }
       },
-      "disk_usage": "9.2G/100G 10% safe (df -h), daily_expanded 32 shards total, safe <80%",
-      "global_manifest_lines": 495769,
-      "efficiency_note": "simhash dedup threshold 3 + md5 + quality filter alpha>0.6 reward>0.8, ~26s Hatch VM, low RAM O(1) window 15k, 500K tokens 5049 docs"
+      "disk_usage": "/dev/mapper/rv  100G  9.5G   90G  10% / safe, daily_expanded 39 shards 253M",
+      "global_manifest_lines": 607108,
+      "efficiency_note": "simhash dedup threshold 3 + md5 + quality filter alpha>0.6 reward>0.8, ~26s Hatch VM, low RAM O(1) window 15k, 500K tokens 5054 docs, 9486 dup 8479 qual filtered"
     },
-    "last_expansion_detailed": {
+    "last_expansion_previous": {
+      "timestamp": "2026-07-13T21:59:47.897231+00:00",
+      "tokens": 10000398,
+      "docs": 32025,
+      "shards": [
+        "packed_20260713_215942_00037_6270.jsonl.gz"
+      ],
+      "manifest": "manifest_20260713_215942.jsonl",
+      "dup_filtered": 0,
+      "qual_filtered": 1355,
+      "upload_manifest": "/home/hatch/workspace/ava-agi-factory-v6-4/data/for_upload/upload_manifest_20260713_215942.json",
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "mode": "fast_md5_HatchVM"
+    },
+    "last_expansion_previous_detailed": {
       "timestamp": "2026-07-13T10:00:03.068568+00:00",
       "tokens": 10000250,
       "docs": 31989,
@@ -68,51 +93,6 @@
       ],
       "guard": "Personal Drive safe - no work indicators, per AGENTS.md absolute separation, HF upload skipped (no token)",
       "disk_usage": "checked df -h 90G free"
-    },
-    "last_expansion_previous": {
-      "timestamp": "2026-07-13T07:57:32.327260+00:00",
-      "tokens": 500065,
-      "docs": 5044,
-      "shards": [
-        "packed_20260713_075529_00029_3899.jsonl.gz"
-      ],
-      "manifest": "manifest_20260713_075529.jsonl",
-      "dup_filtered": 9483,
-      "qual_filtered": 8517,
-      "upload_manifest": "data/for_upload/upload_manifest_20260713_075557.json",
-      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-      "mode": "500K_HatchVM_4h_local_GDrive_uploaded",
-      "phases": [
-        "p0_logic",
-        "p1_math",
-        "p2_foundation"
-      ],
-      "guard": "Personal Drive safe - no work indicators, uploaded to personal Drive Ava-Datasets-Expansion per AGENTS.md absolute separation",
-      "gdrive_upload": {
-        "folder_name": "Ava-Datasets-Expansion",
-        "folder_id": "14Y_5TCHOUsYTD6ncNWH3XS207yjjcjC-",
-        "uploaded_files": [
-          "packed_20260713_055932_00028_4016.jsonl.gz",
-          "manifest_20260713_075529.jsonl",
-          "packed_20260713_075529_00029_3899.jsonl.gz"
-        ],
-        "new_shard": {
-          "sha12": "5270380cbd9b",
-          "name": "packed_20260713_075529_00029_3899.jsonl.gz",
-          "id": "1P99TxSs_hlV5k8dPJikyAXzhCOhIQk8N",
-          "size": "164K",
-          "manifest_id": "1BqG_u5lb8IL356UtLzLgI6JrdKeI-kYN",
-          "manifest_sha12": "3a5e29390d5f"
-        },
-        "also_uploaded_previous_retry": {
-          "sha12": "959eb127d629",
-          "name": "packed_20260713_055932_00028_4016.jsonl.gz",
-          "id": "1nJLQJeCpG-_-BsXSZIC-QFoGwR1hrmON"
-        }
-      },
-      "disk_usage": "9.1G/100G 10% safe (df -h), daily_expanded 29 shards total (see 19+ show), safe <80%",
-      "global_manifest_lines": 458731,
-      "efficiency_note": "simhash dedup threshold 3 + md5 + quality filter alpha>0.6 reward>0.8, ~26s Hatch VM, low RAM O(1) window 15k, 500K tokens 5044 docs"
     }
   },
   "curriculum": {
@@ -128,7 +108,7 @@
     ]
   },
   "lake": {
-    "last_manifest_lines": 32022,
+    "last_manifest_lines": 607108,
     "sources": [],
     "total_gb": 0.0146
   },
