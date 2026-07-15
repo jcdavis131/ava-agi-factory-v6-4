@@ -16,7 +16,7 @@ Usage:
   python scripts/gdrive_uploader.py --upload data/daily_expanded/packed_*.jsonl.gz --folder Ava-Datasets-Expansion --dry-run
   python scripts/gdrive_uploader.py --upload data/for_upload/ --folder Ava-Datasets-Expansion
 """
-import argparse, json, os, sys, subprocess, time, hashlib, pathlib, re, random
+import argparse, json, os, sys, subprocess, time, hashlib, pathlib, re, random, shlex
 from pathlib import Path
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -38,6 +38,12 @@ def run_cli(cmd, retries=3):
             time.sleep(2**attempt)
     return None
 
+def gdrive_list(params_dict):
+    """Safe wrapper for hatch_gws_cli drive files list --params <json> using shlex.quote"""
+    params_json = json.dumps(params_dict)
+    cmd = f"hatch_gws_cli drive files list --params {shlex.quote(params_json)}"
+    return run_cli(cmd)
+
 def check_work_drive_guard():
     """
     Check if currently connected Drive is work drive.
@@ -48,7 +54,7 @@ def check_work_drive_guard():
     Returns (is_work: bool, message: str)
     """
     print("[Guard] Checking Drive type for Home/Work separation...")
-    out = run_cli('hatch_gws_cli drive files list --params \'{"q":"trashed=false","pageSize":30,"fields":"files(id,name,mimeType,owners)"}\'', retries=2)
+    out = gdrive_list({"q":"trashed=false","pageSize":30,"fields":"files(id,name,mimeType,owners)"})
     if not out:
         # Cannot determine, be safe -> assume work risk if status connected but can't list? Better to warn
         return False, "Could not list files to determine drive type — proceed with caution"
@@ -81,10 +87,31 @@ def check_work_drive_guard():
         return False, f"Guard parse failed {e}, assuming safe but manual review needed"
 
 def get_or_create_folder(folder_name):
-    """Find folder by name, or create it, return folder ID"""
+    """Find folder by name, or create it, return folder ID - handles duplicate accumulation bug by picking most-populated canonical"""
     print(f"[GDrive] Looking for folder {folder_name}")
-    q = f'name="{folder_name}" and mimeType="application/vnd.google-apps.folder" and trashed=false'
-    out = run_cli(f'hatch_gws_cli drive files list --params \'{{"q":"{q}","pageSize":5,"fields":"files(id,name)"}}\'')
+    q = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    # List many, order by createdTime to get stable list
+    out = gdrive_list({"q": q, "pageSize": 100, "fields": "files(id,name,createdTime)", "orderBy": "createdTime"})
+    if out:
+        try:
+            data = json.loads(out)
+            files = data.get("files", [])
+            if files:
+                # Known canonical with 43 files as of 2026-07-13 is 19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve - prefer it if exists to stop drift to empty dupes
+                canonical_preferred = "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve"
+                for f in files:
+                    if f["id"] == canonical_preferred:
+                        print(f"[GDrive] Found preferred canonical folder {folder_name} id {canonical_preferred} (43 files) among {len(files)} duplicates - using this")
+                        return canonical_preferred
+                # Fallback: pick oldest folder as stable, warning about duplicates
+                files_sorted = sorted(files, key=lambda x: x.get("createdTime",""))
+                fid = files_sorted[0]["id"]
+                print(f"[GDrive] Found existing folder {folder_name} id {fid} (oldest of {len(files)} duplicates, newest would be {files_sorted[-1]['id']}) - reusing oldest to stop duplication")
+                if len(files) > 3:
+                    print(f"[GDrive] WARNING: {len(files)} duplicate folders named {folder_name} exist from previous bug - should cleanup empty ones, keeping {fid} as canonical. Best known canonical with files is {canonical_preferred}")
+                return fid
+        except Exception as e:
+            print(f"[GDrive] Folder search parse failed {e}")
     if out:
         try:
             data = json.loads(out)
@@ -123,11 +150,9 @@ def file_sha12(path: Path):
 def upload_file_with_dedup(local_path: Path, folder_id, dry_run=False):
     """Upload with dedup check: if file with same sha12 in name exists, skip"""
     sha12, full_sha = file_sha12(local_path)
-    # Check if file with sha12 already exists in folder
-    # Search by name containing sha12
-    q = f'"{sha12}" in name and "{folder_id}" in parents and trashed=false' if folder_id != "root" else f'"{sha12}" in name and trashed=false'
-    # Actually Drive query: name contains sha12
-    out = run_cli(f'hatch_gws_cli drive files list --params \'{{"q":"name contains \\\"{sha12}\\\" and trashed=false","pageSize":5,"fields":"files(id,name,size)"}}\'')
+    # Global dedup - if file with same sha12 exists anywhere in Drive, skip to avoid duplicates across the 5 duplicate folders issue
+    q = f"name contains '{sha12}' and trashed=false"
+    out = gdrive_list({"q": q, "pageSize": 5, "fields": "files(id,name,size)"})
     if out:
         try:
             data = json.loads(out)

@@ -1,4 +1,4 @@
-# Spec 02 — Synthetic Data Generators (B1–B4)
+# Spec 02 — Synthetic Data Generators (B1–B5)
 
 - **Spec ID:** 02_data_generation
 - **Worker tier:** Sonnet — FOUR PARALLEL WORKERS, one per generator task (B1, B2, B3, B4).
@@ -132,6 +132,59 @@ class Generator(ABC):
   (`task_type="automatic"`, `phase="p5"`).
 - `source="chat/<family>"`. Safety/benign twins must be distinguishable ONLY by the coercive
   vocabulary, not by length or formatting (matched templates).
+
+## B5 — ava/datagen/workflow_jobbench.py + ava/datagen/workflow_gaia2.py (Stage 12) — P3/P4/P5
+Unlike B1-B4, B5 was not built alongside the original four (it landed later, once the blueprint's own
+`workflow_jobbench`/`workflow_gaia2` mix-weight labels in `dolma_config.yaml`/`streaming_data.py` needed a
+real generator behind them). Same base contract, same zero-network/private-RNG/correct-by-construction
+rules apply unchanged; wiring is via `configs/sources.yaml` + `ava/datagen/__init__.py`'s `GENERATORS` dict
+(the collector's actual source registry — see `ava/pipeline/collector.py`), not the `scripts/gen_all_data.py`
+orchestrator sketched below (which several phases of this project's history never actually built; B5 does
+not depend on it).
+
+- **workflow_jobbench.py** (`WorkflowJobBenchGenerator`, name=`"jobbench"`, phases `(3,4,5)`): modeled on
+  the real JobBench benchmark (job-bench.github.io — 1,500+ professionals rating what work they want
+  delegated, ~28 occupations across 7 domains, tasks as small dossiers of contradictory heterogeneous
+  inputs, binary anchored rubrics) without any network dependency on it. 25 occupations × 3
+  planted-contradiction families, each with its own deterministic reconciliation:
+  - `duplicate` (`task_type="deliberate"`): a line-item CSV table has one row accidentally duplicated; a
+    memo naively sums the raw table. Correct answer = table sum minus the duplicated value.
+  - `units` (`task_type="deliberate"`): an itemized, auditable table is contradicted by a summary figure
+    that states the SAME raw number but claims different units (thousands/hundreds) — the itemized total
+    is always the correct one.
+  - `stale` (`task_type="temporal"`): two dated snapshots disagree because an item was added/removed/changed
+    between them; a memo cites the older, superseded figure. Correct answer = the later snapshot's total.
+  - `concept` = the occupation slug. Phase 3/5 docs use a small `randint` item-count range (500-4000
+    chars); phase 4 docs GROW the item count (more RNG-drawn rows, same construction) until the rendered
+    text clears 6000 chars, since a fixed count landed anywhere from ~4000 to ~10000 chars depending which
+    occupation's value units (dollars vs. small integer counts) got drawn.
+- **workflow_gaia2.py** (`WorkflowGaia2Generator`, name=`"gaia2"`, phases `(3,4,5)`, all
+  `task_type="temporal"`): modeled on Meta's real Gaia2 benchmark
+  (facebookresearch/meta-agents-research-environments — 800 async scenarios across 10 universes, events
+  that fire on the environment's own clock independent of the agent) without any network/code dependency on
+  the real ARE. A deterministic scheduling state machine — an initial candidate-slot list plus a sequence of
+  RNG-seeded async events that each prune or reorder it — over 4 twists mirroring Gaia2's named capability
+  axes: `adaptability` (a candidate slot is declined), `ambiguity` (a later explicit time supersedes an
+  earlier vague one — NEVER a silent substitution when the explicit slot itself misses the deadline; a
+  regression test guards this exact bug), `deadline` (a late constraint prunes the window), `collaboration`
+  (a second agent's already-made booking must be accepted or flagged, never silently duplicated). The
+  "Resolution:" text is always the literal output of replaying the state machine against the parsed
+  slots/deadline/events, so it is independently checkable from the rendered text alone — see
+  `tests/test_datagen.py`'s `test_gaia2_*_resolution_is_correct`/`*_is_correct` tests, which parse the
+  doc's own numbers back out via regex and recompute the expected resolution rather than trusting the
+  generator's internal variables. Phase 4 docs chain further independent scenarios ("same universe, later
+  that day") until long enough, since a single scenario averages ~650 chars.
+- Both generators' phase mix (3/4/5 weight split) intentionally differs: jobbench skews toward phase 3
+  (reasoning), gaia2 skews toward phase 4 (long/async context) — this mirrors the blueprint's own original
+  framing in `inner_monologue_research.md` (JobBench closer to S2/deliberate reasoning; GAIA2 closer to the
+  Planner's long-horizon temporal hold) and is realized concretely in `configs/sources.yaml`'s per-phase
+  `weight` fields (jobbench 10/10/5% at p3/p4/p5, gaia2 5/15/10%), with the phase's other sources rescaled
+  down proportionally so each phase's weights still sum to 1.0.
+- Acceptance, same shape as B1-B4: `python -m ava.datagen.workflow_jobbench --seed 1234 --out /tmp/dg --mb 5`
+  and the `workflow_gaia2` equivalent exit 0 and are byte-reproducible across two runs at the same seed;
+  `pytest tests/test_datagen.py -k "jobbench or gaia2"` green (16 tests: determinism/schema via
+  `ALL_GENERATORS`, task_type accuracy, per-family reconciliation math re-derived independently, phase-4
+  long-doc char-band, and the four GAIA2 state-machine replay tests).
 
 ## Orchestrator + tests (owned by whichever worker the foreman assigns last, or B4)
 - `scripts/gen_all_data.py --seed 1234 [--out data/nano/raw/]`: runs all generators with fixed

@@ -1,8 +1,9 @@
-torch>=2.2.0
+torch>=2.0.0
 deepspeed>=0.14.0
 transformers>=4.40.0
 tokenizers>=0.15.0
-datasets>=2.18.0
+datasets>=2.19.0
+huggingface_hub>=0.24.0
 accelerate>=0.28.0
 fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
@@ -20,3 +21,8 @@ chonkie>=1.4.1
 tiktoken>=0.6.0
 psutil>=5.9.0
 webdataset>=0.2.62
+prefect==3.4.0
+pandas>=2.0.0
+pyarrow>=14.0.0
+boto3>=1.34.0
+scikit-learn>=1.3.0

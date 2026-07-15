@@ -122,5 +122,29 @@ All deploy via Vercel webhook if VERCEL_DEPLOY_HOOK_URL set.
 - Prefect: http://localhost:4200 dashboard - flow runs, retries, logs, version
 - Logs: your_files/ava-agi/runs/, logs/builder.log, your_files/vector-daily/
 
+### E2E Test (New)
+
+- `./scripts/e2e_test.sh` — runs all steps mock-friendly without GPU/HF_TOKEN/Ollama:
+  1. py_compile
+  2. dataset_expansion 1M dry-run
+  3. dataset_discovery
+  4. hf_uploader dry-run
+  5. gdrive guard check (blocks work Drive)
+  6. streaming_data import
+  7. eval_branch mock
+  8. frontier mock
+  9. prefect flows data/eval/vector
+  10. distill import
+  Logs to `logs/e2e_test_TIMESTAMP.log` + manifests in `data/for_upload/`
+
+- For real pickup: see `docs/LOCAL_PICKUP.md`
+
+### 2-Loop HF Hub Architecture (New)
+
+- **Loop 1 Data (4h):** dataset_expansion.py 10M shards simhash dedup 50MB gzipped content-addressable sha12 → manifest.jsonl → hf_uploader.py push_to_hub train/val/test 92/6/2 parquet → private repo jcdavis131/ava-textbook-v6
+- **Loop 2 Model (weekly / on-demand):** streaming_data.py loads via `load_dataset(..., streaming=True)` → torchrun deepspeed Zero3 bf16 per-rank shard streaming WSD 736k stable → eval Ollama → MOPD distill reverse KL
+- **Efficient downstream:** manifest includes HF URLs + sha + local paths, usable on Alienware via scp/rclone, no work Drive upload (guard blocks camd@meta.com)
+- **Command:** `HF_TOKEN=... python scripts/hf_uploader.py --repo jcdavis131/ava-textbook-v6 --manifest "data/daily_expanded/manifest_*.jsonl" --private --push`
+
 ### Solo Disclaimer
 All pipelines: public pip only (torch, transformers, prefect), free-tier R2/Workers/Supabase/HF ZeroGPU, ONNX WASM, local Ollama qwen3:32b. No work data/code/systems. Footer: "Solo personal project, no connection to employer, built with public/free-tier only"

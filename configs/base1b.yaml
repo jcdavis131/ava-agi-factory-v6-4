@@ -1,9 +1,23 @@
 # ava-base1b — 1B-class target (RTX 4080 Laptop 12GB, WSL2)
-# Blueprint depth/width (d2048, 48 layers 12/28/8) with vocab 32k TIED + GQA (4 KV heads)
-# + SwiGLU mlp_ratio 1.0 => ~1.17B params (per-layer ~23.1M x 48; see specs/08 arithmetic).
-# NOTE: the blueprint's literal MHA + 4x MLP + untied 128k vocab is ~2.9B and CANNOT fit 12GB.
-# VRAM: bf16 weights ~2.3GB + grads ~2.3GB + bitsandbytes AdamW8bit ~2.3GB + activations
-# (FULL gradient checkpointing, ctx 2048, micro-batch 1-2) => ~9-10GB, fits 12GB.
+#
+# MEASURED param count: 1409M (`python -m ava.config --preset base1b --count-params`).
+# specs/08 predicted 1.17B; it undercounted the Multi-J-Space, which is NOT just
+# "slots ~0.3M". Each of the 4 workspaces carries 2 MultiheadAttention (4*d^2 each)
+# + mod_gate (d^2) + broad_proj (d^2) = 10*d^2 = 41.9M at d=2048, and there are 4
+# cross-space attentions at 4*d^2 = 16.8M each. J-Space total ~235M.
+#   embed (tied)  65.5M
+#   48 layers   1109M   (GQA attn 10.5M + SwiGLU h=2048 12.6M = 23.1M each)
+#   J-Space      235M
+#                -----
+#                1409M
+# The blueprint's literal MHA + 4x MLP + untied 128k vocab is ~2.9B and cannot fit 12GB.
+#
+# VRAM at 1409M: bf16 weights 2.8GB + bf16 grads 2.8GB + AdamW8bit states ~2.8GB
+# = 8.4GB before activations. With ~11.6GB free that leaves ~3GB for activations,
+# which needs FULL gradient checkpointing at ctx 2048 micro-batch 1.
+# This is TIGHT. Re-measure before the M1 run; if it OOMs, drop n_fusion_layers
+# 28 -> 24 (-92M) or halve the workspace widths. Decided at the Stage 9 GO/NO-GO.
+#
 # Throughput ~1.0-1.5k tok/s => ~100M tokens/day. MILESTONE schedule, stop-anytime via WSD stable ckpts.
 preset: base1b
 
@@ -62,10 +76,12 @@ milestones:
 phases:                              # proportions per blueprint; token counts are per-milestone budgets above
   - {name: p0_logic,      frac: 0.10, seq: 2048,  rope_base: 10000,   ntk: 1.0, mix: {logic: 1.0}}
   - {name: p1_math,       frac: 0.10, seq: 2048,  rope_base: 10000,   ntk: 1.0, mix: {math: 0.85, logic: 0.15}}
-  - {name: p2_foundation, frac: 0.47, seq: 2048,  rope_base: 10000,   ntk: 1.0, mix: {encyclopedia: 0.35, code: 0.25, math: 0.15, logic: 0.10, chat: 0.15}}
-  - {name: p3_reasoning,  frac: 0.18, seq: 8192,  rope_base: 50000,   ntk: 1.0, mix: {math_reasoning: 0.45, logic: 0.20, temporal: 0.20, code: 0.15}}
+  # tool_use = agentic workflows / harness skills (react_tools generator); same
+  # emphasis as mini: foundation vocabulary → tool workflows → grounded anneal.
+  - {name: p2_foundation, frac: 0.47, seq: 2048,  rope_base: 10000,   ntk: 1.0, mix: {encyclopedia: 0.30, code: 0.20, tool_use: 0.15, math: 0.15, logic: 0.10, chat: 0.10}}
+  - {name: p3_reasoning,  frac: 0.18, seq: 8192,  rope_base: 50000,   ntk: 1.0, mix: {math_reasoning: 0.30, tool_use: 0.30, logic: 0.15, temporal: 0.15, code: 0.10}}
   - {name: p4_long,       frac: 0.07, seq: 16384, rope_base: 500000,  ntk: 1.5, mix: {long_docs: 0.70, needle: 0.30}}
-  - {name: p5_anneal,     frac: 0.08, seq: 16384, rope_base: 1000000, yarn: true, mix: {proofs_verified: 0.30, math_reasoning: 0.25, chat: 0.25, safety: 0.20}}
+  - {name: p5_anneal,     frac: 0.08, seq: 16384, rope_base: 1000000, yarn: true, mix: {tool_use: 0.25, proofs_verified: 0.20, chat: 0.20, safety: 0.20, math_reasoning: 0.15}}
   # NOTE 12GB reality: ctx >16k at 1B needs micro-batch 1 + aggressive checkpointing; 64k-128k blueprint
   # contexts are out of reach on this GPU — YaRN eval-time extension covers the long-context probe instead.
 

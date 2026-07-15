@@ -16,7 +16,10 @@ model:
   n_fusion_layers: 6
   n_reasoning_layers: 3
   tie_lm_head: true
-  tie_verbalizer: false        # untied at mini scale (+24.6M) — richer reportability probe
+  # MUST stay true: each of the 4 workspaces owns a [vocab, d_model] verbalizer,
+  # so untying costs 4 x 32000 x 768 = 98M params (mini would be 270M, not ~171M).
+  # The original spec's "+24.6M" counted one matrix, not four.
+  tie_verbalizer: true
   multimodal: false
   qk_norm: true
   rope_base_init: 10000
@@ -47,16 +50,19 @@ training:
   tokens_per_step: 262_144         # e.g. micro 16 x seq 1024 x accum 16
   optimizer: {name: adamw, betas: [0.9, 0.95], weight_decay: 0.1, grad_clip: 1.0}
   wsd: {warmup_steps: 300, stable_frac: 0.92, lr_max: 6.0e-4, lr_min: 6.0e-5}
-  checkpoint_every_steps: 500
+  checkpoint_every_steps: 50    # was 100; CUDA blips at ~190/470 kept wiping uncheckpointed progress
   metrics_every_steps: 10
 
 phases:                            # same 6-phase shape, 2.5B budget
   - {name: p0_logic,      tokens: 400_000_000, seq: 512,  rope_base: 10000,  ntk: 1.0, mix: {logic: 1.0}}
   - {name: p1_math,       tokens: 500_000_000, seq: 512,  rope_base: 10000,  ntk: 1.0, mix: {math: 0.85, logic: 0.15}}
-  - {name: p2_foundation, tokens: 850_000_000, seq: 1024, rope_base: 10000,  ntk: 1.0, mix: {encyclopedia: 0.35, code: 0.25, math: 0.15, logic: 0.10, chat: 0.15}}
-  - {name: p3_reasoning,  tokens: 400_000_000, seq: 2048, rope_base: 50000,  ntk: 1.0, mix: {math_reasoning: 0.45, logic: 0.20, temporal: 0.20, code: 0.15}}
+  # tool_use = agentic workflows / harness skills (react_tools generator):
+  # foundation vocabulary in P2, multi-step tool workflows in P3, and
+  # grounding-heavy (notfound/cite) anneal in P5.
+  - {name: p2_foundation, tokens: 850_000_000, seq: 1024, rope_base: 10000,  ntk: 1.0, mix: {encyclopedia: 0.30, code: 0.20, tool_use: 0.15, math: 0.15, logic: 0.10, chat: 0.10}}
+  - {name: p3_reasoning,  tokens: 400_000_000, seq: 2048, rope_base: 50000,  ntk: 1.0, mix: {math_reasoning: 0.30, tool_use: 0.30, logic: 0.15, temporal: 0.15, code: 0.10}}
   - {name: p4_long,       tokens: 150_000_000, seq: 4096, rope_base: 100000, ntk: 1.2, mix: {long_docs: 0.70, needle: 0.30}}
-  - {name: p5_anneal,     tokens: 200_000_000, seq: 4096, rope_base: 100000, ntk: 1.2, mix: {proofs_verified: 0.30, math_reasoning: 0.25, chat: 0.25, safety: 0.20}}
+  - {name: p5_anneal,     tokens: 200_000_000, seq: 4096, rope_base: 100000, ntk: 1.2, mix: {tool_use: 0.25, proofs_verified: 0.20, chat: 0.20, safety: 0.20, math_reasoning: 0.15}}
 
 data:
   seed: 1234
