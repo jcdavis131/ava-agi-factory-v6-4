@@ -124,6 +124,58 @@ that may not exist yet. When T9.5 starts, treat 2-stage SFT + MaxEnt RL + self-d
 recipe for the Math branch, measured against plain SFT on the same frozen eval snapshot (T10.6), not
 adopted by vendor-card default.
 
+### T11.8 — Inkling blatant architecture wins: relative pos, short conv, MoE sig-router, Muon, effort conditioning, encoder-free multimodal, calibration via proper scoring
+
+Source: Thinking Machines Inkling 975B total / 41B active, Small 276B total / 12B active, 1M ctx, 45T tokens text+images+audio+video, GB300 NVL72 train. Open weights original + NVFP4 for Blackwell.
+
+**Steal 1 — Position: Relative > RoPE for 1M extrapolation**
+Inkling: relative positional embedding (Shaw et al 2018, Music Transformer Huang 2018) interleaved sliding-window:global 5:1 ratio, 8 KV heads, performs better + extrapolates better than RoPE.
+*Our mapping:* Current YaRN Scaled RoPE 10k->1M in `model_1b.py` works but shows YaRN brittleness at 131k. T11.8.1 candidate `pos_mode="relative"` behind config gate. Causality test same as T6.1. Accept: needle @2x,4x,8x window shows lower drift than RoPE; report actual bpb at 32k,131k,256k.
+
+**Steal 2 — Short convolutions after k/v + residual branches**
+Inkling applies short convs at two points — after key and value projections in each attn layer, and on attention and MLP residual branch outputs before they rejoin main residual stream. Stabilizes long ctx + helps local pattern.
+*Our mapping:* Add `short_conv_kv=True` optional depthwise conv1d k=3 after k/v proj (group = n_kv_heads). Add `residual_conv=True` conv on branch outputs. Must stay causal (causal conv padding). Accept: loss delta measured, no causal leak (0.0 logit change test).
+
+**Steal 3 — MoE: 256 routed + 2 shared, 6 active, sigmoid router, aux-loss-free bias, joint norm**
+Each MoE layer 256 routed experts + 2 shared, 6 routed active per token, sigmoid router with auxiliary-loss-free load-balancing bias (DeepSeek-V3 style), scores of selected routed + shared normalized jointly weighting combined outputs.
+*Our mapping:* Current J-Spaces (S1 32 hl=8, S2 64 hl=300, Critic 16 hl=30, Planner 32 hl=150) are dense workspaces with OroJaR orth regularization. Treat each J-Space as routed expert pool with shared experts as System0 commons. Implement `moe_mode="inkling"` with `n_routed=64 scaled down for 1B` (not 256, that is 975B), `n_shared=2`, `k=2-4`, sigmoid router + bias update `b_i += lr * (target - actual load)` no aux loss. Shared expert always on = router + critic fallback. Accept: load balance hist, expert utilization >0.7, no drop in frontier rubric, peak VRAM reported.
+
+**Steal 4 — Hybrid optimizer: Muon for large matrices + Adam for others, wd ∝ lr²**
+Inkling: Muon for large matrix weights, Adam for other params, hyperparam schedules inspired by modular manifolds, weight decay coupled to square of learning rate keeping overall weight size stable across horizons (Kosson 2023, Defazio 2025).
+*Our mapping:* Our WSD 736k (92% stable) + decay-free WSM merging infinite continuation is already stable. Add `optim="muon_adam"` option: Muon for `qkv,o,gate,up,down` matrices >2D, AdamW for embeddings, norms, router biases, J-Space controllers. Implement `wd = base_wd * (lr / base_lr)^2` coupling. Accept: weight norm curve flat across 736k, no NaN with Peri-LN+QK-Norm, compare grad noise scale.
+
+**Steal 5 — Effort conditioning 0.2-0.99 via system message + per-token cost**
+Inkling specifies effort level on different samples by changing system message and adjusting per-token cost, causing model to use different amount of tokens in different rollouts and learn ability to control thinking effort. Sweep 0.2→0.99 traces performance vs mean generated tokens Terminal Bench 2.1/HLE/IFBench, 1/3 tokens to match Nemotron 3 Ultra. Chain-of-thought emergent compression verbose grammatical → telegraphic concise, efficiency alone drove compression (similar to Cognition SWE-1.7).
+*Our mapping:* Direct to neuroscience:
+- S1 Fast 32 hl=8 = effort 0.2-0.4: Kahneman System1 + basal ganglia habits + Theater of Mind τ=0.7 top-k=8 competition, automatic, low tokens, parallel k=4 traces folded into bounded 256-token aggregation (T11.6)
+- S2 Slow 64 hl=300 = effort 0.8-0.99: PFC deliberative + Global Workspace Theory + Dehaene capacity law, hl=300 long horizon, expensive but high score.
+- Half-life curves: activation strength = exp(-ln2 * t / hl) => S1 decays fast (hl=8), S2 slow (hl=300), Critic fast (hl=30), Planner medium (hl=150)
+- Train with `effort_conditioning=True`: sample effort ~ Uniform(0.2,0.99), prepend system message "effort={effort:.2f}", adjust loss: per-token cost λ = 0.01 * effort, so high effort penalized for verbosity? Actually low effort penalize tokens: cost = (1-effort)*N_tokens. Implement in `ava/train.py`.
+- Inference: `generate(effort=0.3)` for S1, `effort=0.99` for S2, report token vs score curve per eval_frontier_rubric.
+
+**Steal 6 — Encoder-free multimodal: dMel spectrograms + 40x40 patches hMLP**
+Audio as dMel spectrograms (dMel: Speech Tokenization made Simple, Richard He Bai 2024), images as patches 40x40 via 4-layer hMLP (Three things everyone should know about Vision Transformers, Touvron 2022), both transformed via lightweight embedding layer processed jointly with text tokens. No encoder. Python tool for zoom/crop seamlessly integrating visual reasoning + code.
+*Our mapping:* For Ava future plus `04_Tennis_DINOv3` and passive lab multimodal generators. Add `multimodal_mode="inkling_encoderfree"`: audio->dMel via torch STFT + mel 128 bins -> linear proj, vision->unfold 40x40 patches -> 4-layer MLP with LayerNorm (hMLP). Joint sequence: [audio_emb][vision_patch_emb][text_emb]. For current 1B keep text-only but leave hook `ava/audio/` and `ava/vision/` to use same embedding interface. Benefit: 2MB distilled ConvNeXt-Tiny compatible with ONNX WASM free-tier, no heavy CLIP/Whisper encoder download. Accept: multimodal eval not in scope yet, but code path gated and unit tested with dummy mel + patch.
+
+**Steal 7 — Epistemics: calibration via proper scoring rules + abstention-aware + censorship non-compliance**
+Inkling trained for calibration, instruction following, resistance to censorship. Calibration with RL against proper scoring rules on large corpus of resolved real-world questions. Forecasting requires integrating multiple sources into calibrated probability, core skill for trustworthy model — trained ForecastBench Brier Index, Prophet Arena Brier. Instruction following via RL with two automated graders: rubric grader (checklist) + claims grader (verifies each factual claim via agentic web search, not solely own knowledge), improves helpfulness + reduces hallucination not trading one for other. Targeted datasets short-form factual QA with abstention-aware rewards: answering only pays off when likely right, optimal policy answer when confident otherwise "I don't know" or hedged best guess. Some prompts encourage/forbid hedging teaching user preference forced guess vs calibrated non-answer. Finally trained to answer directly on topics subject to censorship (Propaganda and Censorship Eval — Cognition), strong non-compliance.
+*Our mapping:* Direct to eval_frontier_rubric.py and Critic J-Space:
+- Critic 16 hl=30 = amygdala + insula safety eval, target FORTRESS adversarial 78%, benign 95.9%, StrongREJECT 98.6% as reference, not ceiling
+- Planner 32 hl=150 = hippocampus episodic + PFC planning, temporal credit assignment for forecasting
+- Implement rubric grader + claims grader dual reward (see CURRICULUM_V2_INKLING.md) and abstention-aware rewards (say IDK gets 0.4 vs hallucinating 0.0)
+- Calibration: add Brier score tracking on forecast tasks (ForecastBench style), proper scoring rule RL
+
+**Steal 8 — RL at scale 30M rollouts log-linear + SFT bootstrap from open-weights**
+Bootstrap SFT on synthetic data generated by open-weights including Kimi K2.5 small fraction compute, majority large-scale RL async synthetic + human envs, reward on held-out aggregate AIME/HLE/GPQA improves log-linear over 30M rollouts.
+*Our mapping:* Our 45T scaled down to 15T curriculum: phases 0-5 but hybrid optimization plan (TBD in CURRICULUM_V2). Keep WSD 736k stable, but post-train with synthetic from open-weights (Qwen3-32B local via Ollama, Kimi style) for bootstrap, then RL with same log-linear tracking.
+
+**Acceptance for T11.8 as a whole:**
+- Each sub-steal behind config gate, default-off, causality suite 32/32 pass.
+- New docs `docs/INKLING_STEALS.md` mapping to 4 J-Spaces + neuroscience advantage.
+- `CURRICULUM_V2_INKLING.md` 6-phase with effort conditioning.
+- `eval_frontier_rubric.py` dual grader + abstention + effort sweep implemented and `frontier_eval_results.json` includes effort_curve.
+- No work resources, solo personal project footer in all new docs.
+
 ## Ordering
 
 T11.2 before T11.1 before T11.3 — T11.2 answers the open VRAM risk directly and has the clearest internal
@@ -131,4 +183,9 @@ analog (J-Space chunk-recurrence) to reuse; T11.1 is the next-cheapest KV win; T
 long-context target exists. T11.4 is independent and gated on writing `12_matformer_ladder.md` first. T11.5
 is a non-task, kept for the record. T11.6 and T11.7 are not forward-pass work and don't compete with
 T11.1-T11.4 for the same causality-gated review slot: T11.6 waits on a serve path worth the k=4 cost,
-T11.7 waits on T9.3/T9.5 same as the rest of branch fine-tuning.
+T11.7 waits on T9.3/T9.5 same as the rest of branch fine-tuning. T11.8 runs in parallel with T11.2-T11.7 —
+it is curriculum + eval + config-gated arch variants, not blocking base1b trim decision, but provides the
+perfect training loop upgrades that make T11.2's fixed-state + T11.1's compressed latent actually stable at
+1M (relative pos, Muon, wd∝lr², Peri-LN+QK-Norm anti entropic collapse).
+
+
