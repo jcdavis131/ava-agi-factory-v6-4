@@ -42,7 +42,79 @@ _STATE_HELP = {
 }
 
 # Trainer silent longer than this ⇒ surface as stale on the dashboard.
+# This is a floor only: the effective cutoff adapts to the observed logging
+# cadence, because a phase transition (e.g. seq 512 → 1024) can legitimately
+# stretch the gap between step events from ~3 min to ~15 min.
 _STALE_STEP_S = 180.0
+_STALE_MAX_S = 3600.0
+_STALE_CADENCE_MULT = 2.5
+
+
+def _stale_threshold_s(
+    run_rows: list[dict[str, Any]],
+    all_rows: list[dict[str, Any]] | None = None,
+) -> float:
+    """Staleness cutoff adapted to the trainer's current step cadence.
+
+    Expected gap between step events = tokens covered per logging interval
+    divided by the most recent tok/s. The latest tok/s already reflects a new
+    phase's speed right after a transition, when the wall-clock gap between
+    the last two rows does not (it straddles the boundary).
+
+    Right after a restart the current run has fewer than two step rows and
+    this used to collapse to the 180s floor while a P2 recovery legitimately
+    takes ~15 min to its first step event -- a guaranteed false 'Trainer
+    stale' banner after every one of the run's dozens of restarts. The
+    pre-restart rows are the best available cadence estimate; fall back.
+    """
+    steps = [r for r in run_rows if r.get("event") == "step"]
+    if len(steps) < 2 and all_rows:
+        steps = [r for r in all_rows if r.get("event") == "step"]
+    expected = None
+    if len(steps) >= 2:
+        try:
+            tok_delta = float(steps[-1].get("tokens") or 0) - float(steps[-2].get("tokens") or 0)
+            tok_s = float(steps[-1].get("tok_s") or 0)
+            if tok_delta > 0 and tok_s > 0:
+                expected = tok_delta / tok_s
+            else:
+                expected = float(steps[-1]["ts"]) - float(steps[-2]["ts"])
+        except (TypeError, ValueError, KeyError):
+            expected = None
+    if expected is None or expected <= 0:
+        return _STALE_STEP_S
+    return min(_STALE_MAX_S, max(_STALE_STEP_S, _STALE_CADENCE_MULT * expected))
+
+def _throttle_state(metrics: list[dict[str, Any]]) -> tuple[bool, str]:
+    """Detect a power-throttled GPU from throughput collapse.
+
+    On battery the driver caps this laptop's GPU at ~17-22W and tok/s drops
+    ~6x; for three days that state was indistinguishable from a hang (14.5h of
+    'silent gaps'). A recent step whose tok/s is far below the phase median is
+    throttling, not staleness -- steps ARE landing, just slowly.
+    """
+    try:
+        srows = [r for r in metrics if r.get("event") == "step" and r.get("tok_s")]
+        if not srows:
+            return False, ""
+        phase = srows[-1].get("phase")
+        rows = [r for r in srows if r.get("phase") == phase]
+        latest = float(rows[-1].get("tok_s") or 0)
+        hist = sorted(float(r["tok_s"]) for r in rows[:-1][-20:])
+        if latest <= 0 or len(hist) < 3:
+            return False, ""
+        med = hist[len(hist) // 2]
+        if med <= 0 or latest >= 0.4 * med:
+            return False, ""
+        watts = rows[-1].get("gpu_power_w")
+        detail = (f"tok/s {latest:.0f} is {latest / med:.0%} of the phase median "
+                  f"{med:.0f}" + (f"; GPU drawing {watts:.0f}W" if watts else "")
+                  + " — host likely on battery or power-saving. Plug in / set "
+                  "High Performance to restore ~6x throughput.")
+        return True, detail
+    except (TypeError, ValueError, KeyError):
+        return False, ""
+
 
 _ROUTE_NAMES = ("automatic", "deliberate", "critic", "planner")
 
@@ -493,7 +565,11 @@ def _mode(
     last_step: dict[str, Any] | None,
     starved: bool,
     age_s: float | None,
+    stale_after_s: float,
     gates: list[dict[str, Any]],
+    recovering: bool = False,
+    throttled: bool = False,
+    throttle_detail: str = "",
 ) -> dict[str, Any]:
     """Operator-facing mode: data_prep vs training vs blocked."""
     d1 = next((g for g in gates if g["id"] == "D1"), None)
@@ -510,11 +586,30 @@ def _mode(
             "label": "Data prep",
             "detail": "Building packed runway for the trainer phase (collect → curate → pack).",
         }
-    if age_s is not None and age_s > _STALE_STEP_S:
+    if age_s is not None and age_s > stale_after_s:
         return {
             "id": "stale",
             "label": "Trainer stale",
-            "detail": f"No step for {age_s:.0f}s — check GPU / CUDA / trainer logs.",
+            "detail": (
+                f"No trainer activity for {age_s:.0f}s (> {stale_after_s:.0f}s "
+                f"expected at the current phase's cadence) — check GPU / CUDA / "
+                f"trainer logs, and whether the host is on battery or asleep."
+            ),
+        }
+    if throttled:
+        return {
+            "id": "throttled",
+            "label": "GPU throttled",
+            "detail": throttle_detail or "Throughput far below phase median.",
+        }
+    if recovering:
+        return {
+            "id": "recovering",
+            "label": "Trainer recovering",
+            "detail": (
+                "Restarted and resuming from the latest checkpoint; the first "
+                "post-resume step event is pending (~10-15 min at P2 cadence)."
+            ),
         }
     return {
         "id": "training",
@@ -638,13 +733,35 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
     if data_state == "DATA_STARVED":
         starved = True
 
+    # Liveness age: seconds since the trainer emitted ANY event, not just a
+    # step. A trainer that logged `resumed` 90s ago is alive and recovering;
+    # measuring staleness from the last *step* branded every restart window
+    # (model build + resume + first 10 steps, ~15 min at P2) as a hang.
     age_s = None
-    if last_step and last_step.get("ts") is not None:
+    for row in reversed(metrics):
+        ts = row.get("ts")
+        if ts is None:
+            continue
         try:
-            age_s = max(0.0, time.time() - float(last_step["ts"]))
+            age_s = max(0.0, time.time() - float(ts))
         except (TypeError, ValueError):
-            age_s = None
-    stale = bool(age_s is not None and age_s > _STALE_STEP_S and not starved)
+            continue
+        break
+    # Recovering = restarted and no step yet: the newest step/model_built-ish
+    # marker decides. (demand_published/checkpoint rows are skipped -- both
+    # follow steps and resumes alike, so they identify neither state.)
+    recovering = False
+    for row in reversed(metrics):
+        ev = row.get("event")
+        if ev == "step":
+            break
+        if ev in ("model_built", "resumed", "phase_enter", "branch_forked",
+                  "trainer_crash"):
+            recovering = True
+            break
+    stale_after_s = _stale_threshold_s(run_rows, all_rows=metrics)
+    stale = bool(age_s is not None and age_s > stale_after_s and not starved)
+    throttled, throttle_detail = _throttle_state(metrics)
 
     low_water = float(cfg.low_water_gb) if cfg else 12.0
     packed_min = int(cfg.packed_min_tokens) if cfg else 200_000_000
@@ -662,7 +779,9 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
         collector_paused=bool(pause.get("paused")),
         by_state=by_state,
     )
-    mode = _mode(last_step=last_step, starved=starved, age_s=age_s, gates=gates)
+    mode = _mode(last_step=last_step, starved=starved, age_s=age_s,
+                 stale_after_s=stale_after_s, gates=gates, recovering=recovering,
+                 throttled=throttled, throttle_detail=throttle_detail)
     runway = _phase_runway(
         tokens_by_phase,
         packed_min=packed_min,
@@ -774,7 +893,16 @@ def collect_status(preset: str | None = None) -> dict[str, Any]:
             "restarts": full_series["restarts"],
             "data_starved": starved,
             "age_s": None if age_s is None else round(age_s, 1),
+            "age_basis": "any_trainer_event",
+            "recovering": recovering,
+            "throttled": throttled,
             "stale": stale,
+            "stale_after_s": round(stale_after_s, 1),
+            # Every model_built in the metrics window is one trainer process
+            # start; the chart-anchored `restarts` (step-counter decreases)
+            # undercounts because back-to-back crashes resume from the same
+            # checkpoint without a step in between.
+            "restarts_window": sum(1 for r in metrics if r.get("event") == "model_built"),
         },
         "eval": {
             "json_exists": (reports / "branch_eval_results_real.json").is_file()

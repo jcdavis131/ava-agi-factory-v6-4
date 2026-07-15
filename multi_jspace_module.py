@@ -118,7 +118,12 @@ class SingleWorkspace(nn.Module):
         )
 
     def decay_factor(self):
-        return torch.sigmoid(self.decay_logit).clamp(0.01, 0.99)
+        # Ceiling 0.9999 (hl ~6931), not 0.99: -ln2/ln(0.99) caps the half-life
+        # at 68.97 tokens, below system2's target 300 (needs d=0.99769) and
+        # planner's 150 (0.99539). Both initialized above the old ceiling and
+        # sat pinned there with ZERO gradient (clamp kills grad past the
+        # boundary), freezing half_life_loss at exactly 6.767e-05 from step 1.
+        return torch.sigmoid(self.decay_logit).clamp(0.01, 0.9999)
 
     def hl_est(self):
         d = self.decay_factor().item()

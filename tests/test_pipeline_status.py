@@ -96,3 +96,88 @@ def test_full_run_series_downsamples_but_keeps_latest_point():
     n = len(result["series"]["step"])
     assert n <= 610, f"expected downsampling to roughly _FULL_SERIES_MAX_POINTS, got {n}"
     assert result["series"]["step"][-1] == 2000, "must always keep the most recent point"
+
+
+# ---------------------------------------------------------------------------
+# Staleness: the false-alarm regressions behind 'Trainer Stale' during every
+# post-crash recovery window.
+
+from ava.pipeline_status import _mode, _stale_threshold_s
+
+
+def test_stale_threshold_falls_back_to_pre_restart_cadence():
+    """Fresh run (<2 step rows) must inherit the pre-restart cadence, not
+    collapse to the 180s floor while a P2 recovery takes ~15 min."""
+    all_rows = [
+        {"event": "step", "step": 3690, "ts": 1000.0, "tokens": 967_311_360,
+         "tok_s": 3000, "lm": 4.4},
+        {"event": "step", "step": 3700, "ts": 1874.0, "tokens": 969_932_800,
+         "tok_s": 3000, "lm": 4.4},
+        {"event": "model_built", "ts": 1900.0},
+        {"event": "resumed", "ts": 1910.0, "step": 3700},
+    ]
+    # tokens delta 2_621_440 at 3000 tok/s => ~874s expected, x2.5 => ~2185s
+    assert _stale_threshold_s([], all_rows=all_rows) > 2000
+    # without history the floor still applies
+    assert _stale_threshold_s([]) == 180.0
+
+
+def test_mode_recovering_between_resume_and_first_step():
+    mode = _mode(last_step={"event": "step", "step": 3700}, starved=False,
+                 age_s=120.0, stale_after_s=2185.0, gates=[], recovering=True)
+    assert mode["id"] == "recovering"
+
+
+def test_mode_stale_wins_over_recovering_when_age_exceeds_threshold():
+    mode = _mode(last_step={"event": "step", "step": 3700}, starved=False,
+                 age_s=5000.0, stale_after_s=2185.0, gates=[], recovering=True)
+    assert mode["id"] == "stale"
+
+
+def test_mode_training_when_stepping_normally():
+    mode = _mode(last_step={"event": "step", "step": 3700}, starved=False,
+                 age_s=300.0, stale_after_s=2185.0, gates=[], recovering=False)
+    assert mode["id"] == "training"
+
+
+# ---------------------------------------------------------------------------
+# Battery/power throttling detection: 14.5h of the run's 'silent gaps' were a
+# 17-22W GPU cap on battery, invisible until tok/s is compared to its median.
+
+from ava.pipeline_status import _throttle_state
+
+
+def _steps(toks):
+    return [{"event": "step", "step": 10 * (i + 1), "phase": 2, "tok_s": t,
+             "lm": 4.4, "ts": float(i)} for i, t in enumerate(toks)]
+
+
+def test_throttle_detected_on_collapse():
+    metrics = _steps([3000, 3100, 2900, 3050, 480])
+    throttled, detail = _throttle_state(metrics)
+    assert throttled and "battery" in detail
+
+
+def test_no_throttle_at_normal_speed():
+    assert _throttle_state(_steps([3000, 3100, 2900, 3050, 2950])) == (False, "")
+
+
+def test_no_throttle_without_history():
+    assert _throttle_state(_steps([3000, 400]))[0] is False  # <3 history rows
+
+
+def test_throttle_ignores_other_phase_cadence():
+    # phase transition halves tok/s legitimately: history is same-phase only
+    metrics = _steps([9000, 9100, 9200, 9050])
+    for r in metrics:
+        r["phase"] = 1
+    metrics += [{"event": "step", "step": 60, "phase": 2, "tok_s": 3000,
+                 "lm": 4.9, "ts": 99.0}]
+    assert _throttle_state(metrics)[0] is False
+
+
+def test_mode_throttled_wins_over_training():
+    mode = _mode(last_step={"event": "step", "step": 3700}, starved=False,
+                 age_s=300.0, stale_after_s=2185.0, gates=[],
+                 throttled=True, throttle_detail="tok/s 480 is 16% of median")
+    assert mode["id"] == "throttled"

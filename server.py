@@ -150,7 +150,8 @@ app = FastAPI(title="Ava J-Space Viewer v6.4", lifespan=lifespan)
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return (
-        "<a href='/dashboard'>/dashboard</a> · "
+        "<a href='/dashboard'>/dashboard</a> (training run) · "
+        "<a href='/ecosystem'>/ecosystem</a> (harness/skills/agent-eval) · "
         "<a href='/evals'>/evals</a> · "
         "<a href='/chat'>/chat</a> · "
         "<a href='/jspace/viewer'>/jspace/viewer</a> · "
@@ -187,6 +188,20 @@ async def pipeline_status():
     from ava.pipeline_status import collect_status
 
     return collect_status()
+
+
+@app.get("/ecosystem", response_class=HTMLResponse)
+async def ecosystem():
+    from ava.ecosystem_html import ECOSYSTEM_HTML
+
+    return HTMLResponse(ECOSYSTEM_HTML)
+
+
+@app.get("/ecosystem/status")
+async def ecosystem_status():
+    from ava.ecosystem_status import collect_ecosystem_status
+
+    return collect_ecosystem_status()
 
 
 @app.get("/health")

@@ -199,3 +199,104 @@ def test_janitor_triggers_under_pressure(cfg, monkeypatch):
     assert flow.janitor_should_collect(cfg)
     monkeypatch.setattr(flow, "free_gb", lambda _p: 50.0)
     assert not flow.janitor_should_collect(cfg)
+
+
+# ---------------------------------------------------------------------------
+# Curriculum-aware phase targeting: collectors must stop topping up a phase
+# whose runway already covers its remaining budget (P1 ended with 3.0B packed
+# against a 500M budget; P2 sat 2.1x oversupplied while P4/P5 were empty).
+
+from ava.pipeline.flow import phase_runway_full, pick_target_phase
+
+
+def _flowcfg(**over):
+    base = dict(
+        low_water_gb=0, janitor_trigger_gb=0, critical_gb=0, raw_max_bytes=10**12,
+        packed_ahead_max_tokens=3_000_000_000, packed_min_tokens=1_000_000,
+        starved_poll_seconds=0.01, starved_warn_seconds=60,
+        prefetch_phases=2, delete_consumed=True,
+    )
+    base.update(over)
+    return FlowConfig(**base)
+
+
+def _packed_train(m, sid, phase, tokens):
+    m.add_shard(sid, source="t", phase=phase, path=f"/p/{sid}.bin", state="PACKED")
+    m.db.execute("UPDATE shards SET tokens=?, split='train' WHERE id=?", (tokens, sid))
+
+
+def test_pick_target_skips_full_phase(tmp_path, monkeypatch):
+    monkeypatch.setenv("AVA_PRESET", "mini")  # p2 budget 850M, p3 400M
+    with Manifest(str(tmp_path / "m.db")) as m:
+        m.upsert_run("r", preset="mini", step=100, phase=2, status="running")
+        _packed_train(m, "p2full", 2, 900_000_000)   # > 850M remaining + 1M buffer
+        _packed_train(m, "p3some", 3, 5_000_000)     # above min, far below budget
+        cfg = _flowcfg()
+        assert phase_runway_full(m, cfg, 2)
+        assert not phase_runway_full(m, cfg, 3)
+        assert pick_target_phase(m, cfg) == 3
+
+
+def test_pick_target_stays_on_current_when_not_full(tmp_path, monkeypatch):
+    monkeypatch.setenv("AVA_PRESET", "mini")
+    with Manifest(str(tmp_path / "m.db")) as m:
+        m.upsert_run("r", preset="mini", step=100, phase=2, status="running")
+        _packed_train(m, "p2some", 2, 100_000_000)
+        _packed_train(m, "p3some", 3, 5_000_000)
+        assert pick_target_phase(m, _flowcfg()) == 2
+
+
+def test_starved_phase_beats_everything(tmp_path, monkeypatch):
+    monkeypatch.setenv("AVA_PRESET", "mini")
+    with Manifest(str(tmp_path / "m.db")) as m:
+        m.upsert_run("r", preset="mini", step=100, phase=2, status="running")
+        _packed_train(m, "p2full", 2, 900_000_000)
+        # p3 has nothing: starved wins regardless of budget math
+        assert pick_target_phase(m, _flowcfg()) == 3
+
+
+def test_consumed_tokens_shrink_remaining_budget(tmp_path, monkeypatch):
+    monkeypatch.setenv("AVA_PRESET", "mini")
+    with Manifest(str(tmp_path / "m.db")) as m:
+        m.upsert_run("r", preset="mini", step=100, phase=2, status="running")
+        # 700M consumed of the 850M budget -> remaining 150M; 200M ready covers it
+        m.add_shard("done", source="t", phase=2, path="/p/d.bin", state="CONSUMED")
+        m.db.execute("UPDATE shards SET tokens=700000000, split='train' WHERE id='done'")
+        _packed_train(m, "p2r", 2, 200_000_000)
+        assert phase_runway_full(m, _flowcfg(), 2)
+
+
+def test_budget_unknown_falls_back_to_global_cap(tmp_path, monkeypatch):
+    monkeypatch.setenv("AVA_PRESET", "no_such_preset")
+    with Manifest(str(tmp_path / "m.db")) as m:
+        m.upsert_run("r", preset="x", step=100, phase=2, status="running")
+        _packed_train(m, "p2big", 2, 2_000)
+        _packed_train(m, "p3some", 3, 500)
+        cfg = _flowcfg(packed_ahead_max_tokens=1_000, packed_min_tokens=100)
+        assert phase_runway_full(m, cfg, 2)       # 2000 >= global cap 1000
+        assert not phase_runway_full(m, cfg, 3)   # 500 < cap
+        assert pick_target_phase(m, cfg) == 3
+
+
+def test_pick_target_advances_beyond_full_window(tmp_path, monkeypatch):
+    """Observed live: window {2,3} both full -> old fallback returned cur and
+    resumed collecting surplus P2 fineweb while P4 sat at zero. Target must
+    advance to the first future phase still short of its budget."""
+    monkeypatch.setenv("AVA_PRESET", "mini")
+    with Manifest(str(tmp_path / "m.db")) as m:
+        m.upsert_run("r", preset="mini", step=100, phase=2, status="running")
+        _packed_train(m, "p2full", 2, 1_600_000_000)   # >> 850M budget
+        _packed_train(m, "p3full", 3, 766_000_000)     # >> 400M budget
+        # p4 empty -> starved... give it just enough to clear packed_min so
+        # the starved check doesn't mask the advance logic
+        _packed_train(m, "p4some", 4, 2_000_000)
+        assert pick_target_phase(m, _flowcfg()) == 4
+
+
+def test_pick_target_returns_cur_when_everything_is_full(tmp_path, monkeypatch):
+    monkeypatch.setenv("AVA_PRESET", "mini")
+    with Manifest(str(tmp_path / "m.db")) as m:
+        m.upsert_run("r", preset="mini", step=100, phase=4, status="running")
+        _packed_train(m, "p4full", 4, 200_000_000)     # >= 150M budget
+        _packed_train(m, "p5full", 5, 300_000_000)     # >= 200M budget
+        assert pick_target_phase(m, _flowcfg()) == 4

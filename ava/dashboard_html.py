@@ -334,6 +334,7 @@ svg.spark { width: 100%; height: 26px; display: block; }
     · poll 3s
     · <a href="/evals">evals</a>
     · <a href="/chat">chat</a>
+    · <a href="/ecosystem">ecosystem</a>
     · <a href="/pipeline/status">json</a>
     · <a href="/health">/health</a>
     · <a href="/jspace/viewer">viewer</a>
@@ -342,49 +343,49 @@ svg.spark { width: 100%; height: 26px; display: block; }
 </header>
 <main>
   <section class="card span2 narrative-card">
-    <h2>Current state</h2>
+    <h2>Current state<span class="tip" tabindex="0" data-tip="A plain-English paragraph, rewritten from live data every few seconds, answering &quot;what is the pipeline doing right now?&quot; so you don't have to cross-reference six panels."></span></h2>
     <p class="narrative-body" id="narrative">Loading…</p>
   </section>
 
   <section class="card span2">
-    <h2>Operator view</h2>
+    <h2>Operator view<span class="tip" tabindex="0" data-tip="The 30-second view: what mode the pipeline is in, plus five pass/fail gates (D1–D5). Green everywhere = nothing needs you."></span></h2>
     <div id="modeBanner"></div>
     <div class="gates" id="gates"></div>
     <div class="row" id="topStats" style="margin-top:0.85rem"></div>
   </section>
 
   <section class="card span2">
-    <h2>Curriculum — where we are</h2>
+    <h2>Curriculum — where we are<span class="tip" tabindex="0" data-tip="The model learns in six lessons (phases), like school: logic first, then math, general knowledge, reasoning, long documents, and a final high-quality polish. Each card shows that lesson's token budget and data diet."></span></h2>
     <div id="curriculumHero"></div>
     <div class="curric" id="curriculum"></div>
     <p class="muted" id="curriculumCaption" style="margin:0.75rem 0 0">Six-phase logic-first curriculum. Active phase is outlined.</p>
   </section>
 
   <section class="card span2">
-    <h2>Closed-loop demand (train → miners)</h2>
+    <h2>Closed-loop demand (train → miners)<span class="tip" tabindex="0" data-tip="The feedback loop: the trainer regularly tells the data-gatherers what it's hungry for ('more examples', 'expand this phase'), and they re-weight their sources to match."></span></h2>
     <div id="demandPanel"></div>
     <p class="muted" style="margin:0.75rem 0 0">Only collectors fetch outside data. Trainer publishes expand / curate / examples; miners reweight sources.</p>
   </section>
 
   <section class="card">
-    <h2>Shard lifecycle</h2>
+    <h2>Shard lifecycle<span class="tip" tabindex="0" data-tip="Every chunk of text (a 'shard') moves through these stages: gathered raw → being cleaned → packed (ready to train on) → being read → consumed (safe to delete when disk is tight)."></span></h2>
     <div id="prepAlerts"></div>
     <div class="funnel" id="funnel"></div>
     <div class="glossary" id="lifecycleGlossary"></div>
   </section>
 
   <section class="card">
-    <h2>Packed runway by phase</h2>
+    <h2>Packed runway by phase<span class="tip" tabindex="0" data-tip="Fuel gauges, one per lesson: prepped tokens stacked up vs the minimum needed so the trainer never runs out mid-lesson."></span></h2>
     <div class="phase-grid" id="phases"></div>
     <p class="muted" id="runwayCaption" style="margin:0.75rem 0 0">Fill = tokens vs packed_min. Outlined = trainer phase; amber = collector target.</p>
   </section>
 
   <section class="card span2">
-    <h2>Training — current run</h2>
+    <h2>Training — current run<span class="tip" tabindex="0" data-tip="Live vital signs of the model actually learning: how wrong its guesses are, how fast it reads, and how hard it's adjusting itself."></span></h2>
     <div id="trainAlerts"></div>
     <div class="row" id="trainStats"></div>
 
-    <h2 style="margin-top:1rem">Loss landscape</h2>
+    <h2 style="margin-top:1rem">Loss landscape<span class="tip" tabindex="0" data-tip="Six live charts of the run. All share the same X axis: cumulative training step across the whole run (restarts don't reset it; amber ticks mark them). Hover any chart for exact values."></span></h2>
     <div class="chart-grid">
       <div class="chart-card"><h3><span>Loss — lm vs total<span class="tip" tabindex="0" data-tip="Y-axis: the loss value (lower = model is less surprised by the data = better). X-axis: cumulative training step across the WHOLE run (keeps counting up across restarts instead of resetting), not just since the last restart — amber ticks mark where the trainer crashed and resumed. Two lines: lm_loss (core prediction loss) and total (lm_loss plus all the auxiliary regularizers)."></span></span><span class="cv" id="lossCv">—</span></h3>
         <div class="mchart-wrap"><svg class="mchart" id="chartLoss"></svg></div></div>
@@ -421,22 +422,22 @@ svg.spark { width: 100%; height: 26px; display: block; }
     <button type="button" class="linkbtn" id="tableToggle">Show data table ▾</button>
     <div class="table-wrap" id="tableWrap"><table><thead id="seriesThead"></thead><tbody id="seriesTbody"></tbody></table></div>
 
-    <h2 style="margin-top:1rem">Watch signals</h2>
+    <h2 style="margin-top:1rem">Watch signals<span class="tip" tabindex="0" data-tip="Auto-generated 'things worth a glance' — with warnings when a number looks off."></span></h2>
     <div class="row" id="watchStats"></div>
     <ul class="hints" id="watchHints"></ul>
     <p class="muted" id="trainCaption">Source: metrics jsonl</p>
   </section>
 
   <section class="card">
-    <h2>Checkpoints</h2>
+    <h2>Checkpoints<span class="tip" tabindex="0" data-tip="Saved snapshots of the model's brain. After a crash, training resumes from the newest one — you only ever lose the steps since it was written."></span></h2>
     <table>
-      <thead><tr><th>File</th><th>MB</th><th>Age</th></tr></thead>
+      <thead><tr><th title="Snapshot filename — step_N.pt was saved at training step N">File</th><th title="Snapshot size on disk in megabytes">MB</th><th title="How long ago this snapshot was written">Age</th></tr></thead>
       <tbody id="ckpts"></tbody>
     </table>
   </section>
 
   <section class="card">
-    <h2>Live inspect</h2>
+    <h2>Live inspect<span class="tip" tabindex="0" data-tip="Type a sentence and peek inside the live model: which inner workspaces light up and where attention routes. Needs the engine booted (off during training so it doesn't fight the trainer for the GPU)."></span></h2>
     <p class="muted">Forward pass on the hot-reloaded checkpoint (needs engine boot). Mass / route should change with input.</p>
     <div class="probe">
       <input id="probeText" value="The number of legs on the animal that spins webs is"/>
@@ -504,6 +505,8 @@ const TIP = {
   aux_inter_mi: "Inter-space mutual-information loss — keeps different reasoning spaces from just copying each other; they're supposed to specialize.",
   aux_routing: "Routing KL loss — penalizes the router when its space-selection distribution drifts from the expected pattern for the current task type.",
   data_table: "The raw numbers behind the charts above — every logged point (not smoothed), most recent first, with the wall-clock time each was logged.",
+  cur_hero: "seq = how long each practice text is, in tokens. rope = the position-encoding dial that lets the model handle longer texts. mix = this lesson's diet of data types (tool_use = agentic tool-and-skill transcripts).",
+  demand_reasons: "The trainer's own words for why it's asking: phase deficits, loss trends, or 'runway healthy — maintain mixture'.",
   eval_meta: "Basic context for the eval run: which preset/checkpoint was tested, what hardware, how long it took.",
   eval_test: "The name of a specific automated check — usually formatted as branch/test-name.",
   eval_bar: "The pass/fail threshold this test is checking against — what result would count as a genuine capability, not chance.",
@@ -716,7 +719,7 @@ function renderCurriculum(d) {
           <span class="pill ok">P${active} · ${activePh.short || activePh.name}</span>
         </div>
         <div class="detail">
-          seq ${activePh.seq} · rope ${activePh.rope_base} · mix ${mixStr(activePh.mix)}
+          seq ${activePh.seq} · rope ${activePh.rope_base} · mix ${mixStr(activePh.mix)}${tipEl('cur_hero')}
           · phase progress${tipEl('phase_progress')} ${pctPhase}% (${fmt(pp.tokens_in_phase)} / ${fmt(pp.phase_tokens)})
           · run${tipEl('run_progress')} ${pctRun}% of ${fmt(cur.tokens_total)} tokens
           · next ckpt${tipEl('next_ckpt')} in ${watch.steps_to_ckpt != null ? watch.steps_to_ckpt : "—"} steps
@@ -1243,7 +1246,7 @@ function renderDemand(d) {
         <div class="sub">age ${fmtAge(dem.age_s)} · phase P${dem.trainer_phase ?? "—"}</div></div>
       <div class="stat"><div class="k">Curate stricter${tipEl('curate_stricter')}</div><div class="v sm"><span class="pill ${dem.curate_stricter ? "warn" : "ok"}">${dem.curate_stricter ? "yes" : "no"}</span></div></div>
       <div class="stat"><div class="k">Task boosts${tipEl('task_boosts')}</div><div class="v sm">${boostStr}</div></div>
-      <div class="stat"><div class="k">Reasons</div><div class="v sm">${reasonStr}</div></div>
+      <div class="stat"><div class="k">Reasons${tipEl('demand_reasons')}</div><div class="v sm">${reasonStr}</div></div>
     </div>
     <div class="phase-grid" style="margin-top:0.75rem">
       ${[0,1,2,3,4,5].map(p => {

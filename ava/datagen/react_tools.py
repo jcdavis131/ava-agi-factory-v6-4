@@ -1,4 +1,4 @@
-"""ReAct tool-use training corpus (phases 3 & 5) — teaches the plain-text
+"""ReAct tool-use training corpus (phases 2, 3 & 5) — teaches the plain-text
 Thought:/Action:/Observation: convention AgenticOS/ava_bridge.py parses
 (see ~/.claude/plans/tender-tinkering-sketch.md Phase 6).
 
@@ -26,6 +26,15 @@ Families:
   * tool_read_cite (task_type="deliberate"): the user asks what a file says;
     the final answer quotes the Observation rather than paraphrasing from
     assumption. Mirrors agent-eval's cite-readme-purpose task.
+  * skill_invoke (task_type="deliberate", phase 2): before improvising a
+    procedure, check whether the harness has a skill for it and follow the
+    skill's instructions when one exists — and say plainly when one doesn't.
+    Foundation-phase exposure so the harness ecosystem (tools, skills,
+    observations) is native vocabulary, not a fine-tuning afterthought.
+  * agent_workflow (task_type="temporal", phase 3): multi-step workflows —
+    plan, call a tool, read the observation, call the next tool with values
+    taken from that observation, then synthesize an answer whose numbers
+    come from the observations (computed by Python, never templated).
 """
 
 from __future__ import annotations
@@ -144,18 +153,119 @@ def _tool_read_cite_doc(rng) -> tuple[str, str, str]:
     return text, "deliberate", "tool_read_cite"
 
 
+# ---------------------------------------------------------------------------
+# skill_invoke — leverage the harness's skills instead of improvising, and
+# say plainly when no skill exists (grounding, again).
+# ---------------------------------------------------------------------------
+
+_SKILLS = [
+    ("commit the staged changes", "commit",
+     "write a one-line imperative subject under 50 characters, then commit"),
+    ("open a pull request for this branch", "commit-push-pr",
+     "commit, push the branch, then open a PR with a summary and test plan"),
+    ("summarize this PDF report", "pdf",
+     "extract the text layer page by page before summarizing; never guess at tables"),
+    ("set up a recurring nightly job", "schedule",
+     "create a cron-backed routine and confirm the schedule back to the user"),
+    ("review this diff for bugs", "code-review",
+     "verify each finding against the code before reporting; rank by severity"),
+    ("build a chart of these results", "dataviz",
+     "pick the mark from the data's shape and validate the palette for contrast"),
+]
+
+_NO_SKILL_TASKS = [
+    "transcribe this audio recording",
+    "resize these product photos",
+    "translate the changelog into Portuguese",
+]
+
+
+def _skill_invoke_doc(rng) -> tuple[str, str, str]:
+    if rng.random() < 0.30:
+        task = rng.choice(_NO_SKILL_TASKS)
+        text = dialogue([
+            ("user", f"Can you {task}?"),
+            ("assistant",
+             "Thought: before improvising a procedure I should check whether the harness "
+             "has a skill for this.\n"
+             f"Action: skill_search(query=\"{task}\")"),
+            ("user", "Observation: (no matching skills)"),
+            ("assistant",
+             f"I checked and there's no skill for \"{task}\", so I'll proceed manually and "
+             "tell you exactly what I'm doing at each step rather than pretend there's an "
+             "established procedure."),
+        ])
+        return text, "deliberate", "skill_none"
+    task, skill, instruction = rng.choice(_SKILLS)
+    text = dialogue([
+        ("user", f"Please {task}."),
+        ("assistant",
+         "Thought: the harness may already have a skill for this; using it beats "
+         "improvising my own procedure.\n"
+         f"Action: skill_search(query=\"{task}\")"),
+        ("user", f"Observation: found skill \"{skill}\""),
+        ("assistant",
+         f"Thought: \"{skill}\" covers this. I'll load it and follow its instructions.\n"
+         f"Action: skill_invoke(name=\"{skill}\")"),
+        ("user", f"Observation: skill \"{skill}\" loaded — instructions: {instruction}."),
+        ("assistant",
+         f"Following the \"{skill}\" skill's instructions — {instruction} — done. "
+         f"I used the skill's procedure rather than my own guess at one."),
+    ])
+    return text, "deliberate", "skill_invoke"
+
+
+# ---------------------------------------------------------------------------
+# agent_workflow — multi-step: the second Action's arguments come from the
+# first Observation, and the final answer's numbers come from the
+# observations (computed here in Python, never templated prose).
+# ---------------------------------------------------------------------------
+
+_WORKFLOW_DIRS = ["logs", "reports", "shards", "exports", "backups"]
+
+
+def _agent_workflow_doc(rng) -> tuple[str, str, str]:
+    dirname = rng.choice(_WORKFLOW_DIRS)
+    n = rng.randint(3, 6)
+    sizes = [rng.randint(4, 512) for _ in range(n)]
+    names = [f"{dirname[:-1]}_{i:02d}.dat" for i in range(n)]
+    listing = ", ".join(f"{nm} ({sz} KB)" for nm, sz in zip(names, sizes))
+    total = sum(sizes)
+    largest = names[sizes.index(max(sizes))]
+    text = dialogue([
+        ("user",
+         f"How many files are in /{dirname}, what's their total size, and which is largest?"),
+        ("assistant",
+         "Thought: three facts, none of which I should guess. First list the directory.\n"
+         f"Action: list_dir(path=\"/{dirname}\")"),
+        ("user", f"Observation: {listing}"),
+        ("assistant",
+         "Thought: the listing gives per-file sizes; I'll have the calculator sum them "
+         "rather than adding in my head.\n"
+         f"Action: sum(values=[{', '.join(str(s) for s in sizes)}])"),
+        ("user", f"Observation: {total}"),
+        ("assistant",
+         f"/{dirname} has {n} files totaling {total} KB; the largest is {largest} "
+         f"at {max(sizes)} KB. All three numbers come from the tool observations."),
+    ])
+    return text, "temporal", "agent_workflow"
+
+
 class ReactToolsGenerator(Generator):
     name = "react_tools"
-    phases = (3, 5)
+    phases = (2, 3, 5)
 
-    # (weight, builder, source, phase) — grounding families (notfound + cite)
-    # outweigh the happy-path family (math) 2:1, matching the north star's
-    # priority on "checks before asserting" over raw tool-syntax fluency.
+    # (weight, builder, source, phase) — grounding families (notfound + cite +
+    # skill_none) outweigh happy-path tool syntax, matching the north star's
+    # priority on "checks before asserting" over raw tool-call fluency.
+    # skill_invoke lands in P2 so harness vocabulary is foundation material.
     _FAMILIES = [
-        (0.20, _tool_math_doc, "react/math", 3),
-        (0.20, _tool_date_doc, "react/date", 3),
-        (0.35, _tool_grounding_notfound_doc, "react/grounding", 5),
-        (0.25, _tool_read_cite_doc, "react/cite", 5),
+        (0.15, _tool_math_doc, "react/math", 3),
+        (0.15, _tool_date_doc, "react/date", 3),
+        (0.30, _tool_grounding_notfound_doc, "react/grounding", 5),
+        (0.20, _tool_read_cite_doc, "react/cite", 5),
+        (0.10, _skill_invoke_doc, "react/skill", 2),
+        (0.10, _agent_workflow_doc, "react/workflow", 3),
     ]
 
     def generate(self, target_bytes: int) -> Iterator[dict]:

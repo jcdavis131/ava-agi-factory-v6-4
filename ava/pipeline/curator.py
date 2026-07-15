@@ -268,6 +268,12 @@ class Curator:
             tokenizer_sha=self.lt.sha256,
             bytes_=(tw["bytes"] if tw else 0),
         )
+        if tw is None:
+            # Every doc went to val/test (or was filtered): the completed row
+            # kept its ORIGINAL path -- the raw .zst that step 4 is about to
+            # delete. Left PACKED, the trainer claims it, fails to load it,
+            # and burns attempts on a row with nothing to train. Retire it.
+            m.mark_deleted([shard.id])
 
         # 4. Delete the raw file LAST — after the row is safely PACKED. A crash
         #    before this only leaks an inert raw file, never loses data.

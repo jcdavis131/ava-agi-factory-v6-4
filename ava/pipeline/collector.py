@@ -333,14 +333,20 @@ def iter_records(
     filtering. Only `Exception` is treated as transient; `BaseException`
     (e.g. a real kill) propagates so the caller aborts without committing."""
     pos = start_pos
-    it = factory(pos)
+    it: Iterator[dict] | None = None
     fails = 0
     while True:
         try:
+            if it is None:
+                # Establishment is inside the try: load_dataset() itself can
+                # fail transiently (e.g. HF 429 when several collectors boot
+                # at once), and that must back off, not kill the process.
+                it = factory(pos)
             rec = next(it)
         except StopIteration:
             return
         except Exception as e:  # transient network / stream error -> backoff + resume
+            it = None  # re-establish and skip back to where we were
             fails += 1
             if fails > cfg.http_retries:
                 log("source_give_up", level="error", source=spec.name,
@@ -350,7 +356,6 @@ def iter_records(
             log("stream_retry", level="warn", source=spec.name, attempt=fails,
                 position=pos, delay_s=round(delay, 2), error=f"{type(e).__name__}: {e}")
             sleep_fn(delay)
-            it = factory(pos)  # re-establish and skip back to where we were
             continue
         fails = 0
         yield pos, rec
@@ -579,6 +584,14 @@ def serve(
     rng = random.Random(seed)
     last_pause_reason: str | None = None
     last_phase: int | None = None
+    # Smooth-RR state must persist across iterations: rebuilding it fresh each
+    # tick reset `current` to zeros, so next() always returned the max-weight
+    # source and the phase mixture collapsed to a single source (P2 shipped as
+    # 100% encyclopedia instead of the configured 30/20/15/15/10/10 diet).
+    # Rebuild only when the (phase, weights) actually change, which is what
+    # keeps demand-driven reweighting live.
+    rr: WeightedRR | None = None
+    rr_key: tuple | None = None
     it = 0
     log("collector_boot", raw_dir=str(raw_dir), sources=len(sources))
 
@@ -600,14 +613,18 @@ def serve(
             log("collector_resume", phase=phase)
             last_pause_reason = None
 
-        # Rebuild RR each tick from demand so expand/examples reweight live.
+        # Re-derive weights each tick from demand so expand/examples reweight
+        # live; keep the RR's rotation state unless the weights changed.
         demand = read_demand()
         base = sources_for_phase(sources, phase)
         task_types = {s.name: s.task_type for s in sources}
         weighted = apply_demand_weights(
             base, source_task_types=task_types, demand=demand, phase=phase,
         )
-        rr = WeightedRR(weighted)
+        key = (phase, tuple(weighted))
+        if rr is None or key != rr_key:
+            rr = WeightedRR(weighted)
+            rr_key = key
         name = rr.next()
         if name is None:
             log("no_source_for_phase", level="warn", phase=phase)
