@@ -8,36 +8,32 @@
     "ts": 1784138421,
     "lake_gb": 1.8182e-05,
     "last_expansion": {
-      "timestamp": "2026-07-15T21:59:34.674183+00:00",
-      "tokens": 10000083,
-      "docs": 32036,
+      "timestamp": "2026-07-15T23:29:11+00:00",
+      "tokens": 1000038,
+      "docs": 10224,
       "shards": [
-        "packed_20260715_215929_00067_9261.jsonl.gz"
+        "packed_20260715_232714_00072_3460.jsonl.gz"
       ],
-      "manifest": "manifest_20260715_215929.jsonl",
-      "dup_filtered": 0,
-      "qual_filtered": 1296,
-      "upload_manifest": "/home/hatch/workspace/ava-agi-factory-v6-4/data/for_upload/upload_manifest_20260715_215929.json",
+      "manifest": "manifest_20260715_232714.jsonl",
+      "dup_filtered": 29297,
+      "qual_filtered": 23059,
+      "upload_manifest": "data/for_upload/upload_manifest_20260715_232911.json",
       "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-      "mode": "fast_md5_HatchVM",
-      "run_context": "ava-data-gather-4h scheduled Wed 2026-07-15 17:00 CDT (America/Chicago), executed 2026-07-15T22:00:15.907222+00:00 UTC - 10M fast md5 5.3s, 32036 docs",
-      "scheduled_for": "Wed 2026-07-15 17:00:00 CDT",
+      "mode": "1M HatchVM p0_logic p1_math p2_foundation simhash th3 + md5 fast + qual alpha>0.6 reward>0.8, reset window on strict dedup",
       "phases": [
         "p0_logic",
         "p1_math",
-        "p2_foundation",
-        "p3_code"
+        "p2_foundation"
       ],
-      "phases_joined": "p0_logic p1_math p2_foundation p3_code",
-      "disk_usage": "100G 13G 87G 13% PASS >20GB",
-      "guard": "Personal Drive safe - no work indicators, checked 30 files - 2026-07-15 21:59 UTC - folder Ava-Datasets-Expansion 19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
+      "phases_joined": "p0_logic p1_math p2_foundation",
+      "guard": "Personal Drive safe - no work indicators, per AGENTS.md absolute separation, checked 30 files - 2026-07-15 23:29 UTC",
       "hf_upload": {
         "repo": "jcdavis131/ava-textbook-v6",
-        "status": "HF_TOKEN missing in Hatch VM - saved local hf_ready_20260715_215948.json + upload_manifest_20260715_215929.json for Alienware push",
+        "status": "HF_TOKEN missing in Hatch VM - saved local hf_ready + upload_manifest for Alienware push",
         "streaming": "load_dataset('jcdavis131/ava-textbook-v6', streaming=True, split='train')",
-        "local_manifest": "data/for_upload/hf_ready_20260715_215948.json",
-        "upload_manifest": "data/for_upload/upload_manifest_20260715_215929.json"
-      }
+        "local_manifest": "data/for_upload/hf_ready_20260715_232911.json"
+      },
+      "run_context": "dataset_expansion.py --tokens 1M --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local 2026-07-15 23:27 UTC - 10224 docs 29297 dup 23059 qual filtered, 1 shard 331K"
     },
     "last_expansion_detailed": {
       "timestamp": "2026-07-15T18:00:20.825941+00:00",
@@ -168,7 +164,71 @@
     "steps": 0,
     "tokens_seen": 0,
     "ts": 1783825244.961354,
-    "last_weekly_check": "2026-07-12T03:00:44.961272Z"
+    "last_weekly_check": "2026-07-12T03:00:44.961272Z",
+    "last_restart": "2026-07-15T23:23:00Z",
+    "smoke": "20 steps nano 13.79M loss 8.9497->3.7154 avg_last5 3.9891 compression B6 50 docs sha fea076db deterministic, entropy/Kraft/LZ verified",
+    "compression": {
+      "dataset": "synth_compression",
+      "weights": {
+        "0": 0.1,
+        "1": 0.15,
+        "2": 0.1,
+        "3": 0.1,
+        "4": 0.1,
+        "5": 0.1
+      },
+      "sha": "3e606c",
+      "avg_len": 2673,
+      "families": "shannon 25% huffman 20% lz77 20% arithmetic 15% bwt_ans 10% z_token 10% long 6000+ p4",
+      "verified_flow": true,
+      "raw_shards": 4,
+      "collector_phases": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "last_shards": [
+        "synth_compression-a218f8a1bb9d998c",
+        "synth_compression-ae3a9747c6cf2b5a"
+      ]
+    },
+    "queue": {
+      "file": "../autoresearch-rtx-custom/bb-offload/queue.json",
+      "tasks": 4,
+      "status": "All training up - 4 pending Alienware: router entropy 0.7, nano 1k inkling+compression B6, base1b 10k ablation rel+short_conv+moe+effort, latest full flags",
+      "presets": [
+        "nano 1000 steps inkling rel+conv+effort compression B6 10% P0-P5",
+        "base1b 10k steps ablation rel+short_conv+moe+effort+compression"
+      ]
+    },
+    "crons": {
+      "ava-data-gather-4h": true,
+      "autoresearch-loop-hourly": true,
+      "rtx-releases-hourly-sync": true,
+      "ava-data-gather-daily": false
+    },
+    "expansion": {
+      "tokens": 500114,
+      "docs": 5066,
+      "shard": "packed_20260715_232315_00071_5379.jsonl.gz",
+      "dup_filtered": 9615,
+      "qual_filtered": 8509
+    },
+    "model_flags": {
+      "default": {
+        "params_M": 13.79,
+        "flags": "all False byte-identical 39 tests green"
+      },
+      "inkling_rel_conv_effort": {
+        "params_M": 13.96
+      },
+      "moe_32_2": {
+        "params_M": 92.46
+      }
+    }
   },
   "weekly_training": {
     "job_id": "ava-training-weekly",
@@ -206,9 +266,9 @@
     "prefect_cmd": "python prefect_flows.py --run train --preset mini --tokens 2500000000"
   },
   "last_run_4h": {
-    "timestamp": "2026-07-15T19:55:29Z",
-    "tokens": 500047,
-    "docs": 5056,
-    "shard": "packed_20260715_195529_00066_1821.jsonl.gz"
+    "timestamp": "2026-07-15T23:29:11Z",
+    "tokens": 1000038,
+    "docs": 10224,
+    "shard": "packed_20260715_232714_00072_3460.jsonl.gz"
   }
 }
