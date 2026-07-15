@@ -263,8 +263,20 @@ async def chat(req: ChatReq):
     return {"content": content, "tokens": result["tokens"], "latency_ms": result["latency_ms"]}
 
 
-@app.get("/report")
+@app.get("/report", response_class=HTMLResponse)
 async def report():
+    """Live, screenshot-optimized training report. Packs the full pipeline
+    status into one viewport for sharing with LLM agent assistants."""
+    from ava.report_html import REPORT_HTML
+
+    return HTMLResponse(REPORT_HTML)
+
+
+@app.get("/report/offline")
+async def report_offline():
+    """Pre-built static training report from scripts/make_report.py (loss
+    curves, LR schedule, half-lives, routing, eval). Kept as a sibling so
+    the live /report page stays focused on a single-screen summary."""
     if not _REPORT_HTML.is_file():
         raise HTTPException(
             status_code=404, detail="run scripts/make_report.py first"
