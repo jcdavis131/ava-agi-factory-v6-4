@@ -9,6 +9,7 @@ literal text). See specs/02_data_generation.md for the detailed contract.
 from ava.datagen.base import Generator, write_shards, run_cli, validate_doc
 from ava.datagen.chat_safety import ChatSafetyGenerator
 from ava.datagen.code_gen import CodeGenGenerator
+from ava.datagen.compression import CompressionGenerator
 from ava.datagen.encyclopedia import EncyclopediaGenerator
 from ava.datagen.logic import LogicGenerator
 from ava.datagen.math_gen import MathGenerator
@@ -22,6 +23,7 @@ from ava.datagen.workflow_jobbench import WorkflowJobBenchGenerator
 GENERATORS: dict[str, type[Generator]] = {
     ChatSafetyGenerator.name: ChatSafetyGenerator,
     CodeGenGenerator.name: CodeGenGenerator,
+    CompressionGenerator.name: CompressionGenerator,
     EncyclopediaGenerator.name: EncyclopediaGenerator,
     LogicGenerator.name: LogicGenerator,
     MathGenerator.name: MathGenerator,
@@ -32,7 +34,7 @@ GENERATORS: dict[str, type[Generator]] = {
 
 __all__ = [
     "Generator", "write_shards", "run_cli", "validate_doc", "GENERATORS",
-    "ChatSafetyGenerator", "CodeGenGenerator", "EncyclopediaGenerator",
+    "ChatSafetyGenerator", "CodeGenGenerator", "CompressionGenerator", "EncyclopediaGenerator",
     "LogicGenerator", "MathGenerator", "ReactToolsGenerator",
     "WorkflowGaia2Generator", "WorkflowJobBenchGenerator",
 ]
