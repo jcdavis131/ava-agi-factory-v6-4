@@ -37,12 +37,32 @@
 
 sources:
   # ---- synthetic generators (no network; deterministic per doc index) --------
+  # P0 logic: Shannon entropy 10% strategic (logic first elicits reasoning, entropy foundation for LM-as-compression)
   - name: synth_logic
     kind: synthetic
     generator: logic
     text_field: text
     phases: [0]
-    weight: {0: 1.0}
+    weight: {0: 0.90}
+    task_type: deliberate
+    filters: {min_chars: 1}
+    license: synthetic
+    gated: false
+
+  # Compression curriculum — strategically placed across all 6 phases per ANTIDOOM_COMPRESSION_ASSESSMENT.md
+  # P0: Shannon entropy/Kraft 25% family — information theory basics S1 Fast hl=8
+  # P1: Huffman prefix codes/Kraft 20% + arithmetic 15% — combinatorial math
+  # P2: LZ77/LZW dictionary coding 20% — code early foundation, O(n*window)
+  # P3: BWT/ANS + Z-token compress/reconstruct 10%+10% — reasoning chains 6000+ chars, semantic compression
+  # P4: Z-token long docs 50% >16k + neural compression 144 slots = 20% broadcast — long context
+  # P5: verified compression proofs + Z-token anneal — high-quality 1%
+  # J-Space mapping: S1 automatic entropy drills, S2 deliberate Huffman/LZ/BWT, Planner temporal Z-token, Critic verifies decompressed
+  - name: synth_compression
+    kind: synthetic
+    generator: compression
+    text_field: text
+    phases: [0, 1, 2, 3, 4, 5]
+    weight: {0: 0.10, 1: 0.15, 2: 0.10, 3: 0.10, 4: 0.10, 5: 0.10}
     task_type: deliberate
     filters: {min_chars: 1}
     license: synthetic
@@ -53,7 +73,7 @@ sources:
     generator: math
     text_field: text
     phases: [1]
-    weight: {1: 0.5}
+    weight: {1: 0.425}
     task_type: deliberate
     filters: {min_chars: 1}
     license: synthetic
@@ -64,7 +84,7 @@ sources:
     generator: ency
     text_field: text
     phases: [2]
-    weight: {2: 0.15}
+    weight: {2: 0.135}
     task_type: automatic
     filters: {min_chars: 1}
     license: synthetic
@@ -76,7 +96,7 @@ sources:
     generator: code
     text_field: text
     phases: [2]
-    weight: {2: 0.10}
+    weight: {2: 0.09}
     task_type: deliberate
     filters: {min_chars: 1}
     license: synthetic
@@ -87,7 +107,7 @@ sources:
     generator: math
     text_field: text
     phases: [3]
-    weight: {3: 0.15}
+    weight: {3: 0.135}
     task_type: temporal
     filters: {min_chars: 1}
     license: synthetic
@@ -100,7 +120,7 @@ sources:
     generator: ency
     text_field: text
     phases: [4]
-    weight: {4: 0.20}
+    weight: {4: 0.18}
     task_type: automatic
     filters: {min_chars: 1}
     license: synthetic
@@ -111,7 +131,7 @@ sources:
     generator: chat
     text_field: text
     phases: [5]
-    weight: {5: 0.15}
+    weight: {5: 0.135}
     task_type: safety
     filters: {min_chars: 1}
     license: synthetic
@@ -125,7 +145,7 @@ sources:
     generator: react_tools
     text_field: text
     phases: [2, 3, 5]
-    weight: {2: 0.15, 3: 0.30, 5: 0.25}
+    weight: {2: 0.135, 3: 0.27, 5: 0.225}
     task_type: deliberate
     filters: {min_chars: 1}
     license: synthetic
@@ -144,7 +164,7 @@ sources:
     generator: jobbench
     text_field: text
     phases: [3, 4, 5]
-    weight: {3: 0.10, 4: 0.10, 5: 0.05}
+    weight: {3: 0.09, 4: 0.09, 5: 0.045}
     task_type: deliberate
     filters: {min_chars: 1}
     license: synthetic
@@ -155,7 +175,7 @@ sources:
     generator: gaia2
     text_field: text
     phases: [3, 4, 5]
-    weight: {3: 0.05, 4: 0.15, 5: 0.10}
+    weight: {3: 0.045, 4: 0.135, 5: 0.09}
     task_type: temporal
     filters: {min_chars: 1}
     license: synthetic
@@ -169,7 +189,7 @@ sources:
     split: train
     text_field: text
     phases: [1, 3]
-    weight: {1: 0.5, 3: 0.20}
+    weight: {1: 0.425, 3: 0.18}
     task_type: deliberate
     filters: {min_chars: 200}
     license: odc-by
@@ -183,7 +203,7 @@ sources:
     text_field: text
     score_field: score
     phases: [2, 4, 5]
-    weight: {2: 0.35, 4: 0.55, 5: 0.20}
+    weight: {2: 0.315, 4: 0.495, 5: 0.18}
     task_type: automatic
     filters:
       min_chars: {2: 200, 4: 4000, 5: 200}   # P4 = long documents only
@@ -199,7 +219,7 @@ sources:
     text_field: code
     trust_remote_code: true
     phases: [2]
-    weight: {2: 0.15}
+    weight: {2: 0.135}
     task_type: automatic
     filters: {min_chars: 200}
     license: mit
@@ -212,7 +232,7 @@ sources:
     split: train
     text_field: text
     phases: [2]
-    weight: {2: 0.10}
+    weight: {2: 0.09}
     task_type: automatic
     filters: {min_chars: 200}
     license: apache-2.0
@@ -226,7 +246,7 @@ sources:
     text_field: text
     trust_remote_code: true
     phases: [3, 5]
-    weight: {3: 0.20, 5: 0.25}
+    weight: {3: 0.18, 5: 0.225}
     task_type: deliberate
     filters: {min_chars: 200}
     license: various
