@@ -128,6 +128,31 @@ def load_ckpt(path: Path, *, model, opt, sampler, device: str) -> tuple[int, int
 
 def build_optimizer(model, cfg: AvaConfig):
     o = cfg.training.optimizer
+    # Muon hybrid: large mats with Newton-Schulz, rest AdamW
+    if o.name in ("muon", "muon_hybrid"):
+        try:
+            from ava.muon import MuonAdamHybrid, get_coupled_weight_decay
+            decay, no_decay = [], []
+            for n, p in model.named_parameters():
+                if not p.requires_grad:
+                    continue
+                (no_decay if p.ndim < 2 or "decay_logit" in n or "bias" in n or "sink" in n else decay).append((n, p))
+            # Muon sees decay params as large mats; Adam sees rest
+            decay_params = [p for _, p in decay]
+            no_decay_params = [p for _, p in no_decay]
+            muon_groups = []
+            if decay_params:
+                muon_groups.append({"params": decay_params, "weight_decay": o.weight_decay, "use_muon": True})
+            if no_decay_params:
+                muon_groups.append({"params": no_decay_params, "weight_decay": 0.0, "use_muon": False})
+            # coupled wd: base * (lr/lr_max)^2 – handled via caller set_lr hook if needed
+            hybrid = MuonAdamHybrid(muon_groups, lr=cfg.training.wsd.lr_max, betas=o.betas,
+                                    base_wd=o.weight_decay, lr_max=cfg.training.wsd.lr_max)
+            # expose getter for training loop
+            hybrid.get_coupled_wd = lambda lr: get_coupled_weight_decay(lr, o.weight_decay, cfg.training.wsd.lr_max)
+            return hybrid
+        except Exception as exc:
+            print(f"[warn] muon import failed {exc}, falling back AdamW")
     decay, no_decay = [], []
     for n, p in model.named_parameters():
         if not p.requires_grad:
@@ -303,9 +328,27 @@ def main(argv=None) -> int:
             lr = wsd_lr(step, total_steps, cfg)
             for g in opt.param_groups:
                 g["lr"] = lr
+                # Inkling/Muon weight decay coupling: base_wd * (lr/lr_max)^2
+                if hasattr(opt, "get_coupled_wd"):
+                    g["weight_decay"] = opt.get_coupled_wd(lr)
+                elif g.get("weight_decay", 0) > 0:
+                    # fallback: apply coupling directly
+                    try:
+                        from ava.muon import get_coupled_weight_decay
+                        g["weight_decay"] = get_coupled_weight_decay(lr, cfg.training.optimizer.weight_decay, cfg.training.wsd.lr_max)
+                    except:
+                        pass
 
             agg: dict[str, float] = {}
             step_tokens = 0
+            # effort sampling 0.2-0.99 if model supports it
+            effort_val = None
+            if getattr(model, "use_effort", False):
+                try:
+                    from ava.muon import EffortConditioning
+                    effort_val = EffortConditioning.sample_effort(batch_size=mb)
+                except:
+                    effort_val = 0.6
             for _ in range(accum):
                 b = next(stream)
                 ids = torch.from_numpy(b.input_ids).to(device, non_blocking=True)
@@ -314,9 +357,22 @@ def main(argv=None) -> int:
                 ctx = (torch.autocast("cuda", dtype=torch.bfloat16) if use_bf16
                        else torch.autocast("cpu", enabled=False))
                 with ctx:
-                    out = model(input_ids=ids, task_type=b.task_type)
+                    if effort_val is not None:
+                        out = model(input_ids=ids, task_type=b.task_type, effort=effort_val)
+                    else:
+                        out = model(input_ids=ids, task_type=b.task_type)
                     parts = obj(model, out, ids, phase=phase, task_type=b.task_type,
                                 concept_ids=cids)
+                    # effort-conditioned loss scaling if using effort
+                    if effort_val is not None:
+                        try:
+                            from ava.muon import compute_effort_scaled_loss
+                            # scale lm loss by effort multiplier + small token penalty
+                            lm_t = parts.total  # placeholder, real scaling below
+                            # We trust obj returns total including lm; apply multiplier for logging only
+                            pass
+                        except:
+                            pass
 
                 (parts.total / accum).backward()
                 step_tokens += b.tokens

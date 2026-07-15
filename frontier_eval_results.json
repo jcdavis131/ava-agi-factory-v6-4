@@ -1,12 +1,43 @@
 {
   "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-  "judge": "ollama",
+  "judge": "inkling",
   "mode": "mock",
+  "dual": true,
+  "effort_sweep": true,
+  "effort_curve": {
+    "0.2": 0.4657142857142857,
+    "0.4": 0.7421428571428572,
+    "0.6": 0.7618571428571429,
+    "0.8": 0.7854285714285715,
+    "0.99": 0.9197142857142858
+  },
   "results": [
     {
       "task_id": "FF-2026-SD-001",
       "domain": "finance",
-      "overall": 0.625,
+      "effort": 0.8,
+      "rubric": 0.672,
+      "claims": 1.0,
+      "dual": 0.836,
+      "final": 0.836,
+      "brier_proxy": 0.108,
+      "abstention": {
+        "is_abstain": false,
+        "hedged": false,
+        "abstention_base": null
+      },
+      "claims_details": {
+        "claims_score": 1.0,
+        "n_claims": 1,
+        "verified": 1,
+        "details": [
+          {
+            "claim": "Full answer FF-2026-SD-001 finance: MRK runway 7.27q, catalyst 60d per arXiv:2406.12345 Sec3.2, insider buying Form4 Jan15 Evidence cash $160M burn $22M/q 7.27q runway Ph2 catalyst",
+            "score": 1.0
+          }
+        ],
+        "avg_claim_score": 1.0
+      },
       "per_rubric": [
         {
           "rubric_id": "R-FF-2026-SD-001-01",
@@ -17,40 +48,63 @@
         {
           "rubric_id": "R-FF-2026-SD-001-02",
           "category": "Process Transparency & Auditability",
-          "score": 0.767,
+          "score": 0.533,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-FF-2026-SD-001-03",
           "category": "Risk & Ethical Disclosure",
-          "score": 0.65,
+          "score": 0.767,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-FF-2026-SD-001-04",
           "category": "Coverage Comprehensiveness",
-          "score": 0.5,
+          "score": 0.6,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-FF-2026-SD-001-05",
           "category": "Attribution Correctness",
-          "score": 0.6,
+          "score": 0.7,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-FF-2026-SD-001-06",
           "category": "Numerical Accuracy",
-          "score": 0.55,
+          "score": 0.75,
           "weight": 0.1667
         }
       ],
-      "output_len": 421
+      "output_len": 360,
+      "tokens_est": 55
     },
     {
       "task_id": "BIO-001",
       "domain": "bio",
-      "overall": 0.621,
+      "effort": 0.8,
+      "rubric": 0.588,
+      "claims": 1.0,
+      "dual": 0.794,
+      "final": 0.794,
+      "brier_proxy": 0.17,
+      "abstention": {
+        "is_abstain": false,
+        "hedged": false,
+        "abstention_base": null
+      },
+      "claims_details": {
+        "claims_score": 1.0,
+        "n_claims": 1,
+        "verified": 1,
+        "details": [
+          {
+            "claim": "Full answer BIO-001 bio: Scaffold binds Cys12 2.1\u00c5, off-target EGFR, Phase1 checklist per arXiv:2406.12345 Evidence Cys12 covalent 2.1\u00c5 pocket EGFR off-target AlphaFold3 Phase1 dos",
+            "score": 1.0
+          }
+        ],
+        "avg_claim_score": 1.0
+      },
       "per_rubric": [
         {
           "rubric_id": "R-BIO-001-01",
@@ -61,13 +115,13 @@
         {
           "rubric_id": "R-BIO-001-02",
           "category": "Process Transparency & Auditability",
-          "score": 0.72,
+          "score": 0.22,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-BIO-001-03",
           "category": "Risk & Ethical Disclosure",
-          "score": 0.7,
+          "score": 0.8,
           "weight": 0.1667
         },
         {
@@ -79,7 +133,7 @@
         {
           "rubric_id": "R-BIO-001-05",
           "category": "Attribution Correctness",
-          "score": 0.5,
+          "score": 0.7,
           "weight": 0.1667
         },
         {
@@ -89,12 +143,35 @@
           "weight": 0.1667
         }
       ],
-      "output_len": 394
+      "output_len": 361,
+      "tokens_est": 53
     },
     {
       "task_id": "CLI-001",
       "domain": "climate",
-      "overall": 0.549,
+      "effort": 0.8,
+      "rubric": 0.489,
+      "claims": 1.0,
+      "dual": 0.744,
+      "final": 0.744,
+      "brier_proxy": 0.261,
+      "abstention": {
+        "is_abstain": false,
+        "hedged": false,
+        "abstention_base": null
+      },
+      "claims_details": {
+        "claims_score": 1.0,
+        "n_claims": 1,
+        "verified": 1,
+        "details": [
+          {
+            "claim": "Full answer CLI-001 climate: 12% prob CI 5-23% SSP2-4.5 per arXiv:2407.01234 Fig2 + IPCC AR6 Ch4 Evidence 12% collapse CI 5-23% SSP2-4.5 IPCC AR6 Ch4 Fig2 Detailed check 2407.01234",
+            "score": 1.0
+          }
+        ],
+        "avg_claim_score": 1.0
+      },
       "per_rubric": [
         {
           "rubric_id": "R-CLI-001-01",
@@ -105,13 +182,13 @@
         {
           "rubric_id": "R-CLI-001-02",
           "category": "Process Transparency & Auditability",
-          "score": 0.65,
+          "score": 0.15,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-CLI-001-03",
           "category": "Risk & Ethical Disclosure",
-          "score": 0.58,
+          "score": 0.72,
           "weight": 0.1667
         },
         {
@@ -133,12 +210,35 @@
           "weight": 0.1667
         }
       ],
-      "output_len": 376
+      "output_len": 323,
+      "tokens_est": 54
     },
     {
       "task_id": "MAT-001",
       "domain": "materials",
-      "overall": 0.502,
+      "effort": 0.8,
+      "rubric": 0.492,
+      "claims": 1.0,
+      "dual": 0.746,
+      "final": 0.746,
+      "brier_proxy": 0.258,
+      "abstention": {
+        "is_abstain": false,
+        "hedged": false,
+        "abstention_base": null
+      },
+      "claims_details": {
+        "claims_score": 1.0,
+        "n_claims": 1,
+        "verified": 1,
+        "details": [
+          {
+            "claim": "Full answer MAT-001 materials: Li0.33La0.56TiO3 6.2 mS/cm 4.7V per arXiv:2408.00123 Table1 Evidence 6.2 mS/cm 4.7V stability perovskite Li0.33La0.56TiO3 Table1 arXiv:2408.00123 Det",
+            "score": 1.0
+          }
+        ],
+        "avg_claim_score": 1.0
+      },
       "per_rubric": [
         {
           "rubric_id": "R-MAT-001-01",
@@ -149,19 +249,19 @@
         {
           "rubric_id": "R-MAT-001-02",
           "category": "Process Transparency & Auditability",
-          "score": 0.72,
+          "score": 0.22,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-MAT-001-03",
           "category": "Risk & Ethical Disclosure",
-          "score": 0.58,
+          "score": 0.72,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-MAT-001-04",
           "category": "Coverage Comprehensiveness",
-          "score": 0.3,
+          "score": 0.6,
           "weight": 0.1667
         },
         {
@@ -177,12 +277,35 @@
           "weight": 0.1667
         }
       ],
-      "output_len": 371
+      "output_len": 347,
+      "tokens_est": 48
     },
     {
       "task_id": "CODE-001",
       "domain": "code",
-      "overall": 0.634,
+      "effort": 0.8,
+      "rubric": 0.618,
+      "claims": 1.0,
+      "dual": 0.809,
+      "final": 0.809,
+      "brier_proxy": 0.146,
+      "abstention": {
+        "is_abstain": false,
+        "hedged": false,
+        "abstention_base": null
+      },
+      "claims_details": {
+        "claims_score": 1.0,
+        "n_claims": 1,
+        "verified": 1,
+        "details": [
+          {
+            "claim": "Full answer CODE-001 code: Leak unclosed handles in loop per arXiv:2405.03456 Sec4.1, fix with context manager Evidence unclosed handles loop leak RepoAgent Sec4.1 test fix Detaile",
+            "score": 1.0
+          }
+        ],
+        "avg_claim_score": 1.0
+      },
       "per_rubric": [
         {
           "rubric_id": "R-CODE-001-01",
@@ -193,13 +316,13 @@
         {
           "rubric_id": "R-CODE-001-02",
           "category": "Process Transparency & Auditability",
-          "score": 0.767,
+          "score": 0.533,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-CODE-001-03",
           "category": "Risk & Ethical Disclosure",
-          "score": 0.58,
+          "score": 0.72,
           "weight": 0.1667
         },
         {
@@ -221,12 +344,35 @@
           "weight": 0.1667
         }
       ],
-      "output_len": 357
+      "output_len": 343,
+      "tokens_est": 53
     },
     {
       "task_id": "LAW-001",
       "domain": "law",
-      "overall": 0.692,
+      "effort": 0.8,
+      "rubric": 0.674,
+      "claims": 1.0,
+      "dual": 0.837,
+      "final": 0.837,
+      "brier_proxy": 0.106,
+      "abstention": {
+        "is_abstain": false,
+        "hedged": false,
+        "abstention_base": null
+      },
+      "claims_details": {
+        "claims_score": 1.0,
+        "n_claims": 1,
+        "verified": 1,
+        "details": [
+          {
+            "claim": "Full answer LAW-001 law: Flag indemnity unlimited + CoC 30d notice per arXiv:2404.02222 Sec3 Evidence indemnity unlimited change-of-control 30d arXiv:2404.02222 Sec3 risk flag inde",
+            "score": 1.0
+          }
+        ],
+        "avg_claim_score": 1.0
+      },
       "per_rubric": [
         {
           "rubric_id": "R-LAW-001-01",
@@ -237,13 +383,13 @@
         {
           "rubric_id": "R-LAW-001-02",
           "category": "Process Transparency & Auditability",
-          "score": 0.8,
+          "score": 0.6,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-LAW-001-03",
           "category": "Risk & Ethical Disclosure",
-          "score": 0.738,
+          "score": 0.825,
           "weight": 0.1667
         },
         {
@@ -265,12 +411,35 @@
           "weight": 0.1667
         }
       ],
-      "output_len": 413
+      "output_len": 364,
+      "tokens_est": 53
     },
     {
       "task_id": "MAC-001",
       "domain": "macro",
-      "overall": 0.499,
+      "effort": 0.8,
+      "rubric": 0.463,
+      "claims": 1.0,
+      "dual": 0.732,
+      "final": 0.732,
+      "brier_proxy": 0.288,
+      "abstention": {
+        "is_abstain": false,
+        "hedged": false,
+        "abstention_base": null
+      },
+      "claims_details": {
+        "claims_score": 1.0,
+        "n_claims": 1,
+        "verified": 1,
+        "details": [
+          {
+            "claim": "Full answer MAC-001 macro: GDP -0.35% CI -0.6 to -0.1 per arXiv:2404.05678 Table3, elasticity 0.82 Evidence -0.35% GDP CI -0.6 to -0.1 15% tariff elasticity 0.82 Table3 Detailed ch",
+            "score": 1.0
+          }
+        ],
+        "avg_claim_score": 1.0
+      },
       "per_rubric": [
         {
           "rubric_id": "R-MAC-001-01",
@@ -281,19 +450,19 @@
         {
           "rubric_id": "R-MAC-001-02",
           "category": "Process Transparency & Auditability",
-          "score": 0.65,
+          "score": 0.15,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-MAC-001-03",
           "category": "Risk & Ethical Disclosure",
-          "score": 0.58,
+          "score": 0.72,
           "weight": 0.1667
         },
         {
           "rubric_id": "R-MAC-001-04",
           "category": "Coverage Comprehensiveness",
-          "score": 0.3,
+          "score": 0.44,
           "weight": 0.1667
         },
         {
@@ -309,7 +478,8 @@
           "weight": 0.1667
         }
       ],
-      "output_len": 369
+      "output_len": 339,
+      "tokens_est": 55
     }
   ]
 }
