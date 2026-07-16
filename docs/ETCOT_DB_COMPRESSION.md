@@ -38,7 +38,9 @@ primary data model of the "Types of Databases" taxonomy:
 | Wide Column | byte-offset arithmetic of columnar blocks; SUM reading one column vs whole rows |
 | Graph | BFS queue/dist/parent frontier per dequeue; DFS with explicit stack |
 | Time Series | window bucketing `(t - t0) // W`, running count/sum/min/max per bucket |
-| Vector | exact top-k with expanded squared-Euclidean terms; greedy 2-layer HNSW descent whose answer honestly reports greedy-vs-brute-force agreement |
+| Vector | exact top-k with expanded squared-Euclidean terms; cosine-similarity top-1; greedy 2-layer HNSW descent whose answer honestly reports greedy-vs-brute-force agreement |
+| LSM engine | memtable → sorted L0 runs at 4 entries → compaction into L1 (newest wins, tombstones dropped); GETs trace the memtable → L0 → L1 probe path |
+| WAL / ACID | before-image-accurate log records, crash cuts the tail, recovery redoes only transactions whose COMMIT survived |
 
 **`ava/datagen/compress_trace.py`** (`compress_trace`, phases 2/3/4):
 
@@ -50,6 +52,8 @@ primary data model of the "Types of Databases" taxonomy:
 | Delta+varint | TSDB timestamp deltas packed as LEB128, bit-group breakdown per delta |
 | INT8 quantization | `scale = amax/127`, per-element `clamp(round(x/scale))`, dequant error (neural compression) |
 | Arithmetic coding + **Equal-Info Windows** | exact `Fraction` interval narrowing; flush the binary expansion of `low` when accumulated information crosses the 8-bit budget, reset per window — window resets are what keep AC output learnable instead of opaque |
+| DEFLATE composition | stage-1 LZ77 triples packed as 5-bit offset \| 4-bit length \| Huffman-coded literal; both stages verified by a full unpack→expand decode |
+| Magnitude pruning | k smallest \|x\| zeroed (ties by index), threshold + sparsity reported (neural compression alongside INT8 quantization) |
 
 Wiring: `GENERATORS` registry, `configs/sources.yaml` (`synth_db_trace`,
 `synth_compress_trace`, 5-6% each at p2/p3/p4, other sources rescaled so
@@ -103,7 +107,23 @@ Five mechanisms keep every doc inside budget:
    assembled by the existing packing pipeline from whole docs — never by
    splitting a trace across sequence boundaries mid-state.
 
-For SFT-style reuse later (`<think>` supervision in the R1 sense), the same
-builders can be re-rendered at other budgets: every family takes
-`(rng, n, elide_over)`, so trace length is a knob, not a property of the
-corpus.
+## The eval side (closing the loop)
+
+`evals/probe_items_gen.py` generates `db_mechanics` and `compression` probe
+sets — short exact-match items (FNV-1a slots, B-tree heights, BFS distances,
+RLE/varint/Huffman/quantization answers) whose ground truth reuses the very
+primitives the generators run, scored by `evals/probes.py` in the branch
+harness. Each probe template's fixed stem is registered in
+`evals/eval_sets.py` (`SYSTEMS_PROMPTS`) so decontamination strips the probe
+surface-forms from training while the differently-phrased ET-CoT docs
+survive; `tests/test_probes_systems.py` re-derives every answer independently
+and asserts zero stem leakage into the corpora.
+
+## SFT rendering
+
+For `<think>` supervision in the R1 sense, `trace_common.to_chat()` re-renders
+any ET-CoT doc as a `<|user|>` / `<|assistant|>` chat sample (task as the user
+turn, `<think>…</think><answer>…</answer>` as the assistant turn), and
+`sft_sota_2025.py --etcot-mb N` mixes those samples into the chat-branch SFT
+pack. Every family takes `(rng, n, elide_over)`, so trace length stays a knob,
+not a property of the corpus.

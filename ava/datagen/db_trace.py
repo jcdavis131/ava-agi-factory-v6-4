@@ -888,6 +888,329 @@ def _hnsw_doc(rng, n: int, elide_over: int):
 
 
 # ---------------------------------------------------------------------------
+# LSM tree: memtable -> L0 runs -> compacted L1
+# ---------------------------------------------------------------------------
+
+_LSM_MEMTABLE_LIMIT = 4
+_LSM_TOMBSTONE = None  # deletion marker inside memtable/runs
+
+
+class _LSM:
+    """Minimal leveled LSM tree: a memtable that flushes to sorted L0 runs at
+    4 entries, and a compaction that merges the two L0 runs (plus any existing
+    L1 run) into a single L1 run whenever L0 reaches 2 runs. Newer values win;
+    tombstones are dropped when they reach L1 (nothing lives below it)."""
+
+    def __init__(self):
+        self.mem: dict[str, int | None] = {}
+        self.l0: list[tuple[int, list[tuple[str, int | None]]]] = []  # (run_id, sorted items), newest first
+        self.l1: list[tuple[str, int | None]] = []
+        self.next_run = 1
+
+    def _flush_if_full(self, events: list[str]) -> None:
+        if len(self.mem) < _LSM_MEMTABLE_LIMIT:
+            return
+        run = sorted(self.mem.items())
+        rid = self.next_run
+        self.next_run += 1
+        self.l0.insert(0, (rid, run))
+        events.append(
+            f"memtable reached {_LSM_MEMTABLE_LIMIT} entries -> flush sorted run "
+            f"R{rid} {_fmt_run(run)} to L0 (L0 runs newest-first: "
+            f"{[f'R{r}' for r, _ in self.l0]})"
+        )
+        self.mem = {}
+        if len(self.l0) >= 2:
+            self._compact(events)
+
+    def _compact(self, events: list[str]) -> None:
+        (rb, newer), (ra, older) = self.l0[0], self.l0[1]
+        merged: dict[str, int | None] = dict(self.l1)
+        merged.update(dict(older))
+        merged.update(dict(newer))  # newest last so it wins
+        dropped = sorted(k for k, v in merged.items() if v is _LSM_TOMBSTONE)
+        self.l1 = sorted((k, v) for k, v in merged.items() if v is not _LSM_TOMBSTONE)
+        self.l0 = []
+        events.append(
+            f"L0 holds 2 runs -> compact R{rb}+R{ra}"
+            + (" with the existing L1 run" if merged else "")
+            + f": newer values win{', tombstones ' + str(dropped) + ' dropped at the bottom level' if dropped else ''}"
+            f" -> L1 run {_fmt_run(self.l1)}"
+        )
+
+    def put(self, key: str, val: int, events: list[str]) -> None:
+        self.mem[key] = val
+        events.append(f"PUT {key}={val} -> memtable {_fmt_mem(self.mem)} ({len(self.mem)}/{_LSM_MEMTABLE_LIMIT})")
+        self._flush_if_full(events)
+
+    def delete(self, key: str, events: list[str]) -> None:
+        self.mem[key] = _LSM_TOMBSTONE
+        events.append(f"DEL {key} -> write tombstone; memtable {_fmt_mem(self.mem)} ({len(self.mem)}/{_LSM_MEMTABLE_LIMIT})")
+        self._flush_if_full(events)
+
+    def get(self, key: str, events: list[str]):
+        if key in self.mem:
+            v = self.mem[key]
+            found = "tombstone -> NOT FOUND" if v is _LSM_TOMBSTONE else f"value {v}"
+            events.append(f"GET {key}: memtable hit -> {found}")
+            return v
+        for rid, run in self.l0:
+            d = dict(run)
+            if key in d:
+                v = d[key]
+                found = "tombstone -> NOT FOUND" if v is _LSM_TOMBSTONE else f"value {v}"
+                events.append(f"GET {key}: memtable miss -> L0 run R{rid} hit -> {found}")
+                return v
+        d = dict(self.l1)
+        if key in d:
+            events.append(f"GET {key}: memtable and L0 miss -> L1 hit -> value {d[key]}")
+            return d[key]
+        events.append(f"GET {key}: memtable, L0 and L1 all miss -> NOT FOUND")
+        return _LSM_TOMBSTONE
+
+    def visible(self) -> dict[str, int]:
+        state: dict[str, int | None] = dict(self.l1)
+        for _, run in reversed(self.l0):
+            state.update(dict(run))
+        state.update(self.mem)
+        return {k: v for k, v in state.items() if v is not _LSM_TOMBSTONE}
+
+
+def _fmt_run(run: list[tuple[str, int | None]]) -> str:
+    return "[" + ", ".join(f"{k}:{'DEL' if v is _LSM_TOMBSTONE else v}" for k, v in run) + "]"
+
+
+def _fmt_mem(mem: dict[str, int | None]) -> str:
+    return "{" + ", ".join(f"{k}:{'DEL' if v is _LSM_TOMBSTONE else v}" for k, v in sorted(mem.items())) + "}"
+
+
+def _lsm_doc(rng, n: int, elide_over: int):
+    pool = [f"k{i:02d}" for i in range(1, max(5, n // 2) + 1)]
+    ops: list[tuple[str, str, int | None]] = []
+    written: list[str] = []
+    for _ in range(n):
+        if written and rng.random() < 0.15:
+            k = rng.choice(written)
+            ops.append(("DEL", k, None))
+        else:
+            k = rng.choice(pool)
+            ops.append(("PUT", k, rng.randint(1, 99)))
+            written.append(k)
+
+    lsm = _LSM()
+    raw_steps: list[str] = []
+    for op, k, v in ops:
+        if op == "PUT":
+            lsm.put(k, v, raw_steps)
+        else:
+            lsm.delete(k, raw_steps)
+    gets = []
+    seen_keys = sorted({k for _, k, _ in ops})
+    for k in [rng.choice(seen_keys) for _ in range(3)]:
+        got = lsm.get(k, raw_steps)
+        gets.append((k, got))
+
+    # independent check: plain last-write-wins dict semantics
+    expect: dict[str, int] = {}
+    for op, k, v in ops:
+        if op == "PUT":
+            expect[k] = v
+        else:
+            expect.pop(k, None)
+    assert lsm.visible() == expect
+    for k, got in gets:
+        assert (got if got is not _LSM_TOMBSTONE else None) == expect.get(k)
+
+    # states per rendered step: the honest snapshot is the visible key->value
+    # map; replay a second engine alongside (flush/compact/GET lines don't
+    # change visible state, so they reuse the current snapshot)
+    states = []
+    lsm2 = _LSM()
+    replay_iter = iter(ops)
+    for line in raw_steps:
+        if line.startswith(("PUT ", "DEL ")):
+            op, k, v = next(replay_iter)
+            if op == "PUT":
+                lsm2.put(k, v, [])
+            else:
+                lsm2.delete(k, [])
+        states.append(f"visible state={dict(sorted(lsm2.visible().items()))}")
+
+    task = (
+        "### Task: simulate an LSM-tree storage engine\n"
+        f"Engine: memtable flushes to a sorted L0 run at {_LSM_MEMTABLE_LIMIT} entries; "
+        "when L0 holds 2 runs they compact (merged with any L1 run) into a single L1 "
+        "run -- newer values win, tombstones are dropped at L1.\n"
+        "Operations, in order:\n"
+        + "\n".join(f"  {op} {k}" + (f" = {v}" if v is not None else "") for op, k, v in ops)
+        + "\n  then GET " + ", GET ".join(k for k, _ in gets)
+    )
+    answer = [
+        f"memtable: {_fmt_mem(lsm.mem)}",
+        f"L0 runs (newest first): {[f'R{r} ' + _fmt_run(run) for r, run in lsm.l0] or 'none'}",
+        f"L1 run: {_fmt_run(lsm.l1) if lsm.l1 else 'none'}",
+        "GET results: " + ", ".join(
+            f"{k} -> {'NOT FOUND' if got is _LSM_TOMBSTONE else got}" for k, got in gets),
+    ]
+    text = render_etcot(task, elide(step_lines(raw_steps), states, elide_over), answer)
+    meta = {"ops": ops, "gets": [(k, None if g is _LSM_TOMBSTONE else g) for k, g in gets],
+            "visible": lsm.visible()}
+    return text, "deliberate", "lsm_engine", meta
+
+
+# ---------------------------------------------------------------------------
+# Write-ahead log: crash + recovery replay (ACID durability/atomicity)
+# ---------------------------------------------------------------------------
+
+
+def _wal_doc(rng, n: int, elide_over: int):
+    accounts = sorted(rng.sample(["acct_a", "acct_b", "acct_c", "acct_d"], rng.randint(2, 4)))
+    init = {a: rng.randint(100, 900) for a in accounts}
+
+    # build the full log: per txn BEGIN, 1-2 SETs, COMMIT (75%) or ABORT
+    log: list[tuple] = []
+    shadow = dict(init)  # what a SET's "old" value is at log-write time
+    for t in range(1, n + 1):
+        log.append(("BEGIN", t))
+        working = dict(shadow)  # before-images track in-txn writes too
+        for _ in range(rng.randint(1, 2)):
+            a = rng.choice(accounts)
+            new = rng.randint(100, 900)
+            log.append(("SET", t, a, working[a], new))
+            working[a] = new
+        if rng.random() < 0.75:
+            log.append(("COMMIT", t))
+            shadow = working
+        else:
+            log.append(("ABORT", t))
+
+    # crash somewhere in the last quarter of the log (always leaves >= 1 record)
+    crash_at = rng.randint(max(1, 3 * len(log) // 4), len(log))
+    surviving = log[:crash_at]
+
+    raw_steps, states = [], []
+    for i, rec in enumerate(surviving):
+        kind = rec[0]
+        if kind == "BEGIN":
+            raw_steps.append(f"append log record {i}: BEGIN T{rec[1]}")
+        elif kind == "SET":
+            _, t, a, old, new = rec
+            raw_steps.append(f"append log record {i}: SET T{t} {a}: {old} -> {new} (redo value {new})")
+        else:
+            raw_steps.append(f"append log record {i}: {kind} T{rec[1]}")
+        states.append(f"log length={i + 1}")
+    raw_steps.append(f"CRASH -- records {crash_at}..{len(log) - 1} were never persisted" if crash_at < len(log)
+                     else "CRASH -- immediately after the final record was persisted")
+    states.append("crashed")
+
+    committed = {rec[1] for rec in surviving if rec[0] == "COMMIT"}
+    aborted = {rec[1] for rec in surviving if rec[0] == "ABORT"}
+    open_txns = sorted({rec[1] for rec in surviving if rec[0] == "BEGIN"} - committed - aborted)
+    raw_steps.append(
+        f"recovery scan: committed txns {sorted(committed) or 'none'}; aborted {sorted(aborted) or 'none'}; "
+        f"in-flight (no COMMIT persisted) {open_txns or 'none'} -> only committed SETs are redone"
+    )
+    states.append("scan done")
+    recovered = dict(init)
+    for rec in surviving:
+        if rec[0] == "SET" and rec[1] in committed:
+            _, t, a, old, new = rec
+            raw_steps.append(f"redo SET of committed T{t}: {a} = {new}")
+            recovered[a] = new
+            states.append(f"recovered={dict(sorted(recovered.items()))}")
+
+    # independent check: apply only committed transactions' effects in order
+    expect = dict(init)
+    for t in range(1, n + 1):
+        if t in committed:
+            for rec in log:
+                if rec[0] == "SET" and rec[1] == t:
+                    expect[rec[2]] = rec[4]
+    assert recovered == expect
+
+    task = (
+        "### Task: simulate write-ahead-log crash recovery (ACID)\n"
+        f"Initial table: {dict(sorted(init.items()))}\n"
+        "Log records persisted in order (the crash may cut the tail):\n"
+        + "\n".join(
+            f"  {i}: " + (f"SET T{r[1]} {r[2]} {r[3]}->{r[4]}" if r[0] == "SET" else f"{r[0]} T{r[1]}")
+            for i, r in enumerate(surviving))
+        + f"\n\nA crash strikes after record {crash_at - 1}. Recover: scan the surviving log, "
+        "redo every SET belonging to a transaction whose COMMIT record survived, and "
+        "discard in-flight or aborted work."
+    )
+    answer = [
+        f"recovered table: {dict(sorted(recovered.items()))}",
+        f"transactions redone: {sorted(committed) or 'none'}; "
+        f"discarded: {sorted(set(range(1, n + 1)) - committed) or 'none'} "
+        "(aborted or COMMIT never persisted)",
+    ]
+    text = render_etcot(task, elide(step_lines(raw_steps), states, elide_over), answer)
+    meta = {"init": init, "log": log, "crash_at": crash_at, "recovered": recovered,
+            "committed": sorted(committed)}
+    return text, "temporal", "wal_recovery", meta
+
+
+# ---------------------------------------------------------------------------
+# Vector: cosine-similarity top-1
+# ---------------------------------------------------------------------------
+
+
+def _cos_parts(q, v) -> tuple[int, float, float, float]:
+    import math
+
+    dot = sum(a * b for a, b in zip(q, v))
+    nq = math.sqrt(sum(a * a for a in q))
+    nv = math.sqrt(sum(b * b for b in v))
+    return dot, nq, nv, dot / (nq * nv)
+
+
+def _nonzero_vec(rng) -> tuple[int, ...]:
+    v = _rand_vec(rng)
+    while not any(v):
+        v = _rand_vec(rng)
+    return v
+
+
+def _vector_cosine_doc(rng, n: int, elide_over: int):
+    vecs = [_nonzero_vec(rng) for _ in range(n)]
+    q = _nonzero_vec(rng)
+
+    raw_steps, states = [], []
+    best_i, best_sim = -1, float("-inf")
+    sims = []
+    for i, v in enumerate(vecs):
+        dot, nq, nv, sim = _cos_parts(q, v)
+        sims.append(sim)
+        terms = " + ".join(f"{a}*{'(%d)' % b if b < 0 else b}" for a, b in zip(q, v))
+        line = (
+            f"candidate v{i}={list(v)}: dot = {terms} = {dot}; |q| = {nq:.4f}, "
+            f"|v{i}| = {nv:.4f}; cos = {dot}/({nq:.4f}*{nv:.4f}) = {sim:.4f}"
+        )
+        if sim > best_sim:
+            best_i, best_sim = i, sim
+            line += f" -> new best (v{i})"
+        raw_steps.append(line)
+        states.append(f"scanned={i + 1}/{n}, best=v{best_i} at cos {best_sim:.4f}")
+    assert best_i == max(range(n), key=lambda i: (sims[i], -i))
+
+    task = (
+        "### Task: simulate cosine-similarity vector search (top-1)\n"
+        f"Query q = {list(q)} (dim {_DIM}); score = dot(q,v) / (|q| * |v|); higher is closer.\n"
+        f"Index ({n} vectors):\n"
+        + "\n".join(f"  v{i} = {list(v)}" for i, v in enumerate(vecs))
+        + "\n\nScan every candidate and keep the best cosine similarity (4-decimal precision)."
+    )
+    answer = [
+        f"best match: v{best_i} with cosine similarity {best_sim:.4f}",
+        f"similarities: " + ", ".join(f"v{i}={s:.4f}" for i, s in enumerate(sims)),
+    ]
+    text = render_etcot(task, elide(step_lines(raw_steps), states, elide_over), answer)
+    meta = {"vecs": vecs, "q": q, "best": best_i, "sims": sims}
+    return text, "deliberate", "vector_cosine_top1", meta
+
+
+# ---------------------------------------------------------------------------
 # Generator
 # ---------------------------------------------------------------------------
 
@@ -905,15 +1228,18 @@ class DBTraceGenerator(Generator):
     # (weight, builder, source, p2 n-range, p3 n-range,
     #  p4 growth (start_n, step, target_chars, max_n) or None)
     _FAMILIES = [
-        (0.13, _btree_point_doc, "dbtrace/btree_point", (12, 20), (30, 60), (70, 12, 6200, 300)),
-        (0.10, _btree_range_doc, "dbtrace/btree_range", (12, 20), (30, 60), (60, 12, 6200, 300)),
-        (0.09, _btree_insert_doc, "dbtrace/btree_insert", (8, 14), (20, 40), None),
-        (0.11, _doc_filter_doc, "dbtrace/docstore", (5, 9), (14, 30), (28, 6, 6200, 120)),
-        (0.12, _kv_hash_doc, "dbtrace/kv_hash", (4, 7), (8, 12), None),
-        (0.10, _wide_column_doc, "dbtrace/wide_column", (5, 9), (20, 44), (40, 8, 6200, 160)),
-        (0.12, _graph_doc, "dbtrace/graph", (6, 9), (12, 24), (18, 3, 6200, 60)),
-        (0.10, _ts_agg_doc, "dbtrace/timeseries", (6, 10), (20, 40), (30, 6, 6200, 140)),
-        (0.13, _vector_knn_doc, "dbtrace/vector_knn", (5, 8), (14, 34), (22, 4, 6200, 110)),
+        (0.10, _btree_point_doc, "dbtrace/btree_point", (12, 20), (30, 60), (70, 12, 6200, 300)),
+        (0.08, _btree_range_doc, "dbtrace/btree_range", (12, 20), (30, 60), (60, 12, 6200, 300)),
+        (0.07, _btree_insert_doc, "dbtrace/btree_insert", (8, 14), (20, 40), None),
+        (0.09, _doc_filter_doc, "dbtrace/docstore", (5, 9), (14, 30), (28, 6, 6200, 120)),
+        (0.09, _kv_hash_doc, "dbtrace/kv_hash", (4, 7), (8, 12), None),
+        (0.08, _wide_column_doc, "dbtrace/wide_column", (5, 9), (20, 44), (40, 8, 6200, 160)),
+        (0.10, _graph_doc, "dbtrace/graph", (6, 9), (12, 24), (18, 3, 6200, 60)),
+        (0.08, _ts_agg_doc, "dbtrace/timeseries", (6, 10), (20, 40), (30, 6, 6200, 140)),
+        (0.09, _vector_knn_doc, "dbtrace/vector_knn", (5, 8), (14, 34), (22, 4, 6200, 110)),
+        (0.08, _lsm_doc, "dbtrace/lsm_engine", (6, 10), (14, 24), (30, 6, 6200, 140)),
+        (0.08, _wal_doc, "dbtrace/wal_recovery", (3, 5), (7, 12), (16, 3, 6200, 80)),
+        (0.06, _vector_cosine_doc, "dbtrace/vector_cosine", (4, 7), (10, 20), (24, 4, 6200, 110)),
         (0.00, _hnsw_doc, "dbtrace/vector_hnsw", (8, 12), (12, 21), None),
     ]
     # _hnsw_doc gets its share via an explicit floor instead of the wheel so

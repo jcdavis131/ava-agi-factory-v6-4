@@ -203,9 +203,13 @@ state-transition lines, and an `<answer>` block with the terminal state. Same ba
   collision resolution over 16 slots), wide-column (columnar byte-offset arithmetic; SUM over one
   column block vs full row-store I/O), graph (BFS with queue/dist/parent frontier state or DFS with
   explicit stack), time-series (window bucketing `(t-t0)//W` with running count/sum/min/max), and
-  vector (exact top-k with expanded squared-Euclidean terms, plus a greedy 2-layer HNSW-style descent
-  whose answer honestly reports whether greedy matched the brute-force argmin or stopped in a local
-  minimum). `task_type="temporal"` for time-series, `"deliberate"` otherwise.
+  vector (exact top-k with expanded squared-Euclidean terms, a cosine-similarity top-1 variant, plus a
+  greedy 2-layer HNSW-style descent whose answer honestly reports whether greedy matched the
+  brute-force argmin or stopped in a local minimum), and two storage-engine families: an LSM tree
+  (memtable flush at 4 entries -> sorted L0 runs -> compaction into L1 with newest-wins merge and
+  tombstone drops; GETs trace the memtable -> L0 -> L1 probe path) and WAL crash recovery
+  (before-image-accurate log records, a crash cutting the tail, recovery redoing only transactions
+  whose COMMIT survived). `task_type="temporal"` for time-series and WAL, `"deliberate"` otherwise.
 - **compress_trace.py** (`CompressTraceGenerator`, name=`"compress_trace"`, phases `(2,3,4)`): RLE,
   LZ77 (window 16 / lookahead 8 / min-match 2, per-position window+lookahead+longest-match trace),
   Huffman (deterministic tie-break by node creation order; merge steps, code table, grouped bitstream),
@@ -214,8 +218,10 @@ state-transition lines, and an `<answer>` block with the terminal state. Same ba
   coding with **Equal-Info Windows** — dyadic model P(A)=1/2, P(B)=P(C)=1/4 tracked in exact
   `Fraction`s, interval flushed as the binary expansion of `low` whenever accumulated information
   crosses the 8-bit budget, reset per window so every window is independently decodable (the property
-  that makes AC output learnable rather than opaque). Every encoder round-trips through its decoder
-  (assert) before the doc is yielded.
+  that makes AC output learnable rather than opaque), DEFLATE-style two-stage composition (LZ77
+  triples packed as 5-bit offset | 4-bit length | Huffman-coded literal, both stages verified by a
+  full unpack->expand decode), and magnitude pruning (k smallest |x| zeroed, ties by index, sparsity
+  reported). Every encoder round-trips through its decoder (assert) before the doc is yielded.
 - **Context-window management** (why traces don't blow the budget): (1) *phase-sized inputs* — the
   phase decides the instance size, so p2 docs are micro-traces (500-4000 chars, fit seq 2048/4096),
   p3 medium, p4 grown until the 6000-12000 long-doc band (jobbench-style growth loop; families that
@@ -225,11 +231,20 @@ state-transition lines, and an `<answer>` block with the terminal state. Same ba
   (`trace_common.elide`), teaching the model to re-anchor from a verified state summary instead of
   replaying every step; (3) *step markers* — `[step N]` line prefixes give Chonkie's RecursiveChunker
   clean split points so a training chunk never starts mid-state.
+- **Eval side** (the curriculum->eval->decontamination loop): `evals/probe_items_gen.py` emits
+  `db_mechanics.jsonl` + `compression.jsonl` probe sets whose short exact-match answers reuse these
+  generators' primitives; `evals/probes.py` scores them; each probe template's fixed stem is
+  registered in `evals/eval_sets.py` `SYSTEMS_PROMPTS` so the decontaminator strips the probe
+  surface-forms from training while the ET-CoT phrasing (different surface-form) survives —
+  `tests/test_probes_systems.py` re-derives every probe answer independently and asserts the stems
+  never appear in the training corpora.
 - Acceptance, same shape as B1-B5: `python -m ava.datagen.db_trace --seed 1234 --out /tmp/dg --mb 5`
   (and the `compress_trace` equivalent) exit 0 and are byte-reproducible; `pytest tests/test_datagen.py
-  -k "db_trace or compress or btree or huffman or lz77 or eiw"` green — the tests re-derive every
-  answer independently (re-run BFS from the adjacency in `meta`, re-encode LZ77/Huffman/varint from
-  the raw input, recompute FNV-1a, re-quantize) rather than trusting generator internals.
+  -k "db_trace or compress or btree or huffman or lz77 or eiw or lsm or wal or deflate or prune"`
+  green — the tests re-derive every answer independently (re-run BFS from the adjacency in `meta`,
+  re-encode LZ77/Huffman/varint from the raw input, recompute FNV-1a, re-quantize, replay the LSM
+  ops against last-write-wins dict semantics, re-apply only committed WAL transactions) rather than
+  trusting generator internals.
 
 ## Orchestrator + tests (owned by whichever worker the foreman assigns last, or B4)
 - `scripts/gen_all_data.py --seed 1234 [--out data/nano/raw/]`: runs all generators with fixed

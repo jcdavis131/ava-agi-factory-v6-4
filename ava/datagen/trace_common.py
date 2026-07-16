@@ -27,6 +27,10 @@ from __future__ import annotations
 THINK_OPEN, THINK_CLOSE = "<think>", "</think>"
 ANSWER_OPEN, ANSWER_CLOSE = "<answer>", "</answer>"
 
+#: Chat-turn markers, identical to chat_safety.py / react_tools.py so SFT
+#: packs mixing those corpora with re-rendered ET-CoT docs share one dialect.
+CHAT_USER, CHAT_ASSISTANT = "<|user|>", "<|assistant|>"
+
 #: Rough char budget per curriculum phase for a whole doc, derived from the
 #: phase seq_len schedule in dolma_config.yaml at ~4 chars/token. Phase 4
 #: intentionally targets the spec-02 long-doc band (6000-12000 chars) rather
@@ -49,6 +53,18 @@ def render_etcot(task: str, think_lines: list[str], answer_lines: list[str]) -> 
     parts.extend(answer_lines)
     parts.append(ANSWER_CLOSE)
     return "\n".join(parts)
+
+
+def to_chat(text: str) -> str:
+    """Re-render an ET-CoT pretraining doc as an R1-style chat SFT sample.
+
+    The task statement (everything before the trace) becomes the user turn;
+    the <think> trace plus <answer> block become the assistant turn. Purely a
+    re-framing -- the trace and answer bytes are untouched, so everything the
+    generators asserted about them still holds.
+    """
+    task, trace = text.split(f"\n\n{THINK_OPEN}\n", 1)
+    return f"{CHAT_USER}\n{task}\n{CHAT_ASSISTANT}\n{THINK_OPEN}\n{trace}"
 
 
 def elide(steps: list[str], states: list[str], elide_over: int,
