@@ -10,9 +10,9 @@
 # curriculum material from the foundation phase onward, not an SFT bolt-on:
 #   P0 logic       : synthetic only
 #   P1 math        : open-web-math (light) + synthetic math
-#   P2 foundation  : fineweb-edu (edu>=2) + github-code + cosmopedia + synthetic facts + react skills
-#   P3 reasoning   : proof-pile-2 + open-web-math + synthetic CoT/temporal + react tool-use + synthetic workflows
-#   P4 long        : fineweb-edu (long docs) + synthetic needle-in-haystack + synthetic workflows
+#   P2 foundation  : fineweb-edu (edu>=2) + github-code + cosmopedia + synthetic facts + react skills + ET-CoT db/compression micro-traces
+#   P3 reasoning   : proof-pile-2 + open-web-math + synthetic CoT/temporal + react tool-use + synthetic workflows + ET-CoT db/compression traces
+#   P4 long        : fineweb-edu (long docs) + synthetic needle-in-haystack + synthetic workflows + long ET-CoT db/compression traces
 #   P5 anneal      : fineweb-edu (edu>=4.5) + proof-pile-2 (verified) + synthetic safety + react grounding + workflows
 #
 # Every `dataset` + `config` pair below was verified against the HF API to exist
@@ -125,7 +125,7 @@ sources:
     generator: react_tools
     text_field: text
     phases: [2, 3, 5]
-    weight: {2: 0.15, 3: 0.30, 5: 0.25}
+    weight: {2: 0.15, 3: 0.24, 5: 0.25}
     task_type: deliberate
     filters: {min_chars: 1}
     license: synthetic
@@ -161,6 +161,37 @@ sources:
     license: synthetic
     gated: false
 
+  # Execution-Trace CoT systems curriculum (databases + compression) -- see
+  # ava/datagen/db_trace.py / compress_trace.py and specs/02 B6. Traces of
+  # engine execution (B-tree page loads, hash probing, HNSW hops, LZ77
+  # windows, Huffman merges, equal-info-window arithmetic coding) wrapped in
+  # <think>/<answer>. P2 = micro-traces as foundation vocabulary; P3 =
+  # medium traces incl. checkpoint elision; P4 = long full traces. Weights
+  # for both were carved out by rescaling fineweb_edu/cosmopedia (P2),
+  # synth_react/open_web_math/proof_pile_2 (P3), and fineweb_edu (P4) so
+  # each phase still sums to ~1.0.
+  - name: synth_db_trace
+    kind: synthetic
+    generator: db_trace
+    text_field: text
+    phases: [2, 3, 4]
+    weight: {2: 0.05, 3: 0.06, 4: 0.05}
+    task_type: deliberate
+    filters: {min_chars: 1}
+    license: synthetic
+    gated: false
+
+  - name: synth_compress_trace
+    kind: synthetic
+    generator: compress_trace
+    text_field: text
+    phases: [2, 3, 4]
+    weight: {2: 0.05, 3: 0.06, 4: 0.05}
+    task_type: deliberate
+    filters: {min_chars: 1}
+    license: synthetic
+    gated: false
+
   # ---- HuggingFace streaming sources -----------------------------------------
   - name: open_web_math
     kind: hf
@@ -169,7 +200,7 @@ sources:
     split: train
     text_field: text
     phases: [1, 3]
-    weight: {1: 0.5, 3: 0.20}
+    weight: {1: 0.5, 3: 0.17}
     task_type: deliberate
     filters: {min_chars: 200}
     license: odc-by
@@ -183,7 +214,7 @@ sources:
     text_field: text
     score_field: score
     phases: [2, 4, 5]
-    weight: {2: 0.35, 4: 0.55, 5: 0.20}
+    weight: {2: 0.30, 4: 0.45, 5: 0.20}
     task_type: automatic
     filters:
       min_chars: {2: 200, 4: 4000, 5: 200}   # P4 = long documents only
@@ -212,7 +243,7 @@ sources:
     split: train
     text_field: text
     phases: [2]
-    weight: {2: 0.10}
+    weight: {2: 0.05}
     task_type: automatic
     filters: {min_chars: 200}
     license: apache-2.0
@@ -226,7 +257,7 @@ sources:
     text_field: text
     trust_remote_code: true
     phases: [3, 5]
-    weight: {3: 0.20, 5: 0.25}
+    weight: {3: 0.17, 5: 0.25}
     task_type: deliberate
     filters: {min_chars: 200}
     license: various
