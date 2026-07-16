@@ -1,0 +1,864 @@
+{
+  "updated": "2026-07-16T15:56:01.603296+00:00",
+  "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+  "last_expansion": {
+    "timestamp": "2026-07-16T15:56:01.603296+00:00",
+    "scheduled_for_local": "Thu 2026-07-16 11:00:00 CDT (America/Chicago)",
+    "tokens": 500034,
+    "docs": 5045,
+    "shards": [
+      "packed_20260716_155535_00081_6671.jsonl.gz"
+    ],
+    "total_shards": 74,
+    "manifest": "manifest_20260716_155535.jsonl",
+    "manifest_sha12": "d8cb5a396dbf",
+    "dup_filtered": 9700,
+    "qual_filtered": 8581,
+    "gdrive_folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
+    "gdrive_folder_name": "Dottie-Datasets-Expansion",
+    "phases": [
+      "p0_logic",
+      "p1_math",
+      "p2_foundation"
+    ],
+    "mode": "500K_HatchVM_4h_p0-p2_simhash th3+md5 fast+qual alpha>0.6 reward>0.8 reset window",
+    "message": "Sample structure per CONTINUOUS_SYSTEM_DOTTIE.md \u2014 restored from STATUS.json builder.last_expansion",
+    "duration_s": 35.2,
+    "disk_pct": 13,
+    "disk_usage": "100G 14G 86G 14% - PASS"
+  },
+  "totals_last_1000": {
+    "tokens": 500034,
+    "docs": 5045
+  },
+  "latest_per_mode": {
+    "telemetry": {
+      "timestamp": "2026-07-16T17:34:30.671846+00:00",
+      "ts": 1784223270,
+      "unix": 1784223270,
+      "run_id": "95f33ce4",
+      "hostname": "htch-runtime",
+      "source": "telemetry",
+      "mode": "telemetry",
+      "event_type": "test",
+      "status": "info",
+      "message": "smoke test event",
+      "level": "info",
+      "metrics": {
+        "smoke": true,
+        "run_id": "95f33ce4"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "smoke": true
+    },
+    "training_monitor": {
+      "timestamp": "2026-07-16T17:29:48.351686+00:00",
+      "ts": 1784222988,
+      "unix": 1784222988,
+      "run_id": "f090e388",
+      "hostname": "htch-runtime",
+      "source": "training_monitor",
+      "mode": "training_monitor",
+      "event_type": "finish",
+      "status": "ok",
+      "message": "training_monitor finish",
+      "level": "ok",
+      "metrics": {
+        "steps": 500034,
+        "docs": 5045,
+        "fallback": true
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "steps": 500034,
+      "docs": 5045,
+      "fallback": true
+    },
+    "telemetry_aggregator": {
+      "timestamp": "2026-07-16T17:29:59.859390+00:00",
+      "ts": 1784222999,
+      "unix": 1784222999,
+      "run_id": "0eed432d",
+      "hostname": "htch-runtime",
+      "source": "telemetry_aggregator",
+      "mode": "telemetry_aggregator",
+      "event_type": "finish",
+      "status": "ok",
+      "message": "telemetry_aggregator finish",
+      "level": "ok",
+      "metrics": {
+        "duration_s": 0.0,
+        "updated": "2026-07-16T17:29:59.845110+00:00",
+        "modes": 3
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "duration_s": 0.0,
+      "updated": "2026-07-16T17:29:59.845110+00:00",
+      "modes": 3
+    },
+    "manual_test": {
+      "timestamp": "2026-07-16T17:32:32.833974+00:00",
+      "ts": 1784223152,
+      "unix": 1784223152,
+      "run_id": "c2f22402",
+      "hostname": "htch-runtime",
+      "source": "manual_test",
+      "mode": "manual_test",
+      "event_type": "test",
+      "status": "info",
+      "message": "ensure files exist",
+      "level": "info",
+      "metrics": {
+        "smoke": true,
+        "run_id": "c2f22402"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "smoke": true
+    },
+    "data": {
+      "timestamp": "2026-07-16T15:56:01.603296+00:00",
+      "event_type": "expansion",
+      "tokens": 500034,
+      "docs": 5045,
+      "shards": 74,
+      "total_shards": 74,
+      "message": "Expansion 500034 tokens / 5045 docs / 74 shards"
+    },
+    "daemon": {
+      "timestamp": "2026-07-16T17:32:37.865730+00:00",
+      "ts": 1784223157,
+      "unix": 1784223157,
+      "run_id": "de47a7e6",
+      "hostname": "htch-runtime",
+      "source": "daemon",
+      "mode": "daemon",
+      "event_type": "cycle_finish",
+      "status": "info",
+      "message": "Cycle data finished",
+      "level": "info",
+      "metrics": {
+        "mode": "data",
+        "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+        "started": "2026-07-16T17:32:37.358740+00:00",
+        "data": {
+          "status": "dry_run",
+          "tokens": 1000,
+          "docs": 5
+        },
+        "finished": "2026-07-16T17:32:37.865711+00:00",
+        "status": "ok"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "started": "2026-07-16T17:32:37.358740+00:00",
+      "data": {
+        "status": "dry_run",
+        "tokens": 1000,
+        "docs": 5
+      },
+      "finished": "2026-07-16T17:32:37.865711+00:00"
+    },
+    "ecosystem": {
+      "timestamp": "2026-07-16T17:34:56.752803+00:00",
+      "ts": 1784223296,
+      "unix": 1784223296,
+      "run_id": "8ad9781d",
+      "hostname": "htch-runtime",
+      "source": "ecosystem",
+      "mode": "ecosystem",
+      "event_type": "start",
+      "status": "info",
+      "message": "Ecosystem check restored sample",
+      "level": "info",
+      "metrics": {
+        "free_gb": 93,
+        "skillbooks": 11,
+        "openwiki_adapter": true
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "free_gb": 93,
+      "skillbooks": 11,
+      "openwiki_adapter": true
+    },
+    "eval": {
+      "timestamp": "2026-07-16T17:34:56.754875+00:00",
+      "ts": 1784223296,
+      "unix": 1784223296,
+      "run_id": "8ad9781d",
+      "hostname": "htch-runtime",
+      "source": "eval",
+      "mode": "eval",
+      "event_type": "eval_result",
+      "status": "info",
+      "message": "Eval branch all cap_score 0.983 restored",
+      "level": "info",
+      "metrics": {
+        "branch": "all",
+        "score": 0.983,
+        "mode": "mock",
+        "cap_score": 0.983
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "branch": "all",
+      "score": 0.983,
+      "cap_score": 0.983
+    },
+    "train": {
+      "timestamp": "2026-07-16T17:34:56.758954+00:00",
+      "ts": 1784223296,
+      "unix": 1784223296,
+      "run_id": "8ad9781d",
+      "hostname": "htch-runtime",
+      "source": "train",
+      "mode": "train",
+      "event_type": "progress",
+      "status": "info",
+      "message": "Train nano step 736000 loss 2.34 restored sample",
+      "level": "info",
+      "metrics": {
+        "preset": "nano",
+        "steps": 736000,
+        "loss": 2.34,
+        "tok_per_sec": 1200,
+        "checkpoint": "dottie_stable_736k.pt"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "preset": "nano",
+      "steps": 736000,
+      "loss": 2.34,
+      "tok_per_sec": 1200,
+      "checkpoint": "dottie_stable_736k.pt"
+    }
+  },
+  "by_mode_counts": {
+    "telemetry": 3,
+    "training_monitor": 2,
+    "telemetry_aggregator": 2,
+    "manual_test": 2,
+    "data": 3,
+    "daemon": 1,
+    "ecosystem": 1,
+    "eval": 1,
+    "train": 1
+  },
+  "recent_events": [
+    {
+      "timestamp": "2026-07-16T17:28:49.912515+00:00",
+      "ts": 1784222929,
+      "unix": 1784222929,
+      "run_id": "3e6c9b9d",
+      "hostname": "htch-runtime",
+      "source": "telemetry",
+      "mode": "telemetry",
+      "event_type": "test",
+      "status": "info",
+      "message": "smoke test event",
+      "level": "info",
+      "metrics": {
+        "smoke": true,
+        "run_id": "3e6c9b9d"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "smoke": true
+    },
+    {
+      "timestamp": "2026-07-16T17:29:28.294328+00:00",
+      "ts": 1784222968,
+      "unix": 1784222968,
+      "run_id": "35720ad4",
+      "hostname": "htch-runtime",
+      "source": "training_monitor",
+      "mode": "training_monitor",
+      "event_type": "finish",
+      "status": "ok",
+      "message": "training_monitor finish",
+      "level": "ok",
+      "metrics": {
+        "steps": 500034,
+        "docs": 5045,
+        "fallback": true
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "steps": 500034,
+      "docs": 5045,
+      "fallback": true
+    },
+    {
+      "timestamp": "2026-07-16T17:29:43.889975+00:00",
+      "ts": 1784222983,
+      "unix": 1784222983,
+      "run_id": "025d0f27",
+      "hostname": "htch-runtime",
+      "source": "telemetry_aggregator",
+      "mode": "telemetry_aggregator",
+      "event_type": "finish",
+      "status": "ok",
+      "message": "telemetry_aggregator finish",
+      "level": "ok",
+      "metrics": {
+        "duration_s": 0.0,
+        "updated": "2026-07-16T17:29:43.874079+00:00",
+        "modes": 2
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "duration_s": 0.0,
+      "updated": "2026-07-16T17:29:43.874079+00:00",
+      "modes": 2
+    },
+    {
+      "timestamp": "2026-07-16T17:29:48.351686+00:00",
+      "ts": 1784222988,
+      "unix": 1784222988,
+      "run_id": "f090e388",
+      "hostname": "htch-runtime",
+      "source": "training_monitor",
+      "mode": "training_monitor",
+      "event_type": "finish",
+      "status": "ok",
+      "message": "training_monitor finish",
+      "level": "ok",
+      "metrics": {
+        "steps": 500034,
+        "docs": 5045,
+        "fallback": true
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "steps": 500034,
+      "docs": 5045,
+      "fallback": true
+    },
+    {
+      "timestamp": "2026-07-16T17:29:59.859390+00:00",
+      "ts": 1784222999,
+      "unix": 1784222999,
+      "run_id": "0eed432d",
+      "hostname": "htch-runtime",
+      "source": "telemetry_aggregator",
+      "mode": "telemetry_aggregator",
+      "event_type": "finish",
+      "status": "ok",
+      "message": "telemetry_aggregator finish",
+      "level": "ok",
+      "metrics": {
+        "duration_s": 0.0,
+        "updated": "2026-07-16T17:29:59.845110+00:00",
+        "modes": 3
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "duration_s": 0.0,
+      "updated": "2026-07-16T17:29:59.845110+00:00",
+      "modes": 3
+    },
+    {
+      "timestamp": "2026-07-16T17:30:05.415865+00:00",
+      "ts": 1784223005,
+      "unix": 1784223005,
+      "run_id": "8e428a8f",
+      "hostname": "htch-runtime",
+      "source": "manual_test",
+      "mode": "manual_test",
+      "event_type": "finish",
+      "status": "ok",
+      "message": "manual_test finish",
+      "level": "ok",
+      "metrics": {
+        "tokens": 123
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "tokens": 123
+    },
+    {
+      "timestamp": "2026-07-16T17:32:32.833974+00:00",
+      "ts": 1784223152,
+      "unix": 1784223152,
+      "run_id": "c2f22402",
+      "hostname": "htch-runtime",
+      "source": "manual_test",
+      "mode": "manual_test",
+      "event_type": "test",
+      "status": "info",
+      "message": "ensure files exist",
+      "level": "info",
+      "metrics": {
+        "smoke": true,
+        "run_id": "c2f22402"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "smoke": true
+    },
+    {
+      "timestamp": "2026-07-16T17:32:37.358811+00:00",
+      "ts": 1784223157,
+      "unix": 1784223157,
+      "run_id": "de47a7e6",
+      "hostname": "htch-runtime",
+      "source": "data",
+      "mode": "data",
+      "event_type": "start",
+      "status": "info",
+      "message": "Data expansion start target=1000 (1000) full=False dry_run=True",
+      "level": "info",
+      "metrics": {
+        "target_tokens": 1000,
+        "full": false,
+        "dry_run": true,
+        "disk_pct": 13
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "target_tokens": 1000,
+      "full": false,
+      "dry_run": true,
+      "disk_pct": 13
+    },
+    {
+      "timestamp": "2026-07-16T17:32:37.863578+00:00",
+      "ts": 1784223157,
+      "unix": 1784223157,
+      "run_id": "de47a7e6",
+      "hostname": "htch-runtime",
+      "source": "data",
+      "mode": "data",
+      "event_type": "expansion",
+      "status": "info",
+      "message": "Expansion 1000 tokens / 5 docs / 1 shards",
+      "level": "info",
+      "metrics": {
+        "tokens": 1000,
+        "docs": 5,
+        "shards": [
+          "dry_run_shard.gz"
+        ],
+        "dry_run": true,
+        "duration_s": 0.5,
+        "disk_pct": 13
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "tokens": 1000,
+      "docs": 5,
+      "shards": [
+        "dry_run_shard.gz"
+      ],
+      "dry_run": true,
+      "duration_s": 0.5,
+      "disk_pct": 13
+    },
+    {
+      "timestamp": "2026-07-16T17:32:37.865730+00:00",
+      "ts": 1784223157,
+      "unix": 1784223157,
+      "run_id": "de47a7e6",
+      "hostname": "htch-runtime",
+      "source": "daemon",
+      "mode": "daemon",
+      "event_type": "cycle_finish",
+      "status": "info",
+      "message": "Cycle data finished",
+      "level": "info",
+      "metrics": {
+        "mode": "data",
+        "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+        "started": "2026-07-16T17:32:37.358740+00:00",
+        "data": {
+          "status": "dry_run",
+          "tokens": 1000,
+          "docs": 5
+        },
+        "finished": "2026-07-16T17:32:37.865711+00:00",
+        "status": "ok"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "started": "2026-07-16T17:32:37.358740+00:00",
+      "data": {
+        "status": "dry_run",
+        "tokens": 1000,
+        "docs": 5
+      },
+      "finished": "2026-07-16T17:32:37.865711+00:00"
+    },
+    {
+      "timestamp": "2026-07-16T17:32:52.947893+00:00",
+      "ts": 1784223172,
+      "unix": 1784223172,
+      "run_id": "1506cf06",
+      "hostname": "htch-runtime",
+      "source": "telemetry",
+      "mode": "telemetry",
+      "event_type": "test",
+      "status": "info",
+      "message": "smoke test event",
+      "level": "info",
+      "metrics": {
+        "smoke": true,
+        "run_id": "1506cf06"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "smoke": true
+    },
+    {
+      "timestamp": "2026-07-16T17:34:30.671846+00:00",
+      "ts": 1784223270,
+      "unix": 1784223270,
+      "run_id": "95f33ce4",
+      "hostname": "htch-runtime",
+      "source": "telemetry",
+      "mode": "telemetry",
+      "event_type": "test",
+      "status": "info",
+      "message": "smoke test event",
+      "level": "info",
+      "metrics": {
+        "smoke": true,
+        "run_id": "95f33ce4"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "smoke": true
+    },
+    {
+      "timestamp": "2026-07-16T17:34:56.747441+00:00",
+      "ts": 1784223296,
+      "unix": 1784223296,
+      "run_id": "8ad9781d",
+      "hostname": "htch-runtime",
+      "source": "data",
+      "mode": "data",
+      "event_type": "expansion",
+      "status": "info",
+      "message": "Expansion 500034 tokens / 5045 docs / 1 shards",
+      "level": "info",
+      "metrics": {
+        "tokens": 500034,
+        "docs": 5045,
+        "shards": [
+          "packed_20260716_155535_00081_6671.jsonl.gz"
+        ],
+        "total_shards": 74,
+        "manifest": "manifest_20260716_155535.jsonl",
+        "dup_filtered": 9700,
+        "qual_filtered": 8581,
+        "gdrive_folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
+        "timestamp_orig": "2026-07-16T15:56:01.603296+00:00",
+        "phases": [
+          "p0_logic",
+          "p1_math",
+          "p2_foundation"
+        ],
+        "mode": "500K_HatchVM_4h_p0-p2_simhash th3+md5 fast+qual alpha>0.6 reward>0.8 reset window",
+        "scheduled_for_local": "Thu 2026-07-16 11:00:00 CDT (America/Chicago)",
+        "duration_s": 35.2,
+        "disk_pct": 13,
+        "restored": true
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "tokens": 500034,
+      "docs": 5045,
+      "shards": [
+        "packed_20260716_155535_00081_6671.jsonl.gz"
+      ],
+      "total_shards": 74,
+      "manifest": "manifest_20260716_155535.jsonl",
+      "dup_filtered": 9700,
+      "qual_filtered": 8581,
+      "gdrive_folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
+      "timestamp_orig": "2026-07-16T15:56:01.603296+00:00",
+      "phases": [
+        "p0_logic",
+        "p1_math",
+        "p2_foundation"
+      ],
+      "scheduled_for_local": "Thu 2026-07-16 11:00:00 CDT (America/Chicago)",
+      "duration_s": 35.2,
+      "disk_pct": 13,
+      "restored": true
+    },
+    {
+      "timestamp": "2026-07-16T17:34:56.752803+00:00",
+      "ts": 1784223296,
+      "unix": 1784223296,
+      "run_id": "8ad9781d",
+      "hostname": "htch-runtime",
+      "source": "ecosystem",
+      "mode": "ecosystem",
+      "event_type": "start",
+      "status": "info",
+      "message": "Ecosystem check restored sample",
+      "level": "info",
+      "metrics": {
+        "free_gb": 93,
+        "skillbooks": 11,
+        "openwiki_adapter": true
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "free_gb": 93,
+      "skillbooks": 11,
+      "openwiki_adapter": true
+    },
+    {
+      "timestamp": "2026-07-16T17:34:56.754875+00:00",
+      "ts": 1784223296,
+      "unix": 1784223296,
+      "run_id": "8ad9781d",
+      "hostname": "htch-runtime",
+      "source": "eval",
+      "mode": "eval",
+      "event_type": "eval_result",
+      "status": "info",
+      "message": "Eval branch all cap_score 0.983 restored",
+      "level": "info",
+      "metrics": {
+        "branch": "all",
+        "score": 0.983,
+        "mode": "mock",
+        "cap_score": 0.983
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "branch": "all",
+      "score": 0.983,
+      "cap_score": 0.983
+    },
+    {
+      "timestamp": "2026-07-16T17:34:56.758954+00:00",
+      "ts": 1784223296,
+      "unix": 1784223296,
+      "run_id": "8ad9781d",
+      "hostname": "htch-runtime",
+      "source": "train",
+      "mode": "train",
+      "event_type": "progress",
+      "status": "info",
+      "message": "Train nano step 736000 loss 2.34 restored sample",
+      "level": "info",
+      "metrics": {
+        "preset": "nano",
+        "steps": 736000,
+        "loss": 2.34,
+        "tok_per_sec": 1200,
+        "checkpoint": "dottie_stable_736k.pt"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "preset": "nano",
+      "steps": 736000,
+      "loss": 2.34,
+      "tok_per_sec": 1200,
+      "checkpoint": "dottie_stable_736k.pt"
+    }
+  ],
+  "counts": {
+    "telemetry": 3,
+    "training_monitor": 2,
+    "telemetry_aggregator": 2,
+    "manual_test": 2,
+    "data": 3,
+    "daemon": 1,
+    "ecosystem": 1,
+    "eval": 1,
+    "train": 1
+  },
+  "last_event": {
+    "timestamp": "2026-07-16T17:34:56.758954+00:00",
+    "ts": 1784223296,
+    "unix": 1784223296,
+    "run_id": "8ad9781d",
+    "hostname": "htch-runtime",
+    "source": "train",
+    "mode": "train",
+    "event_type": "progress",
+    "status": "info",
+    "message": "Train nano step 736000 loss 2.34 restored sample",
+    "level": "info",
+    "metrics": {
+      "preset": "nano",
+      "steps": 736000,
+      "loss": 2.34,
+      "tok_per_sec": 1200,
+      "checkpoint": "dottie_stable_736k.pt"
+    },
+    "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+    "preset": "nano",
+    "steps": 736000,
+    "loss": 2.34,
+    "tok_per_sec": 1200,
+    "checkpoint": "dottie_stable_736k.pt"
+  },
+  "last_train": {
+    "timestamp": "2026-07-16T17:34:56.758954+00:00",
+    "ts": 1784223296,
+    "unix": 1784223296,
+    "run_id": "8ad9781d",
+    "hostname": "htch-runtime",
+    "source": "train",
+    "mode": "train",
+    "event_type": "progress",
+    "status": "info",
+    "message": "Train nano step 736000 loss 2.34 restored sample",
+    "level": "info",
+    "metrics": {
+      "preset": "nano",
+      "steps": 736000,
+      "loss": 2.34,
+      "tok_per_sec": 1200,
+      "checkpoint": "dottie_stable_736k.pt"
+    },
+    "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+    "preset": "nano",
+    "steps": 736000,
+    "loss": 2.34,
+    "tok_per_sec": 1200,
+    "checkpoint": "dottie_stable_736k.pt"
+  },
+  "last_eval": {
+    "timestamp": "2026-07-16T17:34:56.754875+00:00",
+    "ts": 1784223296,
+    "unix": 1784223296,
+    "run_id": "8ad9781d",
+    "hostname": "htch-runtime",
+    "source": "eval",
+    "mode": "eval",
+    "event_type": "eval_result",
+    "status": "info",
+    "message": "Eval branch all cap_score 0.983 restored",
+    "level": "info",
+    "metrics": {
+      "branch": "all",
+      "score": 0.983,
+      "mode": "mock",
+      "cap_score": 0.983
+    },
+    "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+    "branch": "all",
+    "score": 0.983,
+    "cap_score": 0.983
+  },
+  "last_ecosystem": {
+    "timestamp": "2026-07-16T17:34:56.752803+00:00",
+    "ts": 1784223296,
+    "unix": 1784223296,
+    "run_id": "8ad9781d",
+    "hostname": "htch-runtime",
+    "source": "ecosystem",
+    "mode": "ecosystem",
+    "event_type": "start",
+    "status": "info",
+    "message": "Ecosystem check restored sample",
+    "level": "info",
+    "metrics": {
+      "free_gb": 93,
+      "skillbooks": 11,
+      "openwiki_adapter": true
+    },
+    "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+    "free_gb": 93,
+    "skillbooks": 11,
+    "openwiki_adapter": true
+  },
+  "health": {
+    "last_loss": 2.34
+  },
+  "system_health": {
+    "disk": {
+      "total_gb": 99,
+      "used_gb": 13,
+      "free_gb": 85,
+      "pct": 13
+    },
+    "platform": "Linux-6.8.0-130-generic-x86_64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "status_json": {
+    "last_expansion": {
+      "timestamp": "2026-07-16T15:56:01.603296+00:00",
+      "scheduled_for_local": "Thu 2026-07-16 11:00:00 CDT (America/Chicago)",
+      "tokens": 500034,
+      "docs": 5045,
+      "shards": [
+        "packed_20260716_155535_00081_6671.jsonl.gz"
+      ],
+      "manifest": "manifest_20260716_155535.jsonl",
+      "dup_filtered": 9700,
+      "qual_filtered": 8581,
+      "upload_manifest": "data/for_upload/upload_manifest_20260716_155601.json",
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "mode": "500K_HatchVM_4h_p0-p2_simhash th3+md5 fast+qual alpha>0.6 reward>0.8 reset window",
+      "phases": [
+        "p0_logic",
+        "p1_math",
+        "p2_foundation"
+      ],
+      "phases_joined": "p0_logic p1_math p2_foundation",
+      "guard": "Personal Drive safe - no work indicators in 30 files, per AGENTS.md absolute separation, checked 2026-07-16T15:56 UTC - appears to be personal Drive or empty, safe to proceed",
+      "gdrive_upload": {
+        "folder_name": "Dottie-Datasets-Expansion",
+        "folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
+        "attempted": "dry-run 158 files (148 skipped dedup), then real upload 10 files with --workers 2",
+        "status": "success - 10 files uploaded to personal Drive, 148 dedup skipped, 0 failed",
+        "uploaded": [
+          {
+            "name": "packed_20260716_115830_00080_8520.jsonl_0ea84d43edda.gz",
+            "id": "1i_0bWi0504-nFMXCz4JvMOG6HJ8RdrrE",
+            "sha12": "0ea84d43edda"
+          },
+          {
+            "name": "manifest_20260716_075747_a2b78aeb362a.jsonl",
+            "id": "13fJJLa0Dii0QuXOLgwLW54aEwaZusXZe",
+            "sha12": "a2b78aeb362a"
+          },
+          {
+            "name": "packed_20260716_035911_00076_8445.jsonl_ebd535840119.gz",
+            "id": "167wXIBuXQUbN1-jw742f9vzmawTIu4Ps",
+            "sha12": "ebd535840119"
+          },
+          {
+            "name": "packed_20260716_075747_00078_4992.jsonl_8188444e5600.gz",
+            "id": "1pTLPPKyx3zr1qD9cg0s127jiutAWcwpG",
+            "sha12": "8188444e5600"
+          },
+          {
+            "name": "packed_20260716_075531_00077_9772.jsonl_a6bc9ad8039b.gz",
+            "id": "1hXK6NtgFyYpyiw8JpNc8Q99GBCIpepex",
+            "sha12": "a6bc9ad8039b"
+          },
+          {
+            "name": "manifest_20260716_155535_d8cb5a396dbf.jsonl",
+            "id": "10ed_264VhI0nH9AAUBVpbgB1z43yZJs-",
+            "sha12": "d8cb5a396dbf"
+          },
+          {
+            "name": "packed_20260716_155535_00081_6671.jsonl_8c79b428c2f2.gz",
+            "id": "1usPf2PMOdn3xfaJJWDIxWnT8hKdntZi5",
+            "sha12": "8c79b428c2f2"
+          },
+          {
+            "name": "manifest_20260716_075531_74802f4e0b17.jsonl",
+            "id": "1S4pOmyeUEXPZFVr2-nn4J_tR7ErCtSUv",
+            "sha12": "74802f4e0b17"
+          },
+          {
+            "name": "manifest_20260716_115830_63dee00f1ddf.jsonl",
+            "id": "1e-C4ri9M7aI1ifdDZXDmDqsl2rVVvmW8",
+            "sha12": "63dee00f1ddf"
+          },
+          {
+            "name": "manifest_20260716_035911_a129e12ec875.jsonl",
+            "id": "18_jepj0Kl02HgcfIZinMmZHnL2iwZ3Em",
+            "sha12": "a129e12ec875"
+          }
+        ],
+        "failed": 0,
+        "skipped": 148,
+        "new_shard": {
+          "name": "packed_20260716_155535_00081_6671.jsonl_8c79b428c2f2.gz",
+          "id": "1usPf2PMOdn3xfaJJWDIxWnT8hKdntZi5",
+          "sha12": "8c79b428c2f2"
+        }
+      },
+      "run_context": "dataset_expansion.py --tokens 500K --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local 2026-07-16T15:55:35 UTC - 5045 docs 9700 dup 8581 qual filtered, shard 165KB gz sha12 8c79b428c2f2 + manifest 1.7M sha12 d8cb5a396dbf + global manifest 1269K lines, guard Personal Safe, gdrive dry-run 158 + real upload 10 files success --workers 2",
+      "disk_usage": "100G 14G 86G 14% - PASS",
+      "hf_upload": {
+        "repo": "jcdavis131/dottie-textbook-v6",
+        "status": "HF_TOKEN missing in Hatch VM - saved local for Alienware push, personal Drive used instead",
+        "streaming": "load_dataset('jcdavis131/dottie-textbook-v6', streaming=True, split='train')",
+        "local_manifest": "data/for_upload/upload_manifest_20260716_155601.json"
+      },
+      "global_manifest_lines": 1269199,
+      "live_test": "500K tokens 5045 docs 9700 dup 8581 qual filtered 165KB gz + manifest 1.7M, 26s, guard blocked work Drive correctly, Drive upload 10 files (148 dedup) success"
+    }
+  },
+  "updated_at": "2026-07-16T15:56:01.603296+00:00"
+}
