@@ -183,7 +183,12 @@ def main():
         try:
             out = model(input_ids=input_ids)
             if isinstance(out, dict):
-                logits = out.get('lm_logits') or out.get('logits')
+                if 'lm_logits' in out:
+                    logits = out['lm_logits']
+                elif 'logits' in out:
+                    logits = out['logits']
+                else:
+                    logits = None
             else:
                 logits = out
             if logits is None:
