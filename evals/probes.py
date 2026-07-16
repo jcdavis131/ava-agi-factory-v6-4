@@ -23,7 +23,8 @@ def score_probes(
     dev = device
     results: dict[str, dict[str, float]] = {}
 
-    for name in ("arithmetic", "modus_ponens", "facts", "code_out"):
+    for name in ("arithmetic", "modus_ponens", "facts", "code_out",
+                 "db_mechanics", "compression"):
         items = load_items(name)
         if n_per_set is not None:
             items = items[:n_per_set]

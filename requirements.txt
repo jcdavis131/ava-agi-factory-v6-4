@@ -11,6 +11,7 @@ wandb>=0.16.0
 numpy>=1.24.0
 tqdm>=4.66.0
 pyyaml>=6.0.1
+regex>=2024.4.16
 pydantic>=2.6.0
 dolma
 nemo-curator

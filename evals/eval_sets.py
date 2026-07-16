@@ -86,12 +86,41 @@ NEEDLE_PROMPTS = [
     "The one fact you must recall from this haystack is that the vault opens at midnight.",
 ]
 
+# ---------------------------------------------------------------------------
+# 4. Systems-mechanics probe stems (databases + compression, spec 02 B6's eval
+#    side — see evals/probe_items_gen.py). Probe instances vary numerically, so
+#    we decontaminate the FIXED STEM of each template (>= 5 words, per
+#    MIN_PHRASE_WORDS): any training doc reproducing a stem verbatim is dropped.
+#    The ET-CoT training docs teach the same mechanics in a different surface
+#    form ("### Task: simulate ..." + "[step N]" traces), which — per the
+#    fact-vs-prompt contract above — must and does survive; a test asserts the
+#    generators never emit these stems.
+# ---------------------------------------------------------------------------
+SYSTEMS_PROMPTS = [
+    # db_mechanics.jsonl stems
+    "through FNV-1a onto a table of",
+    "grown from inserting the key sequence",
+    "Following breadth-first hops across the edge list",
+    "second windows anchored at base",
+    "The squared Euclidean gap between vectors",
+    "the sales block starts at byte",
+    "Counting the documents whose age reaches at least",
+    # compression.jsonl stems
+    "into count-byte run pairs yields",
+    "Packed as a LEB128 varint, the delta",
+    "receives a Huffman code of length",
+    "to int8 symmetrically with scale",
+    "tokenizes into this many LZ77 triples",
+    "carries this many bits of information",
+]
+
 #: The canonical registry. Keys name the eval set; the removal report attributes
 #: each contaminated doc to the key that matched it.
 EVAL_SETS: dict[str, list[str]] = {
     "j_space": J_SPACE_PROMPTS,
     "capability": CAPABILITY_PROMPTS,
     "needle": NEEDLE_PROMPTS,
+    "systems": SYSTEMS_PROMPTS,
 }
 
 
