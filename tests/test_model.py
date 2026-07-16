@@ -14,15 +14,15 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from ava.config import AvaConfig, ConfigError
-from ava.model import build_model, count_params, set_router_bias
+from dottie.config import DottieConfig, ConfigError
+from dottie.model import build_model, count_params, set_router_bias
 from model_1b import (
-    AvaModel1B, DeltaNetBlock, LongRoPE2ScaledRoPE, TransformerBlock1B,
+    DottieModel1B, DeltaNetBlock, LongRoPE2ScaledRoPE, TransformerBlock1B,
     apply_rope_scaling, apply_rotary_emb, rotate_half,
 )
 
 
-def _tiny(jspace_causal: bool = True, jspace_chunk: int = 4, **overrides) -> AvaConfig:
+def _tiny(jspace_causal: bool = True, jspace_chunk: int = 4, **overrides) -> DottieConfig:
     """A model small enough to test exhaustively on CPU in milliseconds."""
     raw = {
         "preset": "tiny",
@@ -57,7 +57,7 @@ def _tiny(jspace_causal: bool = True, jspace_chunk: int = 4, **overrides) -> Ava
     }
     for k, v in overrides.items():
         raw[k] = v
-    return AvaConfig.from_dict(raw)
+    return DottieConfig.from_dict(raw)
 
 
 @pytest.fixture(scope="module")
@@ -203,7 +203,7 @@ def test_deltanet_layers_swappable_and_causal_in_full_model():
     """A subset of fusion layers as DeltaNetBlock; the full-model causality
     property (T6.1's headline test) must still hold end to end."""
     torch.manual_seed(22)
-    m = AvaModel1B(
+    m = DottieModel1B(
         vocab_size=64, d_model=32, n_text=1, n_fusion=2, n_reason=1,
         n_heads=2, head_dim=16, multi_jspace_enabled=False, multimodal=False,
         deltanet_layers=[0],
@@ -226,7 +226,7 @@ def test_deltanet_layers_swappable_and_causal_in_full_model():
 def test_deltanet_layers_default_off_preserves_existing_model():
     """deltanet_layers defaults to None: every fusion layer must still be a
     plain TransformerBlock1B, so this param is a pure opt-in addition."""
-    m = AvaModel1B(vocab_size=64, d_model=32, n_text=1, n_fusion=3, n_reason=1,
+    m = DottieModel1B(vocab_size=64, d_model=32, n_text=1, n_fusion=3, n_reason=1,
                     n_heads=2, head_dim=16, multi_jspace_enabled=False, multimodal=False)
     assert all(isinstance(blk, TransformerBlock1B) for blk in m.fusion_layers)
 
@@ -380,7 +380,7 @@ def test_swiglu_shapes_and_causality():
 # tasks/plan-longrope2-port.md). All three are config-gated and default off.
 
 def test_attention_sinks_default_off_preserves_existing_model():
-    m = AvaModel1B(vocab_size=64, d_model=32, n_text=1, n_fusion=1, n_reason=1,
+    m = DottieModel1B(vocab_size=64, d_model=32, n_text=1, n_fusion=1, n_reason=1,
                     n_heads=2, head_dim=16, multi_jspace_enabled=False, multimodal=False)
     assert m.text_layers[0].sink_k is None and m.text_layers[0].sink_v is None
     assert isinstance(m.text_layers[0].peri_norm_attn, torch.nn.Identity)
@@ -575,19 +575,19 @@ def test_rope_scaling_updates_model_and_blocks():
 
 @pytest.mark.parametrize("preset", ["nano", "mini", "base1b"])
 def test_presets_parse(preset):
-    cfg = AvaConfig.load(preset)
+    cfg = DottieConfig.load(preset)
     assert cfg.preset == preset
     assert cfg.model.n_heads * cfg.model.head_dim == cfg.model.d_model
 
 
 def test_nano_param_count_in_band():
-    cfg = AvaConfig.load("nano")
+    cfg = DottieConfig.load("nano")
     n = count_params(build_model(cfg))
     assert 13_000_000 <= n <= 16_000_000, f"nano is {n/1e6:.1f}M, expected 13-16M"
 
 
 def test_analytic_param_count_agrees_with_built_model():
-    cfg = AvaConfig.load("nano")
+    cfg = DottieConfig.load("nano")
     built = count_params(build_model(cfg))
     analytic = cfg.analytic_param_count()
     assert abs(built - analytic) / built < 0.10, f"built {built} vs analytic {analytic}"
@@ -609,7 +609,7 @@ def test_init_loss_matches_uniform_predictor():
     lm_head tied to it) started nano at ~196 instead of 9.01.
     """
     torch.manual_seed(11)
-    cfg = AvaConfig.load("nano")
+    cfg = DottieConfig.load("nano")
     V = cfg.model.vocab_size
     m = build_model(cfg).eval()
     ids = torch.randint(0, V, (4, 64))
@@ -644,7 +644,7 @@ def test_model_can_memorize_one_batch():
 
 
 def test_nano_forward_runs_and_is_causal():
-    cfg = AvaConfig.load("nano")
+    cfg = DottieConfig.load("nano")
     m = build_model(cfg).eval()
     ids = torch.randint(0, cfg.model.vocab_size, (1, 16))
     with torch.no_grad():

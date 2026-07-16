@@ -20,20 +20,20 @@ from fractions import Fraction
 
 import pytest
 
-from ava.datagen.base import (
+from dottie.datagen.base import (
     DOC_KEYS,
     VALID_PHASES,
     VALID_TASK_TYPES,
     make_doc_id,
     validate_doc,
 )
-from ava.datagen.logic import LogicGenerator
-from ava.datagen.math_gen import MathGenerator
-from ava.datagen.encyclopedia import EncyclopediaGenerator
-from ava.datagen.code_gen import CodeGenGenerator, SAFE_BUILTINS, run_sandboxed
-from ava.datagen.chat_safety import ChatSafetyGenerator, _SCENARIO_TEMPLATES
-from ava.datagen.react_tools import ASSISTANT, USER, ReactToolsGenerator
-from ava.datagen.workflow_jobbench import (
+from dottie.datagen.logic import LogicGenerator
+from dottie.datagen.math_gen import MathGenerator
+from dottie.datagen.encyclopedia import EncyclopediaGenerator
+from dottie.datagen.code_gen import CodeGenGenerator, SAFE_BUILTINS, run_sandboxed
+from dottie.datagen.chat_safety import ChatSafetyGenerator, _SCENARIO_TEMPLATES
+from dottie.datagen.react_tools import ASSISTANT, USER, ReactToolsGenerator
+from dottie.datagen.workflow_jobbench import (
     WorkflowJobBenchGenerator,
     _duplicate_doc,
     _units_doc,
@@ -42,7 +42,7 @@ from ava.datagen.workflow_jobbench import (
     _fmt_val,
     _OCCUPATIONS,
 )
-from ava.datagen.workflow_gaia2 import (
+from dottie.datagen.workflow_gaia2 import (
     WorkflowGaia2Generator,
     _adaptability_doc,
     _ambiguity_doc,
@@ -181,7 +181,7 @@ def test_natded_proofs_are_semantically_valid():
     assignment over the atoms -- that the conclusion is a logical consequence
     of the premises. If the generator ever emitted an invalid derivation,
     this catches it."""
-    from ava.datagen import logic as L
+    from dottie.datagen import logic as L
 
     checked = 0
     gen = LogicGenerator(seed=2024)
@@ -864,7 +864,7 @@ def test_phase_coverage_union():
 # ---------------------------------------------------------------------------
 
 def test_write_shards_deterministic(tmp_path):
-    from ava.datagen.base import write_shards
+    from dottie.datagen.base import write_shards
 
     a = write_shards(LogicGenerator(seed=1234), str(tmp_path / "a"), target_mb=0.5)
     b = write_shards(LogicGenerator(seed=1234), str(tmp_path / "b"), target_mb=0.5)
@@ -908,7 +908,7 @@ def test_react_grounding_notfound_never_fabricates():
 
 def test_react_tools_parse_with_ava_bridge():
     """Cross-repo consistency: every doc's tool-calling assistant turn must
-    actually parse via AgenticOS/ava_bridge.py's regex, or the SFT data and
+    actually parse via AgenticOS/dottie_bridge.py's regex, or the SFT data and
     the bridge that's supposed to read this exact format have drifted apart.
     Skips gracefully if AgenticOS isn't checked out as a sibling directory
     (this repo's own test suite shouldn't hard-depend on a sibling repo)."""
@@ -919,7 +919,7 @@ def test_react_tools_parse_with_ava_bridge():
     if not agenticos.is_dir():
         pytest.skip("AgenticOS sibling repo not present")
     sys.path.insert(0, str(agenticos))
-    import ava_bridge
+    import dottie_bridge
 
     gen = ReactToolsGenerator(seed=1234)
     docs = [d for d in gen.generate(300_000) if d["concept"] in
@@ -928,6 +928,6 @@ def test_react_tools_parse_with_ava_bridge():
     for d in docs:
         # First assistant turn is the one with the Action: line.
         first_assistant = d["text"].split(USER, 2)[1].split(ASSISTANT, 1)[-1]
-        parsed = ava_bridge.parse_react_response(first_assistant)
-        assert "tool_calls" in parsed, f"ava_bridge failed to parse a real Action: line: {d['text']!r}"
+        parsed = dottie_bridge.parse_react_response(first_assistant)
+        assert "tool_calls" in parsed, f"dottie_bridge failed to parse a real Action: line: {d['text']!r}"
         assert parsed["tool_calls"][0]["function"]["name"], "empty tool name parsed"

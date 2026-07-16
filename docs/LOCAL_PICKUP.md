@@ -21,14 +21,14 @@ Solo personal project, no connection to employer, built with public/free-tier on
   curl http://localhost:11434/api/tags
   ```
 - **HF token (personal, not work):**
-  - Create at https://huggingface.co/settings/tokens → fine-grained → repo write to `jcdavis131/ava-textbook-v6`
+  - Create at https://huggingface.co/settings/tokens → fine-grained → repo write to `jcdavis131/dottie-textbook-v6`
   - `export HF_TOKEN=hf_REDACTED_ROTATED...` and `export HUGGINGFACE_HUB_TOKEN=$HF_TOKEN`
 
 ## Clone + First Check
 
 ```bash
-git clone https://github.com/jcdavis131/ava-agi-factory-v6-4.git
-cd ava-agi-factory-v6-4
+git clone https://github.com/jcdavis131/dottie-agi-factory-v6-4.git
+cd dottie-agi-factory-v6-4
 
 # quick e2e mock — no GPU, no token needed
 chmod +x scripts/e2e_test.sh
@@ -50,7 +50,7 @@ The e2e test does:
 ## 2-Loop Architecture
 
 ```
-Loop 1 — Data (every 4h): [Gather Phi-B synthetic p0-p3] → [Curate dedup simhash + quality reward>0.8] → [Split 92/6/2] → [Parquet shards sha12] → PUSH HF Hub jcdavis131/ava-textbook-v6
+Loop 1 — Data (every 4h): [Gather Phi-B synthetic p0-p3] → [Curate dedup simhash + quality reward>0.8] → [Split 92/6/2] → [Parquet shards sha12] → PUSH HF Hub jcdavis131/dottie-textbook-v6
 
 Loop 2 — Model (weekly / on-demand): [Stream HF via datasets streaming=True] → [DeepSpeed Zero3 bf16 8-bit Adam + checkpointing] → [WSD 736k stable 2e-4→2e-5] → [Branches code/math/chat] → [Eval Ollama qwen3:32b] → [MOPD distill]
 
@@ -66,7 +66,7 @@ Both loops observable via Prefect UI localhost:4200 and logs/your_files/
 
 ```bash
 # Build & start container
-./scripts/local_train.sh   # builds ava-agi-factory:2.4.0-cuda12.4 if first time (10-20min)
+./scripts/local_train.sh   # builds dottie-agi-factory:2.4.0-cuda12.4 if first time (10-20min)
 
 # Inside container or via wrapper — generate 10M tokens this run (~50k docs, 60M/day if 4h cron)
 ./scripts/local_train.sh python scripts/dataset_expansion.py \
@@ -81,7 +81,7 @@ cat data/daily_expanded/manifest_*.jsonl | head
 cat data/for_upload/upload_manifest_*.json | jq
 
 # Optional R2 upload (free-tier, Home-safe)
-# export CLOUDFLARE_R2_ACCESS_KEY=... R2_SECRET_KEY=... R2_ENDPOINT=https://<account>.r2.cloudflarestorage.com R2_BUCKET=ava-datasets
+# export CLOUDFLARE_R2_ACCESS_KEY=... R2_SECRET_KEY=... R2_ENDPOINT=https://<account>.r2.cloudflarestorage.com R2_BUCKET=dottie-datasets
 # ./scripts/local_train.sh python scripts/dataset_expansion.py --tokens 10M --upload-mode r2
 ```
 
@@ -92,16 +92,16 @@ cat data/for_upload/upload_manifest_*.json | jq
 ```bash
 # Push cleaned train/val/test to private HF dataset
 HF_TOKEN=hf_REDACTED_ROTATED... ./scripts/local_train.sh python scripts/hf_REDACTED_ROTATED.py \
-  --repo jcdavis131/ava-textbook-v6 \
+  --repo jcdavis131/dottie-textbook-v6 \
   --manifest "data/daily_expanded/manifest_*.jsonl" \
   --private --push
 
-# Verify on HF: https://huggingface.co/datasets/jcdavis131/ava-textbook-v6
+# Verify on HF: https://huggingface.co/datasets/jcdavis131/dottie-textbook-v6
 
 # Stream directly in training (no local download)
 ./scripts/local_train.sh torchrun --nproc_per_node=1 train_1b_deepspeed.py \
   --preset mini \
-  --data-source hf://jcdavis131/ava-textbook-v6 \
+  --data-source hf://jcdavis131/dottie-textbook-v6 \
   --streaming \
   --tokens_total 2500000000 \
   --deepspeed deepspeed_zero3_bf16.json \
@@ -118,7 +118,7 @@ cat checkpoints/mini/metrics.jsonl | tail -20
 **Streaming code snippet (already in streaming_data.py fallback):**
 ```python
 from datasets import load_dataset
-ds = load_dataset("jcdavis131/ava-textbook-v6", streaming=True, split="train")
+ds = load_dataset("jcdavis131/dottie-textbook-v6", streaming=True, split="train")
 for ex in ds.shuffle(buffer_size=10_000):
     print(ex["text"][:200])
 ```
@@ -127,13 +127,13 @@ for ex in ds.shuffle(buffer_size=10_000):
 
 ```bash
 # Reads frontier_eval_results.json weak domains → proposes HF datasets
-python3 scripts/dataset_discovery.py --domains finance bio code math safety --out your_files/ava-agi/dataset_discovery/
+python3 scripts/dataset_discovery.py --domains finance bio code math safety --out your_files/dottie-agi/dataset_discovery/
 
 cat data/discovery/needs.json
-cat your_files/ava-agi/dataset_discovery/candidates_*.json | grep -A2 license_ok | head
+cat your_files/dottie-agi/dataset_discovery/candidates_*.json | grep -A2 license_ok | head
 
 # Download script for Alienware (does NOT auto-download TBs in Hatch VM)
-bash your_files/ava-agi/dataset_discovery/download_candidates_*.sh
+bash your_files/dottie-agi/dataset_discovery/download_candidates_*.sh
 
 # Example candidates (58 in test): financial_phrasebank, convfinqa, finqa, pubmed_qa, medmcqa, the_stack, code_search_net, metamath-qa, gsm8k, open-web-math
 # Filter license_ok:true = MIT/Apache2/CC0/CC-BY
@@ -148,49 +148,49 @@ OLLAMA_HOST=http://host.docker.internal:11434 OLLAMA_MODEL=qwen3:32b \
 
 ./scripts/local_train.sh python eval_branch_harness.py --branch all --mode mock
 # real with ckpt
-./scripts/local_train.sh python eval_branch_harness.py --branch chat --ckpt checkpoints/mini/ava_stable_mini.pt --mode real
+./scripts/local_train.sh python eval_branch_harness.py --branch chat --ckpt checkpoints/mini/dottie_stable_mini.pt --mode real
 
 # Distillation — Multi-Teacher On-Policy Distillation (MOPD) per https://huggingface.co/blog/sergiopaniego/distillation-2026
 # Train 3 experts then merge
-./scripts/local_train.sh torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch code --ckpt checkpoints/base1b/ava_stable_736k.pt
+./scripts/local_train.sh torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch code --ckpt checkpoints/base1b/dottie_stable_736k.pt
 ./scripts/local_train.sh torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch math
 # Then MOPD: student generates own rollouts, teachers grade every token reverse KL KL(p_student||p_teacher) ~1/10 GPU hours vs RL (Qwen3)
 ./scripts/distill.sh torchrun --nproc_per_node=1 on_policy_distill.py \
   --mode mopd \
   --teachers checkpoints/code_expert.pt checkpoints/math_expert.pt checkpoints/chat_expert.pt \
-  --student-ckpt checkpoints/base1b/ava_stable_736k.pt \
+  --student-ckpt checkpoints/base1b/dottie_stable_736k.pt \
   --tokens_total 100M --preserve-router
 
 # Privileged hint self-distill (Cursor Composer 2.5 pattern)
 ./scripts/distill.sh python on_policy_distill.py --mode privileged --hint "think with 4 workspaces S1 Fast hl8 S2 Slow hl300 Critic hl30 Planner hl150"
 
 # Earlier-teacher continual learning (Thinking Machines)
-./scripts/distill.sh python on_policy_distill.py --mode earlier --earlier-ckpt checkpoints/base1b/ava_stable_736k.pt --student-ckpt checkpoints/math/math_final.pt
+./scripts/distill.sh python on_policy_distill.py --mode earlier --earlier-ckpt checkpoints/base1b/dottie_stable_736k.pt --student-ckpt checkpoints/math/math_final.pt
 ```
 
 ## Continuous Pipelines — Crontab for Alienware
 
 ```cron
-# Ava expansion 10M every 4h (60M/day)
-0 */4 * * * cd ~/ava-agi-factory-v6-4 && ./scripts/local_train.sh python scripts/dataset_expansion.py --tokens 10M --phases p0_logic p1_math p2_foundation p3_code --out data/daily_expanded --upload-mode local >> logs/cron-expansion.log 2>&1
+# Dottie expansion 10M every 4h (60M/day)
+0 */4 * * * cd ~/dottie-agi-factory-v6-4 && ./scripts/local_train.sh python scripts/dataset_expansion.py --tokens 10M --phases p0_logic p1_math p2_foundation p3_code --out data/daily_expanded --upload-mode local >> logs/cron-expansion.log 2>&1
 
 # HF push hourly if new shards + token set
-30 */4 * * * cd ~/ava-agi-factory-v6-4 && HF_TOKEN=hf_REDACTED_ROTATED... python scripts/hf_REDACTED_ROTATED.py --repo jcdavis131/ava-textbook-v6 --manifest "data/daily_expanded/manifest_*.jsonl" --private --push >> logs/cron-hf.log 2>&1
+30 */4 * * * cd ~/dottie-agi-factory-v6-4 && HF_TOKEN=hf_REDACTED_ROTATED... python scripts/hf_REDACTED_ROTATED.py --repo jcdavis131/dottie-textbook-v6 --manifest "data/daily_expanded/manifest_*.jsonl" --private --push >> logs/cron-hf.log 2>&1
 
 # Discovery daily 9am Central
-0 9 * * * cd ~/ava-agi-factory-v6-4 && python3 scripts/dataset_discovery.py --domains finance bio code math safety >> logs/cron-discovery.log 2>&1
+0 9 * * * cd ~/dottie-agi-factory-v6-4 && python3 scripts/dataset_discovery.py --domains finance bio code math safety >> logs/cron-discovery.log 2>&1
 
 # Train weekly Sun 3am, streaming from HF
-0 3 * * 0 cd ~/ava-agi-factory-v6-4 && ./scripts/local_train.sh torchrun --nproc_per_node=1 train_1b_deepspeed.py --preset mini --data-source hf://jcdavis131/ava-textbook-v6 --streaming --tokens_total 2500000000 --resume-if-exists >> logs/cron-train.log 2>&1
+0 3 * * 0 cd ~/dottie-agi-factory-v6-4 && ./scripts/local_train.sh torchrun --nproc_per_node=1 train_1b_deepspeed.py --preset mini --data-source hf://jcdavis131/dottie-textbook-v6 --streaming --tokens_total 2500000000 --resume-if-exists >> logs/cron-train.log 2>&1
 
 # Eval daily 3am
-0 3 * * * cd ~/ava-agi-factory-v6-4 && OLLAMA_HOST=http://host.docker.internal:11434 OLLAMA_MODEL=qwen3:32b ./scripts/local_train.sh python eval_frontier_rubric.py --domain all --judge ollama >> logs/cron-eval.log 2>&1
+0 3 * * * cd ~/dottie-agi-factory-v6-4 && OLLAMA_HOST=http://host.docker.internal:11434 OLLAMA_MODEL=qwen3:32b ./scripts/local_train.sh python eval_frontier_rubric.py --domain all --judge ollama >> logs/cron-eval.log 2>&1
 
 # Vector dumb models daily 6am
-0 6 * * * cd ~/ava-agi-factory-v6-4 && python3 prefect_flows.py --run vector --leagues all >> logs/cron-vector.log 2>&1
+0 6 * * * cd ~/dottie-agi-factory-v6-4 && python3 prefect_flows.py --run vector --leagues all >> logs/cron-vector.log 2>&1
 ```
 
-Hatch VM crons already created: `ava-data-gather-daily` interval@4h, `ava-dataset-discovery-daily` daily 10:00 UTC, `vector-dumb-models-daily` 12:00 UTC, `ava-eval-distill-daily` 09:00 UTC, `ava-training-weekly` Sun 03:00 UTC.
+Hatch VM crons already created: `dottie-data-gather-daily` interval@4h, `dottie-dataset-discovery-daily` daily 10:00 UTC, `vector-dumb-models-daily` 12:00 UTC, `dottie-eval-distill-daily` 09:00 UTC, `dottie-training-weekly` Sun 03:00 UTC.
 
 ## Prefect UI (Free Self-Host)
 
@@ -204,8 +204,8 @@ python prefect_flows.py --run eval --domains all
 python prefect_flows.py --run all --preset mini
 
 # Deployments (optional alternative to cron)
-prefect deployment build prefect_flows.py:ava_data_gen_flow -n daily --cron "0 6 * * *" --apply
-prefect deployment build prefect_flows.py:ava_train_flow -n weekly --cron "0 3 * * 0" --apply
+prefect deployment build prefect_flows.py:dottie_data_gen_flow -n daily --cron "0 6 * * *" --apply
+prefect deployment build prefect_flows.py:dottie_train_flow -n weekly --cron "0 3 * * 0" --apply
 prefect agent start -q default
 ```
 

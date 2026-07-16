@@ -1,4 +1,4 @@
-# Ava v6.4 - Curriculum-First Continuous Data + Train Loop
+# Dottie v6.4 - Curriculum-First Continuous Data + Train Loop
 Solo personal project, no connection to employer, built with public/free-tier only
 
 ## Goal
@@ -21,9 +21,9 @@ Collect datasets in curriculum order, start training immediately on phase 0, bui
        ↓ checkpoint: checkpoints/stream_builder_state.json
 [File System Lake + Manifest: data/manifest.jsonl]
        ↓ watches new shards
-[Trainer Agent - Background #2] <---reads--- streaming_data.py AvaStreamingDataset with Chonkie chunking
+[Trainer Agent - Background #2] <---reads--- streaming_data.py DottieStreamingDataset with Chonkie chunking
        ↓ torch + DeepSpeed Zero3 + WSD 736k + YaRN 10k->1M + Multi-JSpace
-[Checkpoints: ava_stable_736k.pt, ava_{branch}_final_800k.pt]
+[Checkpoints: dottie_stable_736k.pt, dottie_{branch}_final_800k.pt]
 ```
 
 ## Open Source Stack Selection (from awesome-opensource-ai)
@@ -51,7 +51,7 @@ Collect datasets in curriculum order, start training immediately on phase 0, bui
 - [x] 0.1 Add chonkie>=1.4.1, tiktoken, psutil, webdataset to requirements.txt
 - [x] 0.2 Implement ChonkieChunkerWrapper in streaming_data.py with get_phase_chunker_config()
 - [x] 0.3 Add PHASE_CHONKIE_CONFIG mirroring YaRN schedule: 2048 overlap128 recursive markdown for phase0, 4096 overlap256 for phase1, etc.
-- [x] 0.4 Patch AvaStreamingDataset.batched() to chunk via chonkie first, then tokenize per-chunk
+- [x] 0.4 Patch DottieStreamingDataset.batched() to chunk via chonkie first, then tokenize per-chunk
 - [x] 0.5 Verify memory flat: shuffle_buffer only + batch + 1 doc chunks, 1 fh per source
 - [x] 0.6 Update logic_textbook_pipeline.py streaming mode 100MB rotating shards
 
@@ -76,14 +76,14 @@ Collect datasets in curriculum order, start training immediately on phase 0, bui
 ### Phase 2 - Trainer Agent (Background)
 - [ ] 2.1 Create trainer_agent.py:
   - watches data/streaming_shards/ via glob + polling every 30s (open source watchdog lib optional)
-  - uses AvaStreamingDataset(branch, phase=auto, use_chonkie=True, chunker_type=auto)
+  - uses DottieStreamingDataset(branch, phase=auto, use_chonkie=True, chunker_type=auto)
   - checks for phase0 .ready -> kicks train_1b_deepspeed.py --branch base --data_root data/streaming_shards --streaming --seq_len phase seq --max_steps 736000
   - WSD + RoPE schedule auto from train_1b_deepspeed.py get_rope()
-  - saves ava_stable_736k.pt at 736k, triggers branching
+  - saves dottie_stable_736k.pt at 736k, triggers branching
   - while training phase0, builder already on phase1 (parallel)
   - checkpoint resume: load last stream_state if exists
 - [ ] 2.2 Implement curriculum advance: when tokens_seen crosses PHASE_TOKENS boundary, trainer auto-switches phase (already in _maybe_switch_phase), logs phase switch
-- [ ] 2.3 Branch training after stable: when base has ava_stable_736k.pt, trainer loops code/math/chat branches using BRANCH_MIX weights, using chonkie code chunker for code branch
+- [ ] 2.3 Branch training after stable: when base has dottie_stable_736k.pt, trainer loops code/math/chat branches using BRANCH_MIX weights, using chonkie code chunker for code branch
 
 ### Phase 3 - Orchestration Loop (Continuous Growth)
 - [ ] 3.1 Create orchestrator.sh or workflow definition .jarvis/workflows/curriculum-loop:
@@ -115,7 +115,7 @@ Collect datasets in curriculum order, start training immediately on phase 0, bui
 
 ## Execution Order (Curriculum-First)
 1. Builder starts phase0_logic, writes 3 shards (~300MB) using Chonkie recursive markdown chunk_size 2048 overlap 128
-2. Trainer sees .ready, starts training base with AvaStreamingDataset use_chonkie=True
+2. Trainer sees .ready, starts training base with DottieStreamingDataset use_chonkie=True
 3. While trainer at 0-50B tokens (phase0), Builder advances to phase1_math, generating ordered curriculum arithmetic->probability, chunk_size 4096
 4. Trainer auto-switches to phase1 when tokens_seen >50B, now reading phase1_math shards + continuing phase0 mix
 5. Repeat for phase2_foundation (web_edu + code_early + dclm filtered via NeMo Curator), phase3_reasoning (long docs 3x upsampled + JobBench + GAIA2), etc.
@@ -124,7 +124,7 @@ Collect datasets in curriculum order, start training immediately on phase 0, bui
 ## Why This Fixes Memory Blowup
 - Old: load entire 50B+300B+6T into RAM
 - New: 1 file handle per source line-buffered gzip, shuffle buffer 10k (~80MB), batch 4*2048 tokens, Chonkie chunks one doc at a time (~2-8 chunks). Peak RAM constant ~200-500MB + model.
-- Chonkie uses character tokenizer for init (zero model download) then we tokenize per chunk with ava-tokenizer only.
+- Chonkie uses character tokenizer for init (zero model download) then we tokenize per chunk with dottie-tokenizer only.
 - Rotating shards with backpressure prevents disk blowup too.
 
 ## Commit Checklist

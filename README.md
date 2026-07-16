@@ -1,4 +1,4 @@
-# Ava AGI Factory — Real-Mode Jacobian Multi-Space
+# Dottie AGI Factory — Real-Mode Jacobian Multi-Space
 
 > **1B-parameter model with explicit Global Workspace (J-Space) — 4 workspaces, YaRN RoPE 10k→1M, WSD training, logic-first curriculum, and LLMVM Python runtime**
 
@@ -12,13 +12,13 @@
 
 ---
 
-## What is Ava?
+## What is Dottie?
 
-Ava is a 1.17B-parameter research model that implements a **real Global Workspace** (J-Space) — not a metaphor, but measured, intervenable memory slots with distinct half-lives, broadcast strengths, and routing biases. Inspired by Anthropic's July 2026 J-Space paper and Dehaene's Global Workspace Theory.
+Dottie is a 1.17B-parameter research model that implements a **real Global Workspace** (J-Space) — not a metaphor, but measured, intervenable memory slots with distinct half-lives, broadcast strengths, and routing biases. Inspired by Anthropic's July 2026 J-Space paper and Dehaene's Global Workspace Theory.
 
 **Core thesis:** Intelligence needs specialized workspaces that compete, broadcast, and can be verbalized — Fast (automatic), Slow (deliberate), Critic (safety), Planner (temporal) — with a Router + Arbitration veto.
 
-This repo is the **factory** that builds Ava end-to-end: synthetic data generation (Phi Method B), tokenization, pretraining (WSD 736k steps), branching into specialists (code/math/chat), evaluation (5 canonical J-Space tests + 11-category frontier rubric), and live serving (J-Lens Viewer).
+This repo is the **factory** that builds Dottie end-to-end: synthetic data generation (Phi Method B), tokenization, pretraining (WSD 736k steps), branching into specialists (code/math/chat), evaluation (5 canonical J-Space tests + 11-category frontier rubric), and live serving (J-Lens Viewer).
 
 **New in v6.5: LLMVM Python Runtime** — inspired by Metamate Advanced Auto. The agent gets a persistent Python notebook instead of a JSON tool-calling loop. One cell = 15 round-trips. Self-modifies (adds caching layer to own download), TMUX interactive debugging, Skillbooks versioned without diffs, defer-loaded 1000+ tools without context blowup.
 
@@ -85,7 +85,7 @@ Router: task-type biases + routing KL w0.4, Arbitration veto, inter-MI cos 0.45 
 ### WSD + Branching
 
 - **WSD:** Warmup 2000 → Stable 2e-4 for 736k steps (92%) → Cosine decay to 2e-5 for 64k steps (8%)
-- **Stable ckpt:** `ava_stable_736k.pt` at 736k, saved to `checkpoints/`
+- **Stable ckpt:** `dottie_stable_736k.pt` at 736k, saved to `checkpoints/`
 - **Fork 3 specialists:**
 
 **Code:** freeze [S1], fine-tune [S2,Planner,Router,Arbitration], bias [0.25,0.45,0.05,0.25], HL S2=350 Planner=200, data code_repo 50% + code_long_32k 20% + jobbench_code 15% + general 15%, LR 1e-4
@@ -123,7 +123,7 @@ Inspired by Metamate Advanced Auto (Unified Auto / LLMVM). Core insight: give LL
 - 74 shards expansion: no cache → cached_download override saves 73 HF calls, 4k tokens per expansion
 - Tool registry: 8 tools upfront 800 tokens vs detailed 6400 — at 1000 tools: 100k vs 800k (87.5% saving, ~100 tokens metadata per skill)
 
-**Package:** `ava/llmvm/` — 6 files, 25KB
+**Package:** `dottie/llmvm/` — 6 files, 25KB
 
 - `kernel.py` — persistent notebook, host-call pause/resume, exec_cell + exec_parallel
 - `tool_registry.py` — defer-loaded 1000+ tools, signature=schema, search on demand
@@ -168,7 +168,7 @@ Create from conversation: get workflow working in LLMVMKernel, tell it `save as 
 
 Financial Accuracy, Process Transparency & Auditability, Risk & Ethical Disclosure, Coverage Comprehensiveness, Attribution, Numerical Accuracy, Logical Coherence, Citation Grounding, Instruction Following, Edge Case, Client-Ready Polish — weighted clipped 0-1, rubric validation 93.9% judge IRA 80.2% vs human 79.6%
 
-Mock mode: no torch, instant, 5/5 PASS cap_score 0.983. Real mode: loads `ava_stable_736k.pt` on CUDA.
+Mock mode: no torch, instant, 5/5 PASS cap_score 0.983. Real mode: loads `dottie_stable_736k.pt` on CUDA.
 
 **Verification culture:** A test that cannot fail worse than no test. Manifest concurrency validated by negative control: downgrade `BEGIN IMMEDIATE` → `BEGIN DEFERRED` must fail immediately. Same for causal mask — perturb, confirm test screams. Don't claim PASS unless you saw it PASS.
 
@@ -185,7 +185,7 @@ Mock mode: no torch, instant, 5/5 PASS cap_score 0.983. Real mode: loads `ava_st
 ### Install
 
 ```bash
-git clone https://github.com/jcdavis131/ava-agi-factory-v6-4.git && cd ava-agi-factory-v6-4
+git clone https://github.com/jcdavis131/dottie-agi-factory-v6-4.git && cd dottie-agi-factory-v6-4
 pip install -r requirements.txt
 # Ollama judge (local, before paid APIs)
 ollama pull qwen3:32b
@@ -208,12 +208,12 @@ torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch base --config nano --
 
 # Base 1.17B 8 GPUs (M1 2B ~3wks on 4080 @1.0-1.5k tok/s ~100M/day)
 torchrun --nproc_per_node=8 train_1b_deepspeed.py --branch base --config base1b --deepspeed deepspeed_zero3_bf16.json
-# Saves ava_stable_736k.pt at 736k steps (WSD stable checkpoint)
+# Saves dottie_stable_736k.pt at 736k steps (WSD stable checkpoint)
 
 # Branching
-torchrun --nproc_per_node=8 train_1b_deepspeed.py --branch code --ckpt ava_stable_736k.pt
-torchrun --nproc_per_node=8 train_1b_deepspeed.py --branch math --ckpt ava_stable_736k.pt
-torchrun --nproc_per_node=8 train_1b_deepspeed.py --branch chat --ckpt ava_stable_736k.pt
+torchrun --nproc_per_node=8 train_1b_deepspeed.py --branch code --ckpt dottie_stable_736k.pt
+torchrun --nproc_per_node=8 train_1b_deepspeed.py --branch math --ckpt dottie_stable_736k.pt
+torchrun --nproc_per_node=8 train_1b_deepspeed.py --branch chat --ckpt dottie_stable_736k.pt
 ```
 
 ### Eval
@@ -224,7 +224,7 @@ python eval_branch_harness.py --branch all --mode mock --wandb
 python eval_frontier_rubric.py --mode mock --judge ollama --model qwen3:32b
 
 # Real with checkpoint
-python eval_branch_harness.py --branch chat --ckpt ava_branch_chat_step800000.pt --mode real --device cuda
+python eval_branch_harness.py --branch chat --ckpt dottie_branch_chat_step800000.pt --mode real --device cuda
 ```
 
 ### Serve — J-Lens Viewer + LLMVM
@@ -238,7 +238,7 @@ uvicorn server:app --host 0.0.0.0 --port 8000
 # LLMVM kernel demo — one cell = 15 trips
 python - << 'PY'
 import asyncio
-from ava.llmvm import LLMVMKernel
+from dottie.llmvm import LLMVMKernel
 async def demo():
     k = LLMVMKernel()
     r = await k.exec_cell("x=5; x*2")
@@ -249,13 +249,13 @@ asyncio.run(demo())
 PY
 
 # TMUX debug flow for training stall
-# from ava.llmvm.tmux import TmuxManager; TmuxManager().create_session("train")
+# from dottie.llmvm.tmux import TmuxManager; TmuxManager().create_session("train")
 ```
 
 ### Convert & Release
 
 ```bash
-python convert_to_hf.py --ckpt ava_chat_final_800k.pt --out hf_model
+python convert_to_hf.py --ckpt dottie_chat_final_800k.pt --out hf_model
 # HF model ready for local Ollama, not Vercel/Bluehen
 ```
 
@@ -264,15 +264,15 @@ python convert_to_hf.py --ckpt ava_chat_final_800k.pt --out hf_model
 ## Project Structure
 
 ```
-ava-agi-factory-v6-4/
-├── ava/                      # real implementation (supersedes root blueprint)
+dottie-agi-factory-v6-4/
+├── dottie/                      # real implementation (supersedes root blueprint)
 │   ├── attention/            # CompressedConvAttention + GatedDeltaNet + causal tril()
 │   ├── datagen/              # Phi Method B logic textbooks, compression, tool_use
 │   ├── pipeline/             # SQLite manifest BEGIN IMMEDIATE, dedup md5/simhash, pipeline_status
 │   ├── memory/               # openwiki_adapter -> S2 hl300
 │   ├── llmvm/                # v6.5 Python runtime (kernel, registry, tmux, self_modify, skillbook, context)
 │   ├── skills/               # 11 skillbooks (jspace-inspector, openwiki-sync, ..., audit-jspace-leak)
-│   ├── model.py              # AvaModel1B + Multi-J-Space Router/Arbitration
+│   ├── model.py              # DottieModel1B + Multi-J-Space Router/Arbitration
 │   ├── jlosses.py            # Reportability, Broadcast 20%, Selectivity, Modulation
 │   ├── config.py             # Typed config tree over configs/*.yaml (strict, rejects unknown keys)
 │   ├── train.py              # WSD + YaRN + J-Space training loop
@@ -282,13 +282,13 @@ ava-agi-factory-v6-4/
 ├── specs/                    # 01_environment ... 11_arch_hillclimb implementation contracts
 ├── docs/                     # LLMVM_REDESIGN_v6.5.md, LLMVM_POC_REPORT.html, continuous pipelines, etc.
 │   ├── prompts/              # METAMATE_AUTO_REVIEW_PROMPT.md
-│   └── crons/                # ava-data-gather 4h, dataset-discovery daily, eval-distill daily
+│   └── crons/                # dottie-data-gather 4h, dataset-discovery daily, eval-distill daily
 ├── evals/                    # canonical J-Space probes + frontier rubric
 ├── scripts/                  # dataset_expansion_fast.py, bench_pipeline.py, smoke_live.sh
-├── checkpoints/              # builder_state.json, ava_stable_736k.pt
+├── checkpoints/              # builder_state.json, dottie_stable_736k.pt
 ├── reports/                  # llmvm_poc.html (WSD+RoPE Chart.js), bench_pipeline.json
-├── train_1b_deepspeed.py     # root blueprint (reference, real in ava/train.py)
-├── eval_branch_harness.py    # mock/real harness (reference, real in ava/)
+├── train_1b_deepspeed.py     # root blueprint (reference, real in dottie/train.py)
+├── eval_branch_harness.py    # mock/real harness (reference, real in dottie/)
 └── STATUS.json               # last expansion 500k tokens, 5045 docs, 74 shards, gdrive upload
 ```
 
@@ -297,7 +297,7 @@ ava-agi-factory-v6-4/
 - `ORCHESTRATION.md` — Foreman / Sonnet (mechanical) / Opus (correctness-critical) / Human (GPU) dispatch, verification culture, decision gates (T5.4 bench: tok/s <3x trainer → raise curator replicas), long-run supervision docker compose
 - `PLAN.md` + `TODOS.md` — master plan + live tracker
 - `docs/HARNESS_SKILL_INTEGRATION.md` — 8 skills + OpenWiki CLI `~/.openwiki/wiki` → S2, Family Brain WikiTab localStorage
-- `docs/CONTINUOUS_PIPELINES.md` — 3 crons: ava-data-gather 4h interval (fast md5 13.5s), ava-dataset-discovery daily (58 HF candidates), ava-eval-distill daily (branch harness + frontier rubric)
+- `docs/CONTINUOUS_PIPELINES.md` — 3 crons: dottie-data-gather 4h interval (fast md5 13.5s), dottie-dataset-discovery daily (58 HF candidates), dottie-eval-distill daily (branch harness + frontier rubric)
 
 ---
 

@@ -4,7 +4,7 @@
 # Usage:
 #   ./run.sh              # CPU image, port 8000
 #   ./run.sh gpu          # CUDA wheels build-arg + --gpus all
-#   AVA_CKPT=/path/to.pt ./run.sh
+#   DOTTIE_CKPT=/path/to.pt ./run.sh
 #
 # Compose (docker-compose.yml) remains the primary multi-service path;
 # this script is the single-container Alienware package.
@@ -14,9 +14,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
 MODE="${1:-cpu}"
-IMAGE="${AVA_SERVE_IMAGE:-ava-serve}"
+IMAGE="${AVA_SERVE_IMAGE:-dottie-serve}"
 PORT="${AVA_SERVE_PORT:-8000}"
-CKPT_ENV="${AVA_CKPT:-}"
+CKPT_ENV="${DOTTIE_CKPT:-}"
 
 BUILD_ARGS=()
 RUN_GPUS=()
@@ -39,7 +39,7 @@ docker build -t "$IMAGE" "${BUILD_ARGS[@]}" .
 
 RUN_ENV=()
 if [[ -n "$CKPT_ENV" ]]; then
-  RUN_ENV+=(-e "AVA_CKPT=$CKPT_ENV")
+  RUN_ENV+=(-e "DOTTIE_CKPT=$CKPT_ENV")
 fi
 
 echo "running $IMAGE on :$PORT (mounting ./runs -> /app/runs)..."

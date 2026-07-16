@@ -98,17 +98,17 @@ def _try_run_openwiki_and_harness(mode="mock", ckpt=None):
     """
     try:
         print(f"\n[HARNESS GATE] Starting openwiki-sync + harness — mode={mode} ckpt={ckpt}")
-        # Try loader path for skills (ava-skills repo)
+        # Try loader path for skills (dottie-skills repo)
         import os, sys
         here = Path(__file__).resolve().parent
         # add potential skill repo neighbors
-        for cand in [here.parent / "ava-skills", here / ".." / "ava-skills", Path.home() / "workspace" / "ava-skills"]:
+        for cand in [here.parent / "dottie-skills", here / ".." / "dottie-skills", Path.home() / "workspace" / "dottie-skills"]:
             cand = cand.resolve() if isinstance(cand, Path) else Path(cand)
             if cand.exists() and str(cand) not in sys.path:
                 sys.path.insert(0, str(cand))
         # 1. openwiki-sync via skill loader + direct adapter
         try:
-            from ava.memory.openwiki_adapter import OpenWikiAdapter
+            from dottie.memory.openwiki_adapter import OpenWikiAdapter
             adapter = OpenWikiAdapter()
             stats = adapter.ingest(limit=100)
             print(f"[openwiki-sync] Ingested {stats['n_files']} wiki files avg mass {stats['avg_mass']:.3f} — maps to S2 hl300")
@@ -120,7 +120,7 @@ def _try_run_openwiki_and_harness(mode="mock", ckpt=None):
             # try via skills loader as secondary
             try:
                 from skills.loader import run_skill
-                res = run_skill("openwiki-sync", mode=mode, ckpt=ckpt or "ava_stable_736k.pt")
+                res = run_skill("openwiki-sync", mode=mode, ckpt=ckpt or "dottie_stable_736k.pt")
                 print(f"[openwiki-sync skill] {res}")
             except Exception as e2:
                 print(f"[openwiki-sync skill] not available in this env: {e2}")
@@ -128,7 +128,7 @@ def _try_run_openwiki_and_harness(mode="mock", ckpt=None):
         # 2. harness gate via harness.runner
         try:
             # add harness path
-            for cand in [here.parent / "ava-open-harness", here / ".." / "ava-open-harness", Path.home() / "workspace" / "ava-open-harness"]:
+            for cand in [here.parent / "dottie-open-harness", here / ".." / "dottie-open-harness", Path.home() / "workspace" / "dottie-open-harness"]:
                 cand = Path(cand).resolve() if isinstance(cand, Path) else Path(cand)
                 if cand.exists() and str(cand) not in sys.path:
                     sys.path.insert(0, str(cand))
@@ -208,7 +208,7 @@ def compute_capacity_curve():
     return ks,s1,s2,combined
 
 def main():
-    parser=argparse.ArgumentParser(description="Ava AGI Factory v6.4 — WSD 736k branching YaRN 10k->1M Multi-J-Space WSM+OroJaR")
+    parser=argparse.ArgumentParser(description="Dottie AGI Factory v6.4 — WSD 736k branching YaRN 10k->1M Multi-J-Space WSM+OroJaR")
     parser.add_argument("--branch", default="base", choices=["base","code","math","chat","all"])
     parser.add_argument("--deepspeed", default="deepspeed_zero3_bf16.json")
     parser.add_argument("--mock", action="store_true")
@@ -220,7 +220,7 @@ def main():
     parser.add_argument("--wsm_ema", type=float, default=0.9, help="WSM EMA decay")
     # ── new streaming args for constant-memory flow ──
     parser.add_argument("--data_root", default="data/streaming_shards", help="root of sharded jsonl streaming data")
-    parser.add_argument("--streaming", action="store_true", default=True, help="use AvaStreamingDataset constant-memory streamer")
+    parser.add_argument("--streaming", action="store_true", default=True, help="use DottieStreamingDataset constant-memory streamer")
     parser.add_argument("--no-streaming", dest="streaming", action="store_false", help="disable streaming, use old mock")
     parser.add_argument("--shuffle_buffer", type=int, default=10000, help="fixed shuffle buffer size — memory cap")
     parser.add_argument("--seq_len", type=int, default=2048, help="sequence length per sample (2048 early, 131072 later per RoPE schedule)")
@@ -249,9 +249,9 @@ def main():
 
     # ── try import streaming dataset ──
     try:
-        from streaming_data import AvaStreamingDataset, SyntheticShardGenerator, get_phase_for_step
+        from streaming_data import DottieStreamingDataset, SyntheticShardGenerator, get_phase_for_step
         HAS_STREAMING=True
-        print("[Streaming] AvaStreamingDataset loaded — constant-memory multi-source weighted stream ready")
+        print("[Streaming] DottieStreamingDataset loaded — constant-memory multi-source weighted stream ready")
     except Exception as e:
         HAS_STREAMING=False
         print(f"[Streaming] fallback, streaming_data.py not found: {e}")
@@ -283,8 +283,8 @@ def main():
 
         if args.mock or not HAS_TORCH:
             if HAS_STREAMING and args.streaming:
-                print(f"[MOCK STREAMING] Using AvaStreamingDataset branch={branch} shuffle_buffer={args.shuffle_buffer} — never loads full corpus")
-                ds = AvaStreamingDataset(data_root=args.data_root, branch=branch, shuffle_buffer=args.shuffle_buffer, max_seq_len=args.seq_len)
+                print(f"[MOCK STREAMING] Using DottieStreamingDataset branch={branch} shuffle_buffer={args.shuffle_buffer} — never loads full corpus")
+                ds = DottieStreamingDataset(data_root=args.data_root, branch=branch, shuffle_buffer=args.shuffle_buffer, max_seq_len=args.seq_len)
                 steps = 0
                 for batch in ds.batched(seq_len=args.seq_len, batch_size=args.batch_size):
                     print(f"[MOCK STREAM BATCH] step={steps} phase={batch['phase']} task_types={batch['task_type']} sources={batch['source']} tokens_seen={ds.tokens_seen}")
@@ -303,10 +303,10 @@ def main():
                         break
                 # save mock checkpoint
                 if branch=="base":
-                    Path("ava_stable_736k.pt").write_text("mock stable 736k 13.8T streaming")
-                    Path("ava_stable_736k_rope1000000_ctx131072.pt").write_text("mock stable rope 1M ctx131k streaming")
-                    _try_run_openwiki_and_harness(mode="mock", ckpt="ava_stable_736k.pt")
-                Path(f"ava_{branch}_final_800k.pt").write_text(f"mock final {branch} 800k streaming")
+                    Path("dottie_stable_736k.pt").write_text("mock stable 736k 13.8T streaming")
+                    Path("dottie_stable_736k_rope1000000_ctx131072.pt").write_text("mock stable rope 1M ctx131k streaming")
+                    _try_run_openwiki_and_harness(mode="mock", ckpt="dottie_stable_736k.pt")
+                Path(f"dottie_{branch}_final_800k.pt").write_text(f"mock final {branch} 800k streaming")
                 print(f"[MOCK STREAM] Branch {branch} done tokens_seen={ds.tokens_seen} stats={ds.stats()}")
                 os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
                 continue
@@ -321,12 +321,12 @@ def main():
                 print(f"[MOCK W&B] capacity_curve ks={ks} combined knee 9 — S1 knee 6 exp(-0.12*max(0,k-6)) S2 knee 10 exp(-0.08*max(0,k-10))")
                 print(f"[MOCK W&B] half_life curves: S1 hl=8 decay exp(-ln2*t/hl) S2 hl=300 etc every 50 steps log S1_hl_est vs target")
                 if branch=="base":
-                    Path("ava_stable_736k.pt").write_text("mock stable 736k 13.8T")
-                    Path("ava_stable_736k_rope1000000_ctx131072.pt").write_text("mock stable rope 1M ctx131k")
+                    Path("dottie_stable_736k.pt").write_text("mock stable 736k 13.8T")
+                    Path("dottie_stable_736k_rope1000000_ctx131072.pt").write_text("mock stable rope 1M ctx131k")
                     # ── OpenWiki + Harness gating after stable ckpt 736k per HARNESS_SKILL_INTEGRATION.md
-                    _try_run_openwiki_and_harness(mode="mock", ckpt="ava_stable_736k.pt")
+                    _try_run_openwiki_and_harness(mode="mock", ckpt="dottie_stable_736k.pt")
                 else:
-                    Path(f"ava_{branch}_final_800k.pt").write_text(f"mock final {branch} 800k")
+                    Path(f"dottie_{branch}_final_800k.pt").write_text(f"mock final {branch} 800k")
                 os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
                 continue
 
@@ -349,14 +349,14 @@ def main():
             wsm_merger=WSMCheckpointMerger(buffer_size=args.wsm_buffer, ema_decay=args.wsm_ema, merge_every=args.wsm_merge_every, save_dir=WSM_CONFIG["save_dir"])
             print(f"[WSM] Decay-free mode: stable_lr {WSM_CONFIG['stable_lr']} merge_every {args.wsm_merge_every} buffer {args.wsm_buffer} ema {args.wsm_ema} — infinite continuation support")
 
-        if branch!="base" and Path("ava_stable_736k.pt").exists():
-            print(f"Loading stable checkpoint ava_stable_736k.pt for {branch} — freeze {bcfg['freeze']}")
+        if branch!="base" and Path("dottie_stable_736k.pt").exists():
+            print(f"Loading stable checkpoint dottie_stable_736k.pt for {branch} — freeze {bcfg['freeze']}")
             model.freeze_spaces(bcfg["freeze"])
 
         model.train()
         if HAS_STREAMING and args.streaming:
             print(f"[Real STREAMING] Building infinite low-memory stream for branch {branch} — seq_len auto from RoPE schedule schedule={args.schedule} orojar={args.orojar}")
-            ds = AvaStreamingDataset(data_root=args.data_root, branch=branch, shuffle_buffer=args.shuffle_buffer, max_seq_len=args.seq_len)
+            ds = DottieStreamingDataset(data_root=args.data_root, branch=branch, shuffle_buffer=args.shuffle_buffer, max_seq_len=args.seq_len)
             gen = None
             if len(list(Path(args.data_root).rglob("*.jsonl*"))) < 5:
                 try:
@@ -432,13 +432,13 @@ def main():
                     jac_str=f" fro {jacobian_metrics.get('fro',0):.2f} cos {jacobian_metrics.get('cos',0):.3f} orth {jacobian_metrics.get('orth',0):.3f}" if jacobian_metrics else ""
                     print(f"[STREAM] step {step} lr {lr:.2e} sched {args.schedule} rope {rope['base']} ctx {rope['ctx']} phase={batch['phase']} task={maj_task} lm {lm_loss.item():.3f}{orojar_str}{jac_str} delta {delta:.4f} tokens {ds.tokens_seen}")
                 if step%200==0 and step>0:
-                    torch.save(model.state_dict(), f"ava_{branch}_step{step}.pt")
+                    torch.save(model.state_dict(), f"dottie_{branch}_step{step}.pt")
                 if step==736000 and branch=="base" and args.schedule=="wsd":
-                    torch.save(model.state_dict(), "ava_stable_736k.pt")
-                    print("Saved ava_stable_736k.pt at 736k — branching no memory spike")
-                    _try_run_openwiki_and_harness(mode="real", ckpt="ava_stable_736k.pt")
+                    torch.save(model.state_dict(), "dottie_stable_736k.pt")
+                    print("Saved dottie_stable_736k.pt at 736k — branching no memory spike")
+                    _try_run_openwiki_and_harness(mode="real", ckpt="dottie_stable_736k.pt")
                 elif wsm_merger is not None and step%args.wsm_merge_every==0 and branch=="base" and step>0:
-                    torch.save(model.state_dict(), f"ava_stable_wsm_{step}.pt")
+                    torch.save(model.state_dict(), f"dottie_stable_wsm_{step}.pt")
                     print(f"[WSM] Saved stable WSM ckpt at {step} (infinite continuation)")
 
                 step+=1
@@ -448,7 +448,7 @@ def main():
 
             if gen:
                 gen.stop()
-            Path(f"ava_{branch}_final_800k.pt").write_bytes(b"streaming ckpt")
+            Path(f"dottie_{branch}_final_800k.pt").write_bytes(b"streaming ckpt")
             print(f"Branch {branch} done streaming tokens_seen={ds.tokens_seen} schedule={args.schedule}")
             os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
         else:
@@ -476,11 +476,11 @@ def main():
                 if step%2==0:
                     print(f"step {step} lr {lr:.2e} sched {args.schedule} rope {rope['base']} ctx {rope['ctx']} orojar {args.orojar} — would log hl est etc")
                 if step==2 and branch=="base":
-                    torch.save(model.state_dict(), "ava_stable_736k.pt")
-                    print("Saved ava_stable_736k.pt at 736k equivalent")
-                    _try_run_openwiki_and_harness(mode="real", ckpt="ava_stable_736k.pt")
+                    torch.save(model.state_dict(), "dottie_stable_736k.pt")
+                    print("Saved dottie_stable_736k.pt at 736k equivalent")
+                    _try_run_openwiki_and_harness(mode="real", ckpt="dottie_stable_736k.pt")
 
-            Path(f"ava_{branch}_final_800k.pt").write_bytes(b"mock ckpt replace with torch.save")
+            Path(f"dottie_{branch}_final_800k.pt").write_bytes(b"mock ckpt replace with torch.save")
             print(f"Branch {branch} done — auto-running eval_branch_harness")
             os.system(f"python3 eval_branch_harness.py --branch {branch} --mode mock")
 

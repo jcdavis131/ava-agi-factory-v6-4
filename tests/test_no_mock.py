@@ -46,16 +46,16 @@ def test_random_init_models_produce_different_measurements():
     """Dynamic: two random-init nano models must not return identical jspace floats."""
     torch = pytest.importorskip("torch")
 
-    from ava.config import AvaConfig
-    from ava.model import build_model
-    from ava.tokenizer import AvaTokenizer
+    from dottie.config import DottieConfig
+    from dottie.model import build_model
+    from dottie.tokenizer import DottieTokenizer
     from evals.jspace_tests import test_spider_ant
 
-    tok_path = _REPO / "data" / "nano" / "tokenizer" / "ava_nano_bpe.json"
+    tok_path = _REPO / "data" / "nano" / "tokenizer" / "dottie_nano_bpe.json"
     if not tok_path.exists():
         pytest.skip("nano tokenizer not built")
-    tok = AvaTokenizer.load(tok_path)
-    cfg = AvaConfig.load("nano")
+    tok = DottieTokenizer.load(tok_path)
+    cfg = DottieConfig.load("nano")
 
     def run_seed(seed: int) -> dict:
         torch.manual_seed(seed)

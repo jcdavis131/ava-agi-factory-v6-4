@@ -1,6 +1,6 @@
-# ava-base1b — 1B-class target (RTX 4080 Laptop 12GB, WSL2)
+# dottie-base1b — 1B-class target (RTX 4080 Laptop 12GB, WSL2)
 #
-# MEASURED param count: 1409M (`python -m ava.config --preset base1b --count-params`).
+# MEASURED param count: 1409M (`python -m dottie.config --preset base1b --count-params`).
 # specs/08 predicted 1.17B; it undercounted the Multi-J-Space, which is NOT just
 # "slots ~0.3M". Each of the 4 workspaces carries 2 MultiheadAttention (4*d^2 each)
 # + mod_gate (d^2) + broad_proj (d^2) = 10*d^2 = 41.9M at d=2048, and there are 4
@@ -98,4 +98,4 @@ data:
   raw_dir: data/base1b/raw
   packed_dir: data/base1b/packed
   heldout_tokens_per_phase: 5_000_000
-  tokenizer_path: data/mini/tokenizer/ava_bpe_32k.json   # shared with mini
+  tokenizer_path: data/mini/tokenizer/dottie_bpe_32k.json   # shared with mini

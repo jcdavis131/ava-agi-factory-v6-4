@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from ava.pipeline import flow
-from ava.pipeline.flow import DataState, FlowConfig, StarvationTracker
-from ava.pipeline.manifest import PACKED, Manifest
+from dottie.pipeline import flow
+from dottie.pipeline.flow import DataState, FlowConfig, StarvationTracker
+from dottie.pipeline.manifest import PACKED, Manifest
 
 
 @pytest.fixture()

@@ -1,4 +1,4 @@
-# Source registry for the Ava collector.
+# Source registry for the Dottie collector.
 #
 # Maps HuggingFace datasets and local synthetic generators onto the 6-phase
 # curriculum. The collector reads this file, and for a target phase selects a
@@ -153,7 +153,7 @@ sources:
 
   # JobBench-style delegation dossiers (occupation x reconciliation task) and
   # Gaia2-style async/dynamic scheduling scenarios -- see
-  # ava/datagen/workflow_jobbench.py and workflow_gaia2.py. Weights follow the
+  # dottie/datagen/workflow_jobbench.py and workflow_gaia2.py. Weights follow the
   # blueprint's own p3/p4/p5 emphasis (inner_monologue_research.md): jobbench
   # skews toward reasoning (p3), gaia2 skews toward long/async context (p4).
   # Existing p3/p4/p5 source weights above were rescaled down proportionally

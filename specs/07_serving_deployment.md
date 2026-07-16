@@ -5,9 +5,9 @@
   edits, pydantic migration). Sonnet for parts C+D+E (smoke script, report generator, Dockerfile,
   run.sh, Vercel layout).
 - **Dependencies:** Spec 01 (env, Makefile, `.gitignore` with `runs/` + `export/`); model/training
-  specs delivering `ava/model.py`, `ava/tokenizer` and checkpoints `runs/base/ava_nano_stable.pt`,
-  `runs/base/ava_nano_final.pt`, `runs/chat/ava_nano_chat.pt`, tokenizer
-  `data/nano/tokenizer/ava_nano_bpe.json`, metrics `runs/*/metrics.jsonl`; eval spec delivering
+  specs delivering `dottie/model.py`, `dottie/tokenizer` and checkpoints `runs/base/dottie_nano_stable.pt`,
+  `runs/base/dottie_nano_final.pt`, `runs/chat/dottie_nano_chat.pt`, tokenizer
+  `data/nano/tokenizer/dottie_nano_bpe.json`, metrics `runs/*/metrics.jsonl`; eval spec delivering
   `reports/branch_eval_results_real.json` and `reports/REPORT_REAL.md`.
 - **Status when done:** `bash scripts/smoke_live.sh` green in the container (4 CPU, 15GB RAM, no
   GPU, Python 3.11, HF hub + wandb network-blocked).
@@ -16,14 +16,14 @@
 
 Replace every hardcoded mock in `server.py` with real inference against the trained nano
 checkpoint, wrap model loading/generation/inspection/intervention in a reusable engine
-(`ava/serve_engine.py`), and define three deployment targets: (1) live test inside the container,
+(`dottie/serve_engine.py`), and define three deployment targets: (1) live test inside the container,
 (2) static report site on Vercel, (3) self-host Docker package for the user's Alienware m16
 (RTX 4080 Laptop 12GB, WSL2). `server.py` is one of the three real modules and MAY be modified in
 place. No other blueprint file may be touched.
 
 ## Deliverable files (exact paths, repo-relative)
 
-1. `ava/serve_engine.py` (new, Opus)
+1. `dottie/serve_engine.py` (new, Opus)
 2. `server.py` (modified in place, Opus)
 3. `scripts/smoke_live.sh` (new, Sonnet)
 4. `scripts/make_report.py` (new, Sonnet)
@@ -34,11 +34,11 @@ place. No other blueprint file may be touched.
 
 ## Detailed requirements
 
-### A. ava/serve_engine.py (Opus)
+### A. dottie/serve_engine.py (Opus)
 
-- `class ServeEngine` loads checkpoint + tokenizer ONCE. Checkpoint path: env `AVA_CKPT`, default
-  `runs/chat/ava_nano_chat.pt`. Missing file → `FileNotFoundError` naming the path and the env
-  var. Tokenizer: `data/nano/tokenizer/ava_nano_bpe.json`. CPU, `model.eval()`, all public methods
+- `class ServeEngine` loads checkpoint + tokenizer ONCE. Checkpoint path: env `DOTTIE_CKPT`, default
+  `runs/chat/dottie_nano_chat.pt`. Missing file → `FileNotFoundError` naming the path and the env
+  var. Tokenizer: `data/nano/tokenizer/dottie_nano_bpe.json`. CPU, `model.eval()`, all public methods
   under `torch.no_grad()` except the intervention hook path. Module-level
   `get_engine() -> ServeEngine` singleton (lazy, thread-safe via `threading.Lock`).
 - `generate(text: str, max_tokens: int = 64, temperature: float = 0.8, task_type: str = "chat")
@@ -112,7 +112,7 @@ place. No other blueprint file may be touched.
 ### C. scripts/smoke_live.sh (Sonnet)
 
 `#!/usr/bin/env bash`, `set -euo pipefail`. Boots `uvicorn server:app --host 0.0.0.0 --port 8000`
-in background (respecting inherited `AVA_CKPT`), polls `GET /health` every 1s for max 60s, then
+in background (respecting inherited `DOTTIE_CKPT`), polls `GET /health` every 1s for max 60s, then
 asserts (curl + `python -c` JSON checks), always killing the server via `trap`:
 1. `/health` returns 200 with `params > 10_000_000` and `vocab == 8192`.
 2. `POST /generate` on two different prompts returns non-empty `text`, and the two texts differ.
@@ -146,7 +146,7 @@ Exit 0 only if all pass; print `SMOKE PASS`/`SMOKE FAIL <step>`.
 ### E. Deployment targets
 
 1. **Container live test (the "deploy to test live" gate):**
-   `AVA_CKPT=runs/chat/ava_nano_chat.pt uvicorn server:app --host 0.0.0.0 --port 8000` then
+   `DOTTIE_CKPT=runs/chat/dottie_nano_chat.pt uvicorn server:app --host 0.0.0.0 --port 8000` then
    `bash scripts/smoke_live.sh`. Boot-to-healthy under 60s on 4 CPUs.
 2. **Vercel static report site:** deploy the `reports/` directory as-is (no build step). Required
    layout: `reports/index.html` (from make_report.py), `reports/report_real.html` (rendered
@@ -158,11 +158,11 @@ Exit 0 only if all pass; print `SMOKE PASS`/`SMOKE FAIL <step>`.
    stage pip-installs into `/opt/venv` with
    `ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu` (CUDA variant documented in a comment:
    `--build-arg TORCH_INDEX=https://download.pytorch.org/whl/cu124`); runtime stage copies
-   `/opt/venv`, `ava/`, `server.py`, `scripts/`, `configs/`, `data/nano/tokenizer/`; `EXPOSE
-   8000`; `ENV AVA_CKPT=/app/runs/chat/ava_nano_chat.pt`; CMD
+   `/opt/venv`, `dottie/`, `server.py`, `scripts/`, `configs/`, `data/nano/tokenizer/`; `EXPOSE
+   8000`; `ENV DOTTIE_CKPT=/app/runs/chat/dottie_nano_chat.pt`; CMD
    `uvicorn server:app --host 0.0.0.0 --port 8000`. Checkpoints are NOT baked into the image.
-   `run.sh`: `docker build -t ava-serve .` then
-   `docker run --rm -p 8000:8000 -v "$(pwd)/runs:/app/runs" -e AVA_CKPT ava-serve`; `--gpus all`
+   `run.sh`: `docker build -t dottie-serve .` then
+   `docker run --rm -p 8000:8000 -v "$(pwd)/runs:/app/runs" -e DOTTIE_CKPT dottie-serve`; `--gpus all`
    added when `run.sh gpu` is invoked (CUDA image variant).
 
 ### tests/test_server_endpoints.py
@@ -174,7 +174,7 @@ the pydantic v2 alias), `/health` schema.
 
 ## Interfaces
 
-- Downstream (spec 09, runbook) relies on: `from ava.serve_engine import get_engine`;
+- Downstream (spec 09, runbook) relies on: `from dottie.serve_engine import get_engine`;
   `get_engine().stats()`; the `/health`, `/generate`, `/report` routes; audit file
   `runs/serve_audit.jsonl` schema above. These are frozen contracts.
 
@@ -182,10 +182,10 @@ the pydantic v2 alias), `/health` schema.
 
 1. `python -c "import server; print('import ok')"` → prints `import ok` (fails on current code).
 2. `pytest tests/test_server_endpoints.py` → all pass.
-3. `AVA_CKPT=runs/chat/ava_nano_chat.pt bash scripts/smoke_live.sh` → prints `SMOKE PASS`, exit 0.
+3. `DOTTIE_CKPT=runs/chat/dottie_nano_chat.pt bash scripts/smoke_live.sh` → prints `SMOKE PASS`, exit 0.
 4. `python scripts/make_report.py && python -c "import os;assert os.path.getsize('reports/index.html')>10240"`
    → exit 0; `grep -ci 'cdn\|https://fonts' reports/index.html` → `0`.
-5. `docker build -t ava-serve .` succeeds (skip with a note if the container lacks docker; the
+5. `docker build -t dottie-serve .` succeeds (skip with a note if the container lacks docker; the
    Dockerfile must still pass `docker build` dry review + hadolint-level sanity).
 6. `git status --porcelain` shows only: modified `server.py`; new files listed above. No other
    blueprint file modified.

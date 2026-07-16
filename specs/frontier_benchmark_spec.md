@@ -1,6 +1,6 @@
 Solo personal project, no connection to employer, built with public/free-tier only
 
-# Frontier Benchmark Spec — Ava AGI Factory v6.4 Extension
+# Frontier Benchmark Spec — Dottie AGI Factory v6.4 Extension
 ## Inspired by Samaya FrontierFinance
 
 ### FrontierFinance Summary (source: FrontierFinance LinkedIn post + research page + image)
@@ -107,7 +107,7 @@ Goal: reuse rumbric pattern for long-horizon research tasks, replace SEC filings
 - Free-tier mock judge = keyword overlap + numeric presence + length heuristic (no API)
 - Real judge options: LocalHFJudge (transformers pipeline if present) or MetaMuseJudge (Muse Spark 1.1 public API personal account, env META_API_KEY, endpoint META_MUSE_API_URL default https://api.meta.ai/v1, $1.25 in/$4.25 out, $20 free credits, US-only preview, uses PUBLIC endpoint only, zero work resources)
 
-### Integration into Ava v6.4
+### Integration into Dottie v6.4
 - Phase 3 Reasoning & Phase 5 Anneal: use frontier tasks as long-context (16-32k) anneal with reward>0.8 verifier = CriteriaJudge
 - eval_branch_harness.py: add --frontier flag calling eval_frontier_rubric.evaluate_all
 - shards: data/streaming_shards/frontier_rubric/manifest.jsonl + shard_*.jsonl.gz with concatenated docs

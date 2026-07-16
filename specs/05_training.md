@@ -1,10 +1,10 @@
 # Spec 05 — Real Training Loop + J-Losses + Packing Pipeline
 
 - **Spec ID:** 05_training
-- **Worker tier:** OPUS. The packing pipeline (`ava/data.py` + `scripts/build_dataset.py`) is a
+- **Worker tier:** OPUS. The packing pipeline (`dottie/data.py` + `scripts/build_dataset.py`) is a
   self-contained SONNET subtask — dispatch it first against the PhaseSampler interface below, in
   parallel with the loss/trainer work.
-- **Dependencies:** 01_environment (AvaConfig), 02 (data gen: `data/raw/*.jsonl`), 03 (tokenizer:
+- **Dependencies:** 01_environment (DottieConfig), 02 (data gen: `data/raw/*.jsonl`), 03 (tokenizer:
   `ava.tokenizer`, vocab 8192 for nano), 04_model_and_configs (build_model, fixed model).
 - **Status when done:** `bash scripts/smoke_e2e.sh` green in ~5 min; `pytest tests/test_train_smoke.py` green.
 
@@ -18,12 +18,12 @@ spec). Zero network calls: no wandb, no HF hub; metrics go to local JSONL.
 
 ## Deliverable files (exact paths)
 
-1. `ava/data.py` — memmap dataset + `PhaseSampler` (Sonnet subtask)
+1. `dottie/data.py` — memmap dataset + `PhaseSampler` (Sonnet subtask)
 2. `scripts/build_dataset.py` — tokenize + pack per-phase bins (Sonnet subtask)
 3. curriculum lives in the **committed `configs/nano.yaml`** (`phases:` / `training:` /
    `branch_chat:` sections) — no separate curriculum file; see below for how to consume it
-4. `ava/jlosses.py` — combined loss
-5. `ava/train.py` — trainer CLI (`python -m ava.train`)
+4. `dottie/jlosses.py` — combined loss
+5. `dottie/train.py` — trainer CLI (`python -m dottie.train`)
 6. `scripts/bench_throughput.py`
 7. `scripts/smoke_e2e.sh`
 8. `tests/test_train_smoke.py`
@@ -48,7 +48,7 @@ phases:
   - {id: 4, name: long,       tokens: 1500000,  seq_len: 1024, j_weight: 0.15, rope_base: 32000, rope_scale: 1.2}
   - {id: 5, name: anneal,     tokens: 3000000,  seq_len: 1024, j_weight: 0.15, rope_base: 32000, rope_scale: 1.2}
 wsd: {warmup_steps: 110, lr_max: 1.0e-3, lr_min: 1.0e-4, stable_until_step: 3369, total_steps: 3662,
-      stable_ckpt: runs/base/ava_nano_stable.pt}
+      stable_ckpt: runs/base/dottie_nano_stable.pt}
 optimizer: {betas: [0.9, 0.95], weight_decay: 0.1, grad_clip: 1.0}
 branch_chat: {tokens: 3000000, lr: 2.5e-4, freeze: [system1, system2],
               router_bias: [0.15, 0.25, 0.35, 0.25],
@@ -65,7 +65,7 @@ workflow: 0.15, general: 0.10}; P4 {long_docs: 0.50, workflow: 0.25, general: 0.
 P5 {edu_high: 0.40, verified: 0.40, workflow: 0.20}. The Sonnet worker maps/renames these keys to the
 actual spec-02 source names, preserving proportions, and records the mapping in the yaml as comments.
 
-### ava/data.py + scripts/build_dataset.py (Sonnet subtask)
+### dottie/data.py + scripts/build_dataset.py (Sonnet subtask)
 - `scripts/build_dataset.py --preset nano [--phases 0-5]`: reads `data/raw/*.jsonl` (lines:
   `{"text": str, "task_type": "automatic"|"deliberate"|"safety"|"temporal", "concept": str|null,
   "source": str}`), tokenizes with the spec-03 tokenizer, writes per phase:
@@ -78,7 +78,7 @@ actual spec-02 source names, preserving proportions, and records the mapping in 
   - vocab_size ≤ 65535 asserted (uint16). Idempotent; `--force` to rebuild. Prints per-phase token
     counts; each train bin must contain ≥ the phase's `tokens` budget (oversample sources by repetition
     with a warning if raw data is short).
-- `ava/data.py` — `class PhaseSampler:`
+- `dottie/data.py` — `class PhaseSampler:`
   `PhaseSampler(phase: int, seq_len: int, batch_tokens: int, data_dir: str, seed: int, mix: dict)`;
   `sample() -> (input_ids [B,T] int64, targets [B,T] int64, task_type: str, concept_ids [B] int64)`
   with `B = batch_tokens // seq_len`, targets = inputs shifted by 1 (next-token; last target = EOS or
@@ -89,7 +89,7 @@ actual spec-02 source names, preserving proportions, and records the mapping in 
   `state_dict()/load_state_dict()` expose cursor + RNG state for bit-exact resume. Memory: memmap only,
   never load a full bin into RAM.
 
-### ava/jlosses.py
+### dottie/jlosses.py
 `compute_losses(out: dict, targets, task_type: str, concept_ids, model, j_weight: float, cfg) ->
 (total: Tensor, parts: dict[str, float])`. Reuse `MultiJSpaceLosses` (multi_jspace_module.py:159-195)
 methods wherever they exist; implement only glue. Exact composition:
@@ -117,12 +117,12 @@ total    = lm + base4*j_weight + hl + inter_mi*0.3 + route_kl*0.4
 - `parts` returns every term as a python float (keys: lm, report, broadcast, selectivity, modulation,
   hl_s1, hl_s2, hl_critic, hl_planner, inter_mi, route_kl, total).
 
-### ava/train.py — CLI `python -m ava.train --preset nano [--device cpu|cuda] [--max-steps N] [--resume] [--branch chat --init CKPT]`
+### dottie/train.py — CLI `python -m dottie.train --preset nano [--device cpu|cuda] [--max-steps N] [--resume] [--branch chat --init CKPT]`
 - Single process. `torch.set_num_threads(4)` on cpu. AdamW betas (0.9, 0.95), wd 0.1, grad-clip 1.0
   (`clip_grad_norm_` after accumulation, before step). Grad-accum so each optimizer step consumes
   exactly `step_tokens=8192`. bf16 `torch.autocast` on cuda only; pure fp32 on cpu. NO wandb/network.
 - WSD per curriculum yaml: linear warmup 110 steps → 1e-3 flat through 3369 → cosine to 1e-4 at 3662.
-  At step 3369 save `runs/base/ava_nano_stable.pt` (same full-checkpoint format as below).
+  At step 3369 save `runs/base/dottie_nano_stable.pt` (same full-checkpoint format as below).
 - Phase manager: advances when the phase token budget is consumed; on boundary switches PhaseSampler
   (new seq_len, mix, j_weight) and, entering P4, calls `apply_rope_scaling(model, 32000, 1.2)`
   (model_1b.py:260-264).
@@ -135,7 +135,7 @@ total    = lm + base4*j_weight + hl + inter_mi*0.3 + route_kl*0.4
   hl_est: {S1,S2,Critic,Planner}, broadcast_strength, verbalizable_mass, tok_s, rss_mb}`
   (hl_est via SingleWorkspace.hl_est(), multi_jspace_module.py:50-52; rss via
   `resource.getrusage(...).ru_maxrss/1024`).
-- `--branch chat --init runs/base/ava_nano_stable.pt`: ACTUALLY `model.load_state_dict(ckpt["model"])`
+- `--branch chat --init runs/base/dottie_nano_stable.pt`: ACTUALLY `model.load_state_dict(ckpt["model"])`
   (fixing the train_1b_deepspeed.py:116-118 no-op; BRANCH_CONFIGS["chat"] pattern at :36), then
   `model.freeze_spaces(["system1","system2"])`, `set_router_bias(model, [0.15,0.25,0.35,0.25])` (spec 04),
   fresh AdamW over `requires_grad` params at lr 2.5e-4 constant (110-step warmup), 3M tokens (366 steps)
@@ -150,10 +150,10 @@ full optimizer steps (real data if built, else random ids), record steady-state 
 
 ### scripts/smoke_e2e.sh (~5 min wall, `set -euo pipefail`, trap-based teardown)
 1. tiny data: `python scripts/gen_all_data.py --seed 1234 --tiny` (or spec-02's documented tiny flag);
-2. `python scripts/build_dataset.py --preset nano_quick`; 3. `python -m ava.train --preset nano_quick
+2. `python scripts/build_dataset.py --preset nano_quick`; 3. `python -m dottie.train --preset nano_quick
 --max-steps 200 --device cpu`; 4. mini-eval: `python evals/perplexity.py --ckpt <latest> --phases 0`
-if `evals/perplexity.py` exists else echo "SKIP eval (spec 06 pending)"; 5. if `ava/serve_engine.py`
-exists (spec 07): `AVA_CKPT=<latest> uvicorn server:app --port 8000 &`, poll,
+if `evals/perplexity.py` exists else echo "SKIP eval (spec 06 pending)"; 5. if `dottie/serve_engine.py`
+exists (spec 07): `DOTTIE_CKPT=<latest> uvicorn server:app --port 8000 &`, poll,
 `curl -sf localhost:8000/health`, else SKIP; 6. teardown
 kills the server, prints `SMOKE OK`.
 
@@ -168,9 +168,9 @@ kills the server, prints `SMOKE OK`.
   listed above (recursively for j_losses and hl_est).
 
 ## Interfaces
-- Consumes: `ava.config.AvaConfig`, `ava.model.build_model/set_router_bias`, `ava.tokenizer` (spec 03),
+- Consumes: `ava.config.DottieConfig`, `ava.model.build_model/set_router_bias`, `ava.tokenizer` (spec 03),
   `apply_rope_scaling`, `MultiJSpaceLosses`. Produces for spec 06: heldout bins
-  `data/nano/heldout_phase{N}.bin(+.idx.json)`, checkpoints `runs/base/ava_nano_stable.pt` /
+  `data/nano/heldout_phase{N}.bin(+.idx.json)`, checkpoints `runs/base/dottie_nano_stable.pt` /
   `runs/chat/ckpt_step*.pt` (format above), `runs/*/metrics.jsonl`.
 - `PhaseSampler` signature above is frozen; spec 06 reuses it for heldout PPL.
 
@@ -178,16 +178,16 @@ kills the server, prints `SMOKE OK`.
 1. `python scripts/build_dataset.py --preset nano_quick` → exit 0; `ls data/nano/phase0.bin
    data/nano/heldout_phase0.bin data/nano/phase0.idx.json` all exist; bins are uint16 (size == 2×tokens).
 2. `pytest tests/test_train_smoke.py -q` → all pass, < 8 min CPU.
-3. `python -m ava.train --preset nano_quick --max-steps 30 --device cpu` → exit 0, creates
+3. `python -m dottie.train --preset nano_quick --max-steps 30 --device cpu` → exit 0, creates
    `runs/nano_quick/metrics.jsonl` (≥3 lines) and a `ckpt_step*.pt`; rerun with `--resume --max-steps 40`
    → continues from step 30 (log line states resumed step).
 4. `python scripts/bench_throughput.py --preset nano --device cpu` → exit 0, `runs/bench.json` has all
    four top-level keys and 15e6 ≤ budget_tokens ≤ 40e6.
 5. `bash scripts/smoke_e2e.sh` → prints `SMOKE OK`, exit 0, ≤ ~6 min.
-6. `python -m ava.train --preset nano --branch chat --init runs/base/ava_nano_stable.pt --max-steps 5`
+6. `python -m dottie.train --preset nano --branch chat --init runs/base/dottie_nano_stable.pt --max-steps 5`
    (after a stable ckpt exists; for acceptance, any full checkpoint renamed into place is fine) → exit 0,
    log confirms `loaded state_dict (N tensors)`, `frozen: system1,system2`, router bias set.
-7. `grep -rn "wandb\|huggingface\|requests\." ava/train.py ava/data.py ava/jlosses.py` → no matches.
+7. `grep -rn "wandb\|huggingface\|requests\." dottie/train.py dottie/data.py dottie/jlosses.py` → no matches.
 
 ## Out of scope
 - Real eval harness/probes/interventions (spec 06). server.py replacement (separate spec).

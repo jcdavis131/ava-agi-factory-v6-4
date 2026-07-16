@@ -1,4 +1,4 @@
-# Inkling Steals — Architecture Wins for Ava v6.4
+# Inkling Steals — Architecture Wins for Dottie v6.4
 Solo personal project, no connection to employer, built with public/free-tier only
 
 Source: https://thinkingmachines.ai/news/introducing-inkling/ — 975B total / 41B active MoE, 1M ctx, 45T tokens multimodal, GB300 NVL72 training.
@@ -24,7 +24,7 @@ Source: https://thinkingmachines.ai/news/introducing-inkling/ — 975B total / 4
 ### 3. Optimization — Muon + Weight Decay ∝ lr² + WSD/WSM
 - **Inkling:** Muon for large matrix weights, Adam for others, wd coupled to square of learning rate (Kosson 2023, Defazio 2025) keeps weight size stable across horizons, hybrid schedules inspired by modular manifolds
 - **Our steal:**
-  - Implement `ava/muon.py`: Newton-Schulz orthogonalization (5 steps) for momentum, for Linear layers >512 dims; AdamW for biases/norms/routing
+  - Implement `dottie/muon.py`: Newton-Schulz orthogonalization (5 steps) for momentum, for Linear layers >512 dims; AdamW for biases/norms/routing
   - wd_schedule: wd_t = base_wd * (lr_t / lr_max)^2, target 0.1 * scale
   - Already have WSD 2000→736k 92% + WSM decay-free merging buffer 5 EMA 0.9 infinite continuation
 - **Math:** Muon is steepest descent under spectral norm, better conditioned than Adam for large mats
@@ -70,11 +70,11 @@ Source: https://thinkingmachines.ai/news/introducing-inkling/ — 975B total / 4
 ## Implementation Checklist (Home-only, free-tier, offline deterministic)
 
 - [ ] model_1b.py: RelativePositionBias class, short_conv Conv1d depthwise causal, MoELayer sigmoid router + bias, config gated use_relative/use_short_conv/use_moe
-- [ ] ava/muon.py: Muon optimizer with Newton-Schulz 5 steps
+- [ ] dottie/muon.py: Muon optimizer with Newton-Schulz 5 steps
 - [ ] train_1b_deepspeed.py: wd ∝ lr², hybrid Muon+Adam, effort conditioning
 - [ ] eval_frontier_rubric.py: RubricGrader + ClaimsGrader + Abstention + effort sweep 0.2-0.99 tokens vs score curve
-- [ ] ava/audio/: dMel spectrogram encoder-free (librosa-free stub with mel filterbank)
-- [ ] ava/embeddings/: 40x40 hMLP vision patch encoder
+- [ ] dottie/audio/: dMel spectrogram encoder-free (librosa-free stub with mel filterbank)
+- [ ] dottie/embeddings/: 40x40 hMLP vision patch encoder
 - [ ] Causality tests 28 must stay green (T6.1 hard invariant)
 - [ ] Byte-identical default path: all new behind flags False
 

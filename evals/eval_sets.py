@@ -11,7 +11,7 @@ These are eval **prompts** — the literal probe strings a benchmark feeds the
 model, together with their short expected continuations. They are NOT the
 underlying world-facts.
 
-`ava/datagen/encyclopedia.py` deliberately teaches the *facts* ("a spider has
+`dottie/datagen/encyclopedia.py` deliberately teaches the *facts* ("a spider has
 eight legs", "Paris is the capital of France") in ordinary prose, in phrasings
 DIFFERENT from these probes. The model MUST learn those facts. What it must not
 do is see the exact benchmark surface-form during training.

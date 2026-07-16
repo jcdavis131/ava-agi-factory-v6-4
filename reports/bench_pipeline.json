@@ -1,7 +1,7 @@
 {
   "preset": "nano",
   "device": "cuda",
-  "tokenizer": "C:\\Users\\jcdav\\ava-agi\\data\\nano\\tokenizer\\ava_nano_bpe.json",
+  "tokenizer": "C:\\Users\\jcdav\\ava-agi\\data\\nano\\tokenizer\\dottie_nano_bpe.json",
   "gate_ratio_required": 3.0,
   "collector": {
     "docs": 300,

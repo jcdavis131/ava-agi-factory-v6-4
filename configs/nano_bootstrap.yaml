@@ -1,4 +1,4 @@
-# ava-nano — 14M-param CPU pilot (container: 4 cores, 15GB RAM, no GPU)
+# dottie-nano — 14M-param CPU pilot (container: 4 cores, 15GB RAM, no GPU)
 # Purpose: prove every pipeline stage real, end-to-end; produces the live-deploy checkpoint.
 preset: nano
 
@@ -45,8 +45,8 @@ training:
   wsd: {warmup_steps: 110, stable_frac: 0.92, lr_max: 1.0e-3, lr_min: 1.0e-4}
   checkpoint_every_steps: 8
   metrics_every_steps: 10
-  stable_ckpt_name: ava_nano_stable.pt
-  final_ckpt_name: ava_nano_final.pt
+  stable_ckpt_name: dottie_nano_stable.pt
+  final_ckpt_name: dottie_nano_final.pt
 
 # Compressed 6-phase logic-first curriculum (mirrors dolma_config.yaml at 1/500000 scale)
 phases:
@@ -64,7 +64,7 @@ phases:
      mix: {proofs_verified: 0.30, math_reasoning: 0.25, chat: 0.25, safety: 0.20}}
 
 branch_chat:               # fine-tune from stable ckpt (nano analog of BRANCH_CONFIGS["chat"])
-  init: runs/base/ava_nano_stable.pt
+  init: runs/base/dottie_nano_stable.pt
   tokens: 3_000_000
   lr: 2.5e-4
   freeze: [system1, system2]
@@ -78,4 +78,4 @@ data:
   raw_dir: data/nano/raw
   packed_dir: data/nano/packed
   heldout_tokens_per_phase: 200_000
-  tokenizer_path: data/nano/tokenizer/ava_nano_bpe.json
+  tokenizer_path: data/nano/tokenizer/dottie_nano_bpe.json

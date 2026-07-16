@@ -1,6 +1,6 @@
 # Curriculum V2 — Inkling Steals + Neuroscience Hill-Climb
 Solo personal project, no connection to employer, built with public/free-tier only
-Date: 2026-07-15 | Ava v6.4 T11.8
+Date: 2026-07-15 | Dottie v6.4 T11.8
 
 ## Thesis
 Steal blatant architectural wins from Inkling (975B/41B active, Small 276B/12B active, 1M ctx, 45T tokens, GB300 NVL72, Muon+Adam, wd∝lr², relative pos, short conv, MoE 256+2 k=6 sigmoid aux-loss-free, effort 0.2-0.99, encoder-free dMel+40x40 hMLP, rubric+claims dual grader, proper scoring calibration, abstention-aware, 30M RL rollouts log-linear) and fuse with our profound advantage: curiosity + neuroscience + mathematics + physics + psychology mapping to 4 J-spaces.
@@ -143,7 +143,7 @@ Inkling 45T text/images/audio/video hybrid Muon+Adam. We scale to 15T offline de
 - [ ] SFT bootstrap synthetic from open-weights local Ollama qwen3:32b (Kimi K2.5 analog) small fraction, then RL 30M rollouts scaled to 3M local log-linear tracking AIME/HLE/GPQA aggregate
 - [ ] Evaluation: rubric+claims dual grader, abstention-aware, effort sweep 0.2-0.99 token vs score curve, Brier ECE calibration, FORTRESS + StrongREJECT, frontier 11 cats Financial Accuracy etc
 - [ ] Safety: Critic hl=30 amygdala veto, benign 95.9% not over-refuse, adversarial 78%
-- [ ] Continuation: after 736k stable save ava_stable_736k.pt + rope1000000 ctx131072.pt, branch code/math/chat with T11.7 recipe 2-stage SFT + MaxEnt RL + self-distill
+- [ ] Continuation: after 736k stable save dottie_stable_736k.pt + rope1000000 ctx131072.pt, branch code/math/chat with T11.7 recipe 2-stage SFT + MaxEnt RL + self-distill
 - [ ] Observability: STATUS.json builder {phase, shards} trainer {tokens, steps, phase, lr, rope_base, loss, effort_avg, brier, rubric, claims}, wandb dashboard half-life curves broadcast strength per J-Space
 - [ ] Free-tier guard: no API costs unless personal key set, fallback mock; Ollama local 100% offline; HF weights MIT/Apache; Docker cpu/gpu; free file handle streaming
 
@@ -162,7 +162,7 @@ Inkling 45T text/images/audio/video hybrid Muon+Adam. We scale to 15T offline de
 1. Implement T11.8 arch flags in model_1b.py gated, pass 32/32 causality tests
 2. Update eval_frontier_rubric.py dual grader + abstention + effort sweep (this file's spec)
 3. Write docs/INKLING_STEALS.md mapping to J-spaces
-4. Update ava/train.py effort conditioning + Muon stub (if no muon lib fallback AdamW)
+4. Update dottie/train.py effort conditioning + Muon stub (if no muon lib fallback AdamW)
 5. Run nano curriculum 15T scaled demo 5 shards per phase with builder+trainer agents parallel
 6. Publish eval report frontier_eval_results.json with effort_curve
 

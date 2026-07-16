@@ -1,7 +1,7 @@
 # dolma_config.yaml - 6-Phase Logic-First + Workflow + J-Space losses + YaRN 10k->1M
 # Solo personal project, no connection to employer
 version: v6.4
-tokenizer: "ava-tokenizer"
+tokenizer: "dottie-tokenizer"
 workflows: true
 j_space:
   enabled: true
@@ -29,7 +29,7 @@ wsd:
   lr: 2e-4
   min_lr: 2e-5
   scheduler: "warmup -> stable 92% -> cosine decay 8%"
-  save_stable: "ava_stable_736k.pt"
+  save_stable: "dottie_stable_736k.pt"
 
 phases:
   phase0_logic:

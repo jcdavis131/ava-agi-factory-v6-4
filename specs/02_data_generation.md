@@ -3,10 +3,10 @@
 - **Spec ID:** 02_data_generation
 - **Worker tier:** Sonnet — FOUR PARALLEL WORKERS, one per generator task (B1, B2, B3, B4).
   Each worker also gets the shared-base section; the FIRST worker to start (or a 5th micro-task)
-  lands `ava/datagen/base.py` + `ava/datagen/__init__.py`; the others import it. If parallel
+  lands `dottie/datagen/base.py` + `dottie/datagen/__init__.py`; the others import it. If parallel
   workers collide, each may vendor an identical `base.py` and the foreman keeps one copy —
   the ABC below is the byte-exact contract either way.
-- **Dependencies:** 01_environment (env installed, `ava/` package exists).
+- **Dependencies:** 01_environment (env installed, `dottie/` package exists).
 - **Consumers:** 03_tokenizer trains on this raw data; the packer and the 5 canonical J-space
   eval tests (Spider→Ant, France→China, Soccer→Rugby, Spanish→French, Safety 0/180) depend on
   B3/B4 content verbatim.
@@ -24,7 +24,7 @@ P4 long 1.5M @1024 · P5 anneal 3M @1024. Raw MB targets below assume ~3.5 chars
 
 ## Shared base (contract for all four workers)
 
-### ava/datagen/base.py
+### dottie/datagen/base.py
 ```python
 class Generator(ABC):
     name: str                      # e.g. "logic"
@@ -43,7 +43,7 @@ class Generator(ABC):
   — sort_keys mandatory for byte-determinism), stopping once cumulative bytes ≥ target_mb·2^20,
   and returns `{"files": [...], "bytes": int, "docs": int, "sha256": <hex of all shard bytes concatenated in filename order>}`.
 - CLI (identical per module, via a shared `base.run_cli(GeneratorCls)`):
-  `python -m ava.datagen.<mod> --seed 1234 --out data/nano/raw/ --mb N`
+  `python -m dottie.datagen.<mod> --seed 1234 --out data/nano/raw/ --mb N`
   → writes shards into `data/nano/raw/`, prints one JSON line: the `write_shards` return dict.
   No tqdm/timestamps/pids in file output (stdout progress is fine but the JSON line is last).
 - Determinism rules: private `random.Random` only; no `set()` iteration ordering in doc
@@ -51,7 +51,7 @@ class Generator(ABC):
   py-hash-randomized keys (str keys are fine in 3.11 dicts — insertion-ordered — but be deliberate).
 - Doc length: aim 500–4000 chars typical; P4-tagged docs 6000–12000 chars (they feed seq 1024).
 
-## B1 — ava/datagen/logic.py (worker 1) — P0, ≥30MB
+## B1 — dottie/datagen/logic.py (worker 1) — P0, ≥30MB
 - Doc families (approx mix by MB): truth-table walkthroughs 25% — random propositional formula
   over 2–4 vars (operators ¬ ∧ ∨ → ↔, depth ≤4), full table enumerated row by row, then a prose
   verdict (tautology/contradiction/contingent) computed by actually evaluating the formula.
@@ -68,7 +68,7 @@ class Generator(ABC):
   ~5% simple truth-table drills may be `"automatic"`). `concept`: the rule or form name
   (`"modus ponens"`, `"truth table"`, `"syllogism"`, ...). `source="logic/<family>"`.
 
-## B2 — ava/datagen/math_gen.py (worker 2) — P1 + P3, ≥40MB
+## B2 — dottie/datagen/math_gen.py (worker 2) — P1 + P3, ≥40MB
 - P1 (~28MB, `phase="p1"`, task_type `deliberate`; trivial 1-digit drills `automatic`):
   staged curriculum in this order within the corpus — (a) 1–3 digit add/sub/mul with worked
   column-arithmetic steps (carries/borrows shown digit by digit, partial products for mul);
@@ -87,7 +87,7 @@ class Generator(ABC):
 - ~10% of P3 docs sized 6000+ chars and tagged `phase="p4"` to feed the long phase.
 - `concept`: the skill (`"addition"`, `"linear equation"`, `"probability"`, ...). `source="math/<stage>"`.
 
-## B3 — ava/datagen/encyclopedia.py + ava/datagen/code_gen.py (worker 3) — P2, ≥50MB combined
+## B3 — dottie/datagen/encyclopedia.py + dottie/datagen/code_gen.py (worker 3) — P2, ≥50MB combined
 - encyclopedia.py (≥35MB, `phase="p2"`, `task_type="automatic"`): fact corpus with HEAVY
   paraphrase coverage (≥40 distinct sentence templates per fact) of the CANONICAL EVAL ENTITIES —
   the 5 J-space eval tests read this corpus verbatim, so these exact facts must appear thousands
@@ -111,7 +111,7 @@ class Generator(ABC):
   from the seeded RNG stream, discards do not consume extra entropy from other docs).
 - ~10% of encyclopedia docs are 6000+ char "country profile"/"animal compendium" long docs tagged `phase="p4"`.
 
-## B4 — ava/datagen/chat_safety.py (worker 4) — chat branch + Critic data, ≥20MB
+## B4 — dottie/datagen/chat_safety.py (worker 4) — chat branch + Critic data, ≥20MB
 - Dialogue format: turns delimited by literal `<|user|>` and `<|assistant|>` marker strings in
   `text` (these become tokenizer special tokens in spec 03).
 - Families: (a) safety scenarios ~35% (`task_type="safety"`, `phase="p5"`): templated abstract
@@ -133,12 +133,12 @@ class Generator(ABC):
 - `source="chat/<family>"`. Safety/benign twins must be distinguishable ONLY by the coercive
   vocabulary, not by length or formatting (matched templates).
 
-## B5 — ava/datagen/workflow_jobbench.py + ava/datagen/workflow_gaia2.py (Stage 12) — P3/P4/P5
+## B5 — dottie/datagen/workflow_jobbench.py + dottie/datagen/workflow_gaia2.py (Stage 12) — P3/P4/P5
 Unlike B1-B4, B5 was not built alongside the original four (it landed later, once the blueprint's own
 `workflow_jobbench`/`workflow_gaia2` mix-weight labels in `dolma_config.yaml`/`streaming_data.py` needed a
 real generator behind them). Same base contract, same zero-network/private-RNG/correct-by-construction
-rules apply unchanged; wiring is via `configs/sources.yaml` + `ava/datagen/__init__.py`'s `GENERATORS` dict
-(the collector's actual source registry — see `ava/pipeline/collector.py`), not the `scripts/gen_all_data.py`
+rules apply unchanged; wiring is via `configs/sources.yaml` + `dottie/datagen/__init__.py`'s `GENERATORS` dict
+(the collector's actual source registry — see `dottie/pipeline/collector.py`), not the `scripts/gen_all_data.py`
 orchestrator sketched below (which several phases of this project's history never actually built; B5 does
 not depend on it).
 
@@ -180,7 +180,7 @@ not depend on it).
   Planner's long-horizon temporal hold) and is realized concretely in `configs/sources.yaml`'s per-phase
   `weight` fields (jobbench 10/10/5% at p3/p4/p5, gaia2 5/15/10%), with the phase's other sources rescaled
   down proportionally so each phase's weights still sum to 1.0.
-- Acceptance, same shape as B1-B4: `python -m ava.datagen.workflow_jobbench --seed 1234 --out /tmp/dg --mb 5`
+- Acceptance, same shape as B1-B4: `python -m dottie.datagen.workflow_jobbench --seed 1234 --out /tmp/dg --mb 5`
   and the `workflow_gaia2` equivalent exit 0 and are byte-reproducible across two runs at the same seed;
   `pytest tests/test_datagen.py -k "jobbench or gaia2"` green (16 tests: determinism/schema via
   `ALL_GENERATORS`, task_type accuracy, per-family reconciliation math re-derived independently, phase-4
@@ -203,7 +203,7 @@ not depend on it).
   "Yuan", "Euro", "rugby", and a `concept=="france"` doc.
 
 ## Acceptance criteria (foreman runs, per generator worker)
-1. `python -m ava.datagen.<mod> --seed 1234 --out /tmp/dg_a --mb <target>` exits 0 in <20 min,
+1. `python -m dottie.datagen.<mod> --seed 1234 --out /tmp/dg_a --mb <target>` exits 0 in <20 min,
    final JSON line reports `bytes >= target*1048576`.
 2. Re-run into `/tmp/dg_b` with the same seed; `diff <(cd /tmp/dg_a && sha256sum *.jsonl) <(cd /tmp/dg_b && sha256sum *.jsonl)` → empty.
 3. `python - <<'EOF'` spot-check: sample 200 lines, json.loads each, assert schema keys + enum. EOF

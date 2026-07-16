@@ -62,7 +62,7 @@ leaks = audit_jspace_leak()  # define and use immediately — impossible in JSON
 </table>
 <div class="card" style="background:#0f1a0f;border-color:#2a5a2a">
 <h3>Self-modification code actually executed in kernel</h3>
-<pre>from ava.llmvm import LLMVMKernel
+<pre>from dottie.llmvm import LLMVMKernel
 kernel = LLMVMKernel()
 await kernel.exec_cell("x=5; x*2")  # -> 10, success=True, 0ms
 await kernel.exec_parallel(["a=1","b=2","a+b"])  # -> 3 results, last=3
@@ -123,7 +123,7 @@ elif "NaN" in output:
 ")
 
 # Combined with Python: write debugging strategy as code that drives 3 panes
-# from ava.llmvm import LLMVMKernel, TmuxManager; kernel.exec_cell(tmux.debug_training_flow())
+# from dottie.llmvm import LLMVMKernel, TmuxManager; kernel.exec_cell(tmux.debug_training_flow())
 </pre>
 <div class="kv"><span>Session train: tail -f</span><span>Session eval: watch harness</span><span>Session data: discovery</span><span>Ctrl-C real, not one-shot</span></div>
 </div>

@@ -1,4 +1,4 @@
-# ava-mini — ~162M-param GPU validation rung (RTX 4080 Laptop 12GB, WSL2)
+# dottie-mini — ~162M-param GPU validation rung (RTX 4080 Laptop 12GB, WSL2)
 # Purpose: validate curriculum + J-losses + the SwiGLU path at GPU scale; GO/NO-GO gate before base1b.
 # Arithmetic (specs/08): embed 24.6M tied + 12 layers x (4d^2 attn + 12d^2 SwiGLU-4x) 113M
 # + untied verbalizer 24.6M + slots ~0.1M => ~162M. Est 6-10k tok/s bf16 -> 2.5B tokens in ~3-5 days.
@@ -69,4 +69,4 @@ data:
   raw_dir: data/mini/raw           # regenerate generators with --mb scaled up; see specs/08
   packed_dir: data/mini/packed
   heldout_tokens_per_phase: 2_000_000
-  tokenizer_path: data/mini/tokenizer/ava_bpe_32k.json
+  tokenizer_path: data/mini/tokenizer/dottie_bpe_32k.json

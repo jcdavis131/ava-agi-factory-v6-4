@@ -4,7 +4,7 @@ Solo personal project, no connection to employer, built with public/free-tier on
 
 v2 streaming: constant low-memory rotating shards 100MB each, never holds 50B/300B in RAM.
 Old batch mode kept for compatibility via --batch flag.
-Streaming mode intended to feed AvaStreamingDataset background generator.
+Streaming mode intended to feed DottieStreamingDataset background generator.
 """
 import argparse, json, random, time, gzip
 from pathlib import Path

@@ -6,9 +6,9 @@
 # /jspace/eval_branch, /report (or reports/index.html).
 #
 # Env:
-#   AVA_CKPT              checkpoint path (default: runs/chat/ava_nano_chat.pt)
+#   DOTTIE_CKPT              checkpoint path (default: runs/chat/dottie_nano_chat.pt)
 #   AVA_BASE_URL          if set, hit an already-running server (do not boot)
-#   AVA_SMOKE_DRY_RUN=1   TestClient + fake engine - no ckpt/GPU (HTTP contract only)
+#   DOTTIE_SMOKE_DRY_RUN=1   TestClient + fake engine - no ckpt/GPU (HTTP contract only)
 #   AVA_SMOKE_INTERVENE=1 also boot a write-enabled server on AVA_SMOKE_WRITE_PORT
 #   AVA_SMOKE_PORT        main server port when we boot (default 8000)
 #   AVA_SMOKE_WRITE_PORT  write-enabled server port (default 8001)
@@ -17,23 +17,23 @@
 # Wall budget <=120s when a real ckpt is present (health poll <=60s + checks).
 #
 # Full live pass against nano weights is deferred to T9.1 until
-# runs/chat/ava_nano_chat.pt exists. Without a ckpt / base URL this script
+# runs/chat/dottie_nano_chat.pt exists. Without a ckpt / base URL this script
 # exits non-zero with a clear message (never a silent pass). Use
-# AVA_SMOKE_DRY_RUN=1 to prove the HTTP assertions offline.
+# DOTTIE_SMOKE_DRY_RUN=1 to prove the HTTP assertions offline.
 #
 # Usage:
 #   bash scripts/smoke_live.sh
-#   AVA_CKPT=runs/chat/ava_nano_chat.pt bash scripts/smoke_live.sh
+#   DOTTIE_CKPT=runs/chat/dottie_nano_chat.pt bash scripts/smoke_live.sh
 #   AVA_BASE_URL=http://127.0.0.1:8000 bash scripts/smoke_live.sh
-#   AVA_SMOKE_DRY_RUN=1 bash scripts/smoke_live.sh
+#   DOTTIE_SMOKE_DRY_RUN=1 bash scripts/smoke_live.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-AVA_CKPT="${AVA_CKPT:-runs/chat/ava_nano_chat.pt}"
+DOTTIE_CKPT="${DOTTIE_CKPT:-runs/chat/dottie_nano_chat.pt}"
 AVA_BASE_URL="${AVA_BASE_URL:-}"
-AVA_SMOKE_DRY_RUN="${AVA_SMOKE_DRY_RUN:-0}"
+DOTTIE_SMOKE_DRY_RUN="${DOTTIE_SMOKE_DRY_RUN:-0}"
 AVA_SMOKE_INTERVENE="${AVA_SMOKE_INTERVENE:-0}"
 AVA_SMOKE_PORT="${AVA_SMOKE_PORT:-8000}"
 AVA_SMOKE_WRITE_PORT="${AVA_SMOKE_WRITE_PORT:-8001}"
@@ -139,8 +139,8 @@ run_checks() {
 }
 
 # --- dry-run path (no ckpt / no long-lived server) ---
-if [[ "$AVA_SMOKE_DRY_RUN" == "1" ]]; then
-  echo "smoke_live: DRY-RUN (AVA_SMOKE_DRY_RUN=1) - HTTP contract via ASGI fake engine" >&2
+if [[ "$DOTTIE_SMOKE_DRY_RUN" == "1" ]]; then
+  echo "smoke_live: DRY-RUN (DOTTIE_SMOKE_DRY_RUN=1) - HTTP contract via ASGI fake engine" >&2
   echo "NOTE: full live pass with real weights deferred to T9.1 nano smoke" >&2
   ensure_report
   "$PYTHON" scripts/smoke_live_checks.py --dry
@@ -166,15 +166,15 @@ if [[ -n "$AVA_BASE_URL" ]]; then
 fi
 
 # --- need a checkpoint to boot uvicorn ---
-if [[ ! -f "$AVA_CKPT" ]]; then
+if [[ ! -f "$DOTTIE_CKPT" ]]; then
   cat >&2 <<EOF
-SMOKE FAIL ckpt: checkpoint not found: $AVA_CKPT
+SMOKE FAIL ckpt: checkpoint not found: $DOTTIE_CKPT
 
-  Set AVA_CKPT to a real .pt, or AVA_BASE_URL to a running server.
-  For offline HTTP-contract checks (no GPU): AVA_SMOKE_DRY_RUN=1 bash scripts/smoke_live.sh
+  Set DOTTIE_CKPT to a real .pt, or AVA_BASE_URL to a running server.
+  For offline HTTP-contract checks (no GPU): DOTTIE_SMOKE_DRY_RUN=1 bash scripts/smoke_live.sh
 
   Full live pass against nano weights is deferred to T9.1
-  (runs/chat/ava_nano_chat.pt not present yet).
+  (runs/chat/dottie_nano_chat.pt not present yet).
 EOF
   exit 1
 fi
@@ -182,9 +182,9 @@ fi
 ensure_report
 
 # Boot main server WITHOUT write gate (so intervene-403 is meaningful).
-export AVA_CKPT
+export DOTTIE_CKPT
 unset ENABLE_JSPACE_WRITE || true
-echo "smoke_live: booting uvicorn on :$AVA_SMOKE_PORT (AVA_CKPT=$AVA_CKPT)" >&2
+echo "smoke_live: booting uvicorn on :$AVA_SMOKE_PORT (DOTTIE_CKPT=$DOTTIE_CKPT)" >&2
 "$PYTHON" -m uvicorn server:app --host 127.0.0.1 --port "$AVA_SMOKE_PORT" &
 SERVER_PID=$!
 BASE="http://127.0.0.1:${AVA_SMOKE_PORT}"

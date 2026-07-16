@@ -1,12 +1,12 @@
 # Solo personal project, no connection to employer, built with public/free-tier only
 
-# Ava AGI Factory v6.4 — Distillation Integration (MOPD + Privileged + Earlier + Off-Policy)
+# Dottie AGI Factory v6.4 — Distillation Integration (MOPD + Privileged + Earlier + Off-Policy)
 
 Based on https://huggingface.co/blog/sergiopaniego/distillation-2026 — 2026 SOTA patterns.
 
-## Why this matters for Ava
+## Why this matters for Dottie
 
-**Problem Ava already has:** Training a single model to be good at everything via RL degrades previous skills. Labs solved this in 2026 by:
+**Problem Dottie already has:** Training a single model to be good at everything via RL degrades previous skills. Labs solved this in 2026 by:
 - Training **separate RL expert per domain** (math, code, agentic)
 - Then **distilling all into one student while student generates own rollouts** — dense token-level signal
 - Teachers are **same size as student**, not bigger — specialization, not scale
@@ -19,7 +19,7 @@ Nemotron 3 Ultra: >10 specialized teachers.
 Cursor Composer 2.5: self-distillation privileged teacher — hint in context = teacher for no-hint self, KL pulls unhinted toward hinted.
 Thinking Machines: earlier teacher for continual learning — distill from pre-finetune ckpt to keep old behavior while adding new.
 
-Ava v6.4 already has 4 workspaces ideal for this:
+Dottie v6.4 already has 4 workspaces ideal for this:
 - S1 Fast 32 hl=8 broadcast 0.18 automatic [0.6,0.15,0.1,0.15]
 - S2 Slow 64 hl=300 mass 0.065 deliberate [0.15,0.55,0.1,0.2] weight 0.8
 - Critic 16 hl=30 safety [0.1,0.2,0.6,0.1] weight 1.0 vm 0.08
@@ -33,18 +33,18 @@ Ava v6.4 already has 4 workspaces ideal for this:
 
 ```bash
 # Train 3 experts first (existing)
-torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch code --ckpt checkpoints/base1b/ava_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json
-torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch math --ckpt checkpoints/base1b/ava_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json
-torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch chat --ckpt checkpoints/base1b/ava_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json
+torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch code --ckpt checkpoints/base1b/dottie_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json
+torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch math --ckpt checkpoints/base1b/dottie_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json
+torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch chat --ckpt checkpoints/base1b/dottie_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json
 
 # MOPD unify: student = stable ckpt, teachers = 3 experts, student generates rollout, teachers grade token-level reverse KL
 python on_policy_distill.py --mode mopd \
-  --student-ckpt checkpoints/base1b/ava_stable_736k.pt \
+  --student-ckpt checkpoints/base1b/dottie_stable_736k.pt \
   --teachers code:checkpoints/code/exp.pt,math:checkpoints/math/exp.pt,chat:checkpoints/chat/exp.pt \
   --data_root data/streaming_shards --batch 1 --seq_len 2048 --tokens_total 500000000 --lr 8e-5 --preserve-router --deepspeed deepspeed_zero3_bf16.json
 
 # Docker version with Ollama host for eval
-docker compose exec ava-train bash -c "OLLAMA_HOST=http://host.docker.internal:11434 python on_policy_distill.py --mode mopd --student-ckpt checkpoints/base1b/ava_stable_736k.pt --teachers code:checkpoints/code/exp.pt,math:checkpoints/math/exp.pt,chat:checkpoints/chat/exp.pt --batch 1 --seq_len 2048 --tokens_total 500M"
+docker compose exec dottie-train bash -c "OLLAMA_HOST=http://host.docker.internal:11434 python on_policy_distill.py --mode mopd --student-ckpt checkpoints/base1b/dottie_stable_736k.pt --teachers code:checkpoints/code/exp.pt,math:checkpoints/math/exp.pt,chat:checkpoints/chat/exp.pt --batch 1 --seq_len 2048 --tokens_total 500M"
 ```
 
 Loss: `KL(p_student || p_teacher)` per token masked, + router MSE to target bias. Teachers inference-only no grad — saves VRAM.
@@ -55,7 +55,7 @@ VRAM 12GB math: student 2.3GB + 1 teacher 2.3GB (on-demand) + grads 2.3GB + Adam
 
 ```bash
 python on_policy_distill.py --mode privileged \
-  --student-ckpt checkpoints/base1b/ava_stable_736k.pt \
+  --student-ckpt checkpoints/base1b/dottie_stable_736k.pt \
   --hint "think with 4 workspaces S1 Fast hl8 broadcast 0.18 S2 Slow hl300 mass 0.065 Critic hl30 safety Planner hl150 temporal 0.20, verify stepwise, preserve routing" \
   --tokens_total 200M
 
@@ -69,12 +69,12 @@ Teacher input = hint + input_ids, student = input_ids only. KL pulls unhinted to
 
 ```bash
 # Finetune chat that degraded math
-torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch chat --ckpt checkpoints/base1b/ava_stable_736k.pt
+torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch chat --ckpt checkpoints/base1b/dottie_stable_736k.pt
 
 # Distill from earlier ckpt to restore math while keeping chat
 python on_policy_distill.py --mode earlier \
   --student-ckpt checkpoints/chat/finetuned.pt \
-  --teachers earlier:checkpoints/base1b/ava_stable_736k.pt \
+  --teachers earlier:checkpoints/base1b/dottie_stable_736k.pt \
   --data_root data/streaming_shards/synthetic_reward_gt0.8 --tokens_total 200M --earlier-kl-weight 0.7 --earlier-ce-weight 0.3
 ```
 
@@ -87,7 +87,7 @@ Matches Thinking Machines pitch: keep deployed model learning new things without
 # Convert Ollama traces or Qwen3:32b HF to ckpt, then distill to mini
 python on_policy_distill.py --mode offpolicy \
   --student-ckpt None --student-config configs/mini.yaml \
-  --teachers teacher:checkpoints/base1b/ava_stable_736k.pt --teacher-config configs/base1b.yaml \
+  --teachers teacher:checkpoints/base1b/dottie_stable_736k.pt --teacher-config configs/base1b.yaml \
   --data_root data/mini/packed --batch 2 --seq_len 1024 --tokens_total 500M --offpolicy-alpha 0.5 --temperature 1.0
 ```
 
@@ -99,12 +99,12 @@ Loss: `alpha * ForwardKL(p_teacher || p_student) + (1-alpha) * CE(hard labels fr
 2. Build: `docker compose -f docker-compose.yml build && docker compose up -d`
 3. Inside container:
 ```bash
-docker compose exec ava-train bash
+docker compose exec dottie-train bash
 export OLLAMA_HOST=http://host.docker.internal:11434
 export OLLAMA_MODEL=qwen3:32b
 
 # Branch experts already from local_train.sh
-./scripts/local_train.sh "torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch code --ckpt checkpoints/base1b/ava_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json --max_steps 2000"
+./scripts/local_train.sh "torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch code --ckpt checkpoints/base1b/dottie_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json --max_steps 2000"
 
 # MOPD unify (fuses experts, 1/10 cost vs RL per Qwen3)
 ./scripts/distill.sh mopd
@@ -117,7 +117,7 @@ OLLAMA_HOST=http://host.docker.internal:11434 OLLAMA_MODEL=qwen3:32b python eval
 ## Logs, Metrics, Checkpoints
 
 - Logs: `logs/distill.log` + `logs/metrics.jsonl` (append JSON per step)
-- CKPT: `checkpoints/distill/ava_distill_<mode>_<step>.pt`
+- CKPT: `checkpoints/distill/dottie_distill_<mode>_<step>.pt`
 - HF: `hf_model/distill_<mode>/` via `convert_to_hf.py` hook
 - WSD: warmup 2000, stable 736k 92% lr 2e-4->2e-5 cosine decay final 8%, stop-anytime stable ckpts.
 

@@ -2,8 +2,8 @@
 
 - **Spec ID:** 08_alienware_runbook
 - **Worker tier:** Sonnet
-- **Dependencies:** Spec 01 (`ava/config.py` AvaConfig + preset loader, Makefile); the training
-  spec's `ava/train.py` (`--preset`, `--resume`, metrics.jsonl writer); Spec 07
+- **Dependencies:** Spec 01 (`dottie/config.py` DottieConfig + preset loader, Makefile); the training
+  spec's `dottie/train.py` (`--preset`, `--resume`, metrics.jsonl writer); Spec 07
   (`scripts/make_report.py` referenced by the ops section). GPU steps are executed BY THE USER on
   their machine — the container only validates that the documents and configs are correct and load.
 - **Target machine:** Alienware m16 laptop, RTX 4080 Laptop GPU 12GB VRAM, Windows 11 + WSL2
@@ -14,14 +14,14 @@
 Give the user a copy-paste-safe runbook to take the validated nano recipe to GPU scale on their
 own laptop: WSL2 setup, two new presets (`mini` ~160M, `base1b` ~1.0–1.2B) with HONEST arithmetic
 they can recompute, a milestone schedule that is stop-anytime under WSD, and laptop-specific ops
-(thermals, resume, disk). The presets are consumed by the SAME `ava/train.py` used for nano.
+(thermals, resume, disk). The presets are consumed by the SAME `dottie/train.py` used for nano.
 
 ## Deliverable files (exact paths, repo-relative)
 
 1. `docs/ALIENWARE_RUNBOOK.md` (the runbook; 300–600 lines)
 2. `configs/mini.yaml`
 3. `configs/base1b.yaml`
-4. Minimal ADDITIVE edits to `ava/config.py` / `ava/train.py` ONLY if the new config keys below
+4. Minimal ADDITIVE edits to `dottie/config.py` / `dottie/train.py` ONLY if the new config keys below
    are not yet supported (new optional fields with nano-preserving defaults; `make smoke` must
    stay green). No renames, no behavior change for existing presets.
 
@@ -33,7 +33,7 @@ they can recompute, a milestone schedule that is stop-anytime under WSD, and lap
   toolkit inside WSL is needed for torch wheels (they bundle CUDA runtime).
 - `wsl --install Ubuntu-24.04`, then inside WSL: verify `nvidia-smi` works (driver is passed
   through via `/usr/lib/wsl/lib` — never `apt install nvidia-driver-*` inside WSL).
-- `python3.11 -m venv ~/ava-venv && source ~/ava-venv/bin/activate`, repo clone,
+- `python3.11 -m venv ~/dottie-venv && source ~/dottie-venv/bin/activate`, repo clone,
   `pip install torch --index-url https://download.pytorch.org/whl/cu124` (note: default PyPI also
   ships a cu-enabled wheel; either is fine — verify with the check below), `pip install
   bitsandbytes`, then the repo's spec-01 deps.
@@ -98,9 +98,9 @@ ctx ≥ 512, Multi-J-Space aux losses, and recompute overhead); time `= token_bu
 
 ### (c) Runbook section 3 — Ops
 
-- Long runs under `tmux` (session `ava`) or `nohup python -m ava.train --preset base1b >
+- Long runs under `tmux` (session `ava`) or `nohup python -m dottie.train --preset base1b >
   runs/base1b/train.log 2>&1 &`; laptop sleep/reboot recovery via
-  `python -m ava.train --preset base1b --resume` (latest checkpoint in `run_dir`).
+  `python -m dottie.train --preset base1b --resume` (latest checkpoint in `run_dir`).
 - Monitoring: `runs/<preset>/metrics.jsonl` rendered locally with
   `python scripts/make_report.py --runs runs --out reports/index.html`; wandb is fine on the
   Alienware — document `WANDB_MODE=offline` + `wandb sync` as the default (opt-in online).
@@ -132,19 +132,19 @@ with defaults that reproduce current nano behavior exactly.
 
 ## Interfaces
 
-- `AvaConfig.load("mini")` / `AvaConfig.load("base1b")` return the values above — frozen contract
-  for later branch/eval specs. New AvaConfig fields are optional-with-defaults; spec-01 field
+- `DottieConfig.load("mini")` / `DottieConfig.load("base1b")` return the values above — frozen contract
+  for later branch/eval specs. New DottieConfig fields are optional-with-defaults; spec-01 field
   names are unchanged.
-- `python -m ava.train --preset mini|base1b` is the ONLY entry point the runbook may instruct
+- `python -m dottie.train --preset mini|base1b` is the ONLY entry point the runbook may instruct
   (plus `--resume`, `--compile`). No new training scripts.
 
 ## Acceptance criteria (foreman runs in the CPU container; GPU steps are user-executed)
 
-1. `python -m ava.config --preset mini --count-params` → exit 0, count in
+1. `python -m dottie.config --preset mini --count-params` → exit 0, count in
    [140,000,000, 175,000,000].
-2. `python -m ava.config --preset base1b --count-params` → exit 0, count in
+2. `python -m dottie.config --preset base1b --count-params` → exit 0, count in
    [1,000,000,000, 1,250,000,000].
-3. `python -c "from ava.config import AvaConfig; c=AvaConfig.load('base1b'); assert c.vocab_size==32000 and c.d_model==2048"` → exit 0.
+3. `python -c "from dottie.config import DottieConfig; c=DottieConfig.load('base1b'); assert c.vocab_size==32000 and c.d_model==2048"` → exit 0.
 4. `make smoke` (nano_quick, CPU) still green — proves any additive trainer edits didn't regress.
 5. `grep -c 'nvidia-smi' docs/ALIENWARE_RUNBOOK.md` ≥ 4; `grep -c 'whl/cu124\|bitsandbytes\|scaled_dot_product_attention\|nvidia-smi -pl\|--resume\|/usr/lib/wsl/lib' docs/ALIENWARE_RUNBOOK.md` ≥ 6
    (all six topics present).
@@ -152,7 +152,7 @@ with defaults that reproduce current nano behavior exactly.
    the strings `6P`, `FLOPs/token`, and at least three explicit multiplications like `× 48`
    appear).
 7. `git status --porcelain` → only new `docs/ALIENWARE_RUNBOOK.md`, `configs/mini.yaml`,
-   `configs/base1b.yaml`, plus (if needed) modified `ava/config.py` / `ava/train.py`.
+   `configs/base1b.yaml`, plus (if needed) modified `dottie/config.py` / `dottie/train.py`.
 
 ## Out of scope
 

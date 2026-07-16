@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Ava v6.5 LLMVM POC — Metamate Auto Upgrade</title>
+<title>Dottie v6.5 LLMVM POC — Metamate Auto Upgrade</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{ --bg:#0a0a0b; --fg:#e8e8e8; --muted:#9aa0a6; --blue:#0072B2; --orange:#D55E00; --green:#009E73; --yellow:#F0E442; --pink:#CC79A7; --border:#2a2a2e; }
@@ -22,7 +22,7 @@ footer{padding:24px 20px;color:var(--muted);font-size:11px;border-top:1px solid 
 </head>
 <body>
 <header>
-<h1>Ava v6.5 LLMVM POC — Python Runtime Not JSON Loop <span class="badge">Metamate Auto</span></h1>
+<h1>Dottie v6.5 LLMVM POC — Python Runtime Not JSON Loop <span class="badge">Metamate Auto</span></h1>
 <div style="color:#9aa0a6;font-size:13px">Solo personal project, no connection to employer, built with public/free-tier only • Generated 2026-07-16T16:25:39.941919Z • commit ee78c38+poc</div>
 <div class="kv" style="margin-top:10px">
 <span>BEGIN IMMEDIATE: 7 hits</span><span>causal tril: present ✅</span><span>verbalizable_mass: measured ✅</span><span>Backpressure: 2309 lines</span><span>Last expansion: 500034 tokens / 5045 docs</span>
@@ -44,9 +44,9 @@ top5 = sorted(filtered, key=lambda x: Path(x).stat().st_mtime, reverse=True)[:5]
 
 def audit_jspace_leak():
     leaks = []
-    if "causal = torch.ones" not in Path("ava/attention/compressed_conv.py").read_text():
+    if "causal = torch.ones" not in Path("dottie/attention/compressed_conv.py").read_text():
         leaks.append("Missing causal mask")
-    if "verbalizable_mass = 0.06" in open("ava/serve_engine.py").read():
+    if "verbalizable_mass = 0.06" in open("dottie/serve_engine.py").read():
         leaks.append("Constant 0.06")
     return leaks
 
@@ -62,7 +62,7 @@ leaks = audit_jspace_leak()  # define and use immediately — impossible in JSON
 </table>
 <div class="card" style="background:#0f1a0f;border-color:#2a5a2a">
 <h3>Self-modification code actually executed in kernel</h3>
-<pre>from ava.llmvm import LLMVMKernel
+<pre>from dottie.llmvm import LLMVMKernel
 kernel = LLMVMKernel()
 await kernel.exec_cell("x=5; x*2")  # -> 10, success=True, 0ms
 await kernel.exec_parallel(["a=1","b=2","a+b"])  # -> 3 results, last=3
@@ -123,7 +123,7 @@ elif "NaN" in output:
 ")
 
 # Combined with Python: write debugging strategy as code that drives 3 panes
-# from ava.llmvm import LLMVMKernel, TmuxManager; kernel.exec_cell(tmux.debug_training_flow())
+# from dottie.llmvm import LLMVMKernel, TmuxManager; kernel.exec_cell(tmux.debug_training_flow())
 </pre>
 <div class="kv"><span>Session train: tail -f</span><span>Session eval: watch harness</span><span>Session data: discovery</span><span>Ctrl-C real, not one-shot</span></div>
 </div>

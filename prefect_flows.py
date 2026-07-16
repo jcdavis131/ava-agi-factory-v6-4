@@ -1,6 +1,6 @@
 # Solo personal project, no connection to employer, built with public/free-tier only
 """
-Ava AGI Factory v6.4 + Dumb Models — Prefect Flows PoC
+Dottie AGI Factory v6.4 + Dumb Models — Prefect Flows PoC
 Free-tier self-hosted: pip install prefect, prefect server start --port 4200
 
 Runnable:
@@ -12,7 +12,7 @@ Runnable:
   python prefect_flows.py --run vector --league nfl
 
 Deploy:
-  prefect deployment build prefect_flows.py:ava_data_gen_flow -n daily --cron "0 6 * * *" --apply
+  prefect deployment build prefect_flows.py:dottie_data_gen_flow -n daily --cron "0 6 * * *" --apply
   prefect agent start -q default
 
 Docker integration:
@@ -49,7 +49,7 @@ except ImportError:
 ROOT = Path(__file__).parent
 DATA_DIR = ROOT / "data"
 LOGS_DIR = ROOT / "logs"
-YOUR_FILES = Path.home() / "workspace" / "your_files" / "ava-agi" / "runs"
+YOUR_FILES = Path.home() / "workspace" / "your_files" / "dottie-agi" / "runs"
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:32b")
 
@@ -63,7 +63,7 @@ def _log(msg):
 
 # ---------- HF PUSH TASK (NEW — 2-loop) ----------
 @task(retries=3, retry_delay_seconds=[30, 120, 300], log_prints=True)
-def push_to_hf_task(manifest_path: str = "data/daily_expanded/manifest_*.jsonl", repo: str = "jcdavis131/ava-textbook-v6", private: bool = True):
+def push_to_hf_task(manifest_path: str = "data/daily_expanded/manifest_*.jsonl", repo: str = "jcdavis131/dottie-textbook-v6", private: bool = True):
     """Push curated train/val/test to HF Hub for streaming Loop2 — Solo personal project, no work Drive"""
     _log(f"[hf] push_to_hf repo={repo} manifest={manifest_path}")
     hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
@@ -114,7 +114,7 @@ def generate_phase(phase: str, tokens: int = 50_000_000):
 @task(retries=2, log_prints=True)
 def build_tokenizer(vocab_size: int = 8192):
     _log(f"[data] build_tokenizer vocab={vocab_size}")
-    tok_path = DATA_DIR / "mini" / "tokenizer" / "ava_bpe_32k.json"
+    tok_path = DATA_DIR / "mini" / "tokenizer" / "dottie_bpe_32k.json"
     tok_path.parent.mkdir(parents=True, exist_ok=True)
     # Real: from streaming_data import build_tokenizer
     # PoC: touch
@@ -131,8 +131,8 @@ def pack_shards(phase_dirs, seq_len: int = 1024):
     (packed / "manifest.json").write_text(json.dumps({"phases": phase_dirs, "seq_len": seq_len}))
     return str(packed)
 
-@flow(name="ava-data-gen", log_prints=True)
-def ava_data_gen_flow(preset: str = "mini", tokens: int = 50_000_000):
+@flow(name="dottie-data-gen", log_prints=True)
+def dottie_data_gen_flow(preset: str = "mini", tokens: int = 50_000_000):
     _log(f"Starting data_gen_flow preset={preset} tokens={tokens}")
     phases = ["p0_logic", "p1_math", "p2_foundation", "p3_code"] if preset != "nano" else ["p0_logic", "p1_math"]
     # Parallel via .map() if prefect available
@@ -162,7 +162,7 @@ def torchrun_train(preset: str, tokens_total: int, resume: bool = True):
             f.write(json.dumps(line)+"\n")
         time.sleep(0.2)
     # fake stable ckpt
-    stable = ckpt_dir / f"ava_stable_{preset}.pt"
+    stable = ckpt_dir / f"dottie_stable_{preset}.pt"
     stable.write_text(f"mock ckpt {preset} {tokens_total}")
     return str(stable)
 
@@ -171,8 +171,8 @@ def monitor_metrics(ckpt_path: str):
     _log(f"[train] monitor {ckpt_path}")
     return {"ckpt": ckpt_path, "health": "OK", "loss_trend": "down"}
 
-@flow(name="ava-train", log_prints=True)
-def ava_train_flow(preset: str = "mini", tokens_total: int = 2_500_000_000, resume: bool = True):
+@flow(name="dottie-train", log_prints=True)
+def dottie_train_flow(preset: str = "mini", tokens_total: int = 2_500_000_000, resume: bool = True):
     _log(f"Starting train_flow {preset} total={tokens_total}")
     ckpt = torchrun_train(preset, tokens_total, resume)
     health = monitor_metrics(ckpt)
@@ -197,8 +197,8 @@ def reverse_kl_loss(student_rollout, teacher_rollouts):
     # Qwen3 reports 1/10 GPU hours vs RL
     return {"loss": 0.42, "method": "MOPD reverse KL", "teachers": len(teacher_rollouts)}
 
-@flow(name="ava-distill-mopd", log_prints=True)
-def ava_distill_flow(base_ckpt: str = "checkpoints/mini/ava_stable_mini.pt"):
+@flow(name="dottie-distill-mopd", log_prints=True)
+def dottie_distill_flow(base_ckpt: str = "checkpoints/mini/dottie_stable_mini.pt"):
     """
     Implements Multi-Teacher On-Policy Distillation per https://huggingface.co/blog/sergiopaniego/distillation-2026
     - Separate RL experts per domain (code/math/chat)
@@ -249,14 +249,14 @@ def render_html_log(branch_results, frontier_results):
     out.mkdir(parents=True, exist_ok=True)
     html_path = out / "latest-log.html"
     # Real builder would parse metrics.jsonl + evals + git HEAD f508569
-    html_path.write_text(f"""<html><body><h1>Ava Experiment Log — Prefect</h1>
+    html_path.write_text(f"""<html><body><h1>Dottie Experiment Log — Prefect</h1>
 <p>Branch: {branch_results}</p><p>Frontier: {frontier_results}</p>
 <p>Ollama: {OLLAMA_HOST} model {OLLAMA_MODEL}</p>
 <footer>Solo personal project, no connection to employer, built with public/free-tier only</footer></body></html>""")
     return str(html_path)
 
-@flow(name="ava-eval", log_prints=True)
-def ava_eval_flow(ckpt_path: str = None):
+@flow(name="dottie-eval", log_prints=True)
+def dottie_eval_flow(ckpt_path: str = None):
     _log(f"Starting eval flow ckpt={ckpt_path}")
     branch = run_branch_eval(ckpt_path)
     if PREFECT_AVAILABLE:
@@ -268,13 +268,13 @@ def ava_eval_flow(ckpt_path: str = None):
     return {"branch": branch, "frontier": frontier_list, "html": log_path}
 
 # ---------- FULL PIPELINE ----------
-@flow(name="ava-full-pipeline", log_prints=True)
-def ava_full_pipeline(preset: str = "mini", tokens_total: int = 2_500_000_000):
-    _log(f"=== Ava Full Pipeline preset={preset} ===")
-    data_out = ava_data_gen_flow(preset)
-    train_out = ava_train_flow(preset, tokens_total)
-    distill_out = ava_distill_flow(train_out["ckpt"])
-    eval_out = ava_eval_flow(train_out["ckpt"])
+@flow(name="dottie-full-pipeline", log_prints=True)
+def dottie_full_pipeline(preset: str = "mini", tokens_total: int = 2_500_000_000):
+    _log(f"=== Dottie Full Pipeline preset={preset} ===")
+    data_out = dottie_data_gen_flow(preset)
+    train_out = dottie_train_flow(preset, tokens_total)
+    distill_out = dottie_distill_flow(train_out["ckpt"])
+    eval_out = dottie_eval_flow(train_out["ckpt"])
     return {"data": data_out, "train": train_out, "distill": distill_out, "eval": eval_out}
 
 # ---------- DUMB MODELS FLOWS ----------
@@ -319,7 +319,7 @@ def daily_vector_flow(league: str = "nfl"):
 
 # ---------- CLI ----------
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Ava AGI Factory Prefect PoC")
+    parser = argparse.ArgumentParser(description="Dottie AGI Factory Prefect PoC")
     parser.add_argument("--run", choices=["data","train","distill","eval","all","vector"], default="all")
     parser.add_argument("--preset", default="mini", choices=["nano","mini","base1b"])
     parser.add_argument("--tokens", type=int, default=2_500_000_000)
@@ -330,14 +330,14 @@ if __name__ == "__main__":
     print(f"Prefect available: {PREFECT_AVAILABLE} | OLLAMA_HOST={OLLAMA_HOST} | preset={args.preset}")
 
     if args.run == "data":
-        ava_data_gen_flow(args.preset)
+        dottie_data_gen_flow(args.preset)
     elif args.run == "train":
-        ava_train_flow(args.preset, args.tokens)
+        dottie_train_flow(args.preset, args.tokens)
     elif args.run == "distill":
-        ava_distill_flow(args.ckpt or f"checkpoints/{args.preset}/ava_stable_{args.preset}.pt")
+        dottie_distill_flow(args.ckpt or f"checkpoints/{args.preset}/dottie_stable_{args.preset}.pt")
     elif args.run == "eval":
-        ava_eval_flow(args.ckpt)
+        dottie_eval_flow(args.ckpt)
     elif args.run == "vector":
         daily_vector_flow(args.league)
     elif args.run == "all":
-        ava_full_pipeline(args.preset, args.tokens)
+        dottie_full_pipeline(args.preset, args.tokens)

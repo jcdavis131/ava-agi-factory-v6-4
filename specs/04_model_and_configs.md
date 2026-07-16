@@ -2,8 +2,8 @@
 
 - **Spec ID:** 04_model_and_configs
 - **Worker tier:** OPUS
-- **Dependencies:** 01_environment (AvaConfig, configs/nano.yaml, pytest scaffolding). Does NOT depend on 02/03 (no data or tokenizer needed — all tests use synthetic tensors).
-- **Status when done:** `pytest tests/test_model.py` green in <60s on 4-core CPU; `python -m ava.config --preset nano --count-params` reports 13–16M.
+- **Dependencies:** 01_environment (DottieConfig, configs/nano.yaml, pytest scaffolding). Does NOT depend on 02/03 (no data or tokenizer needed — all tests use synthetic tensors).
+- **Status when done:** `pytest tests/test_model.py` green in <60s on 4-core CPU; `python -m dottie.config --preset nano --count-params` reports 13–16M.
 
 ## Purpose
 
@@ -13,14 +13,14 @@ causal mask, broken RoPE rotation, cross-step autograd crash, missing `top_conce
 the spec-01 "blueprint untouched" rule:** this spec (and only this spec) is authorized to make surgical
 in-place edits to exactly two blueprint files — `model_1b.py` and `multi_jspace_module.py`. All other
 blueprint files (train_1b_deepspeed.py, eval_branch_harness.py, j_space_module.py, server.py, ...)
-remain untouched. New glue code goes in `ava/`.
+remain untouched. New glue code goes in `dottie/`.
 
 ## Deliverable files (exact paths, repo-root-relative)
 
 1. `model_1b.py` — in-place surgical fixes (items 1, 2, 3, 4a, 7, 8 below)
 2. `multi_jspace_module.py` — in-place surgical fixes (items 4b, 5, 7 below)
-3. `ava/model.py` — `build_model(cfg: AvaConfig) -> AvaModel1B` factory + `set_router_bias(model, probs)` helper
-4. `ava/config.py` — extend AvaConfig (new fields below); update analytic param formula
+3. `dottie/model.py` — `build_model(cfg: DottieConfig) -> DottieModel1B` factory + `set_router_bias(model, probs)` helper
+4. `dottie/config.py` — extend DottieConfig (new fields below); update analytic param formula
 5. `configs/nano.yaml`, `configs/nano_quick.yaml` — add new keys (values below)
 6. `configs/mini.yaml`, `configs/base1b.yaml` — new GPU presets (values below; config-only, never instantiated on this container)
 7. `tests/test_model.py`
@@ -62,9 +62,9 @@ contains `vision_enc` or `audio_enc`; forward with `input_ids` only succeeds.
 the second training step backprops through the freed graph of step 1 → RuntimeError. (b) In
 `SingleWorkspace.forward` (multi_jspace_module.py:57-60), `prev_ws` from a batch of size B1 is added to
 `slots` expanded to the new B2 → shape-mismatch crash whenever B changes (train→eval, last partial batch).
-Fix: add `use_memory: bool = False` constructor flag on `AvaModel1B`; when False (training default),
+Fix: add `use_memory: bool = False` constructor flag on `DottieModel1B`; when False (training default),
 `_prev_workspaces` is never stored and stays None. When True (eval persistence tests), store
-`{k: v.detach() for ...}` and inside `AvaModel1B.forward` reset `_prev_workspaces = None` if the stored
+`{k: v.detach() for ...}` and inside `DottieModel1B.forward` reset `_prev_workspaces = None` if the stored
 batch size differs from the incoming B. Add `model.reset_memory()` that sets it to None.
 **Required test:** `test_two_steps_varying_batch` — nano model + AdamW: forward(B=2,L=32) → loss.backward()
 → step → zero_grad → forward(B=3,L=32) → backward → step, no exception, both with `use_memory=False`
@@ -80,7 +80,7 @@ matrices (8.4M wasted params at nano scale). Fix: (i) implement `top_concepts(se
 `vals.sum(dim=-1).mean()`; return `(idx, vals, mass)` (reference impl exists at j_space_module.py:19-25;
 do NOT import from there). (ii) `JacobianLens.__init__` and `SingleWorkspace.__init__` accept an optional
 `shared_verbalizer_weight: nn.Parameter`; when given, `self.verbalizer.weight = shared_weight` (tied, no
-new allocation). `MultiJSpace.__init__` accepts and forwards it; `AvaModel1B` passes `self.lm_head.weight`.
+new allocation). `MultiJSpace.__init__` accepts and forwards it; `DottieModel1B` passes `self.lm_head.weight`.
 Remove the duplicate-JacobianLens construction at lines 39-41 (keep one `self.jlens`). Drop the sha256
 `concept_vec` path or leave it unused — eval (spec 06) uses real tokenizer ids only.
 **Required test:** `test_top_concepts_real` — nano forward on two different random inputs; for each space
@@ -89,17 +89,17 @@ in `(0, 1)`, not equal to 0.06 exactly, and mass/idx differ between the two inpu
 `model.multi_jspace.system1.jlens.verbalizer.weight.data_ptr() == model.lm_head.weight.data_ptr()`.
 
 ### Fix 6 — stable-checkpoint load is a no-op (train_1b_deepspeed.py:116-118) — NOTE ONLY
-The blueprint prints "Loading stable checkpoint ava_stable_736k.pt" then only calls `freeze_spaces`,
-never `load_state_dict`. Do NOT edit train_1b_deepspeed.py — the real load lands in `ava/train.py`
-(spec 05, `--branch chat --init <ckpt>`). Record this as a comment in ava/model.py near `build_model`.
+The blueprint prints "Loading stable checkpoint dottie_stable_736k.pt" then only calls `freeze_spaces`,
+never `load_state_dict`. Do NOT edit train_1b_deepspeed.py — the real load lands in `dottie/train.py`
+(spec 05, `--branch chat --init <ckpt>`). Record this as a comment in dottie/model.py near `build_model`.
 
 ### Fix 7 — Parameterize hardcoded sizes (model_1b.py:102,115-119,169,175-177,181; multi_jspace_module.py:35-36,103-106,109-112)
 Current hardcodes: `TransformerBlock1B(d_model=2048, n_heads=16, head_dim=128)` (:102) but blocks are
 constructed with `TransformerBlock1B(d_model)` only (:175-177) so 16×128 heads always; MLP fixed 4×
-(:115-119); `AvaModel1B(vocab_size=128000, d_model=2048, n_text=12, n_fusion=28, n_reason=8)` (:169);
+(:115-119); `DottieModel1B(vocab_size=128000, d_model=2048, n_text=12, n_fusion=28, n_reason=8)` (:169);
 `lm_head` never tied to `embed` (:181 vs :174); `MultiJSpace` slots fixed 32/64/16/32 and hl 8/300/30/150
 (:103-106), workspace MHA `num_heads=8` (:35-36), cross-attn `num_heads=4` (:109-112). Fix:
-- `AvaModel1B.__init__` accepts `vocab_size, d_model, n_heads, head_dim, mlp_mult, n_text, n_fusion,
+- `DottieModel1B.__init__` accepts `vocab_size, d_model, n_heads, head_dim, mlp_mult, n_text, n_fusion,
   n_reason, tie_lm_head, multimodal, use_memory, jspace_slots: dict, jspace_half_life: dict,
   jspace_num_heads, rope_base`. Blocks constructed with all attn/MLP args. `tie_lm_head=True` sets
   `self.lm_head.weight = self.embed.weight`.
@@ -109,12 +109,12 @@ constructed with `TransformerBlock1B(d_model)` only (:175-177) so 16×128 heads 
 - All existing defaults preserved so `get_model()` (:266) still works.
 - `Router` gains `set_branch_bias(probs: list[float] | None)` storing a log-prior buffer added to
   logits in `Router.forward` (multi_jspace_module.py:77-89) after the task_type bias; `None` clears it.
-  `ava/model.py:set_router_bias(model, probs)` wraps it (consumed by spec 05 chat branch).
+  `dottie/model.py:set_router_bias(model, probs)` wraps it (consumed by spec 05 chat branch).
 - Delete the no-op `logits = logits / 1.0` (model_1b.py:237).
-- `ava/model.py:build_model(cfg)` maps AvaConfig fields → constructor.
+- `dottie/model.py:build_model(cfg)` maps DottieConfig fields → constructor.
   **The committed `configs/nano.yaml` / `mini.yaml` / `base1b.yaml` are the authoritative schema
   (nested `model:`/`jspace:`/`training:`/`phases:` sections; space keys `system1..planner`) — do
-  not rewrite them; extend `AvaConfig` to expose whatever this spec needs from them.** Relevant
+  not rewrite them; extend `DottieConfig` to expose whatever this spec needs from them.** Relevant
   committed values: nano d256 heads 4×64 layers 2/6/2 vocab 8192 tie_lm_head multimodal:false;
   mini d768 heads 12×64 layers 3/6/3 vocab 32000 bf16; base1b d2048 heads 16×128 **GQA
   n_kv_heads 4, SwiGLU mlp_ratio 1.0** layers 12/28/8 vocab 32000 tied (~1.17B — see
@@ -124,13 +124,13 @@ constructed with `TransformerBlock1B(d_model)` only (:175-177) so 16×128 heads 
   or SDPA enable_gqa; default = n_heads i.e. MHA) and `mlp: swiglu` + `mlp_ratio` (SwiGLU gate
   hidden = ratio·d_model·? per specs/08; default `mlp: gelu`, `mlp_mult: 4`). Both must be
   covered by the causality + shape tests at a tiny GQA/SwiGLU config.
-**Required test:** `test_param_count_nano` — `build_model(AvaConfig.load("nano"))` total params in
-`[13_000_000, 16_000_000]`; and `python -m ava.config --preset nano --count-params` (subprocess) exits 0
+**Required test:** `test_param_count_nano` — `build_model(DottieConfig.load("nano"))` total params in
+`[13_000_000, 16_000_000]`; and `python -m dottie.config --preset nano --count-params` (subprocess) exits 0
 printing a count in that range. `count_params` must now build via `ava.model.build_model` (analytic
 fallback stays for missing-torch only).
 
 ### Fix 8 — RoPE cos/sin recomputed per block per forward (model_1b.py:120,213,217,234)
-Every block owns a `YaRNScaledRoPE` (:120) and `AvaModel1B.forward` calls `blk.rope.get_cos_sin(L)`
+Every block owns a `YaRNScaledRoPE` (:120) and `DottieModel1B.forward` calls `blk.rope.get_cos_sin(L)`
 once per block per forward (:213, :217, :234) — 10 identical computations at nano. Fix: compute
 `cos, sin` ONCE per forward from a single model-level rope (`self.rope = YaRNScaledRoPE(dim=head_dim,
 base=rope_base)`) and pass to every block; keep per-block `blk.rope` attribute pointing at the shared
@@ -141,12 +141,12 @@ block and `get_cos_sin` is invoked exactly once per forward (assert via monkeypa
 
 ### Fix 9 — torch>=2.4 floor
 `RMSNorm.forward` uses `F.rms_norm` (model_1b.py:17), added in torch 2.4. Add a top-of-module guard in
-`ava/model.py`: raise `ImportError("torch>=2.4 required (F.rms_norm)")` if version lower. (setup_env.sh
+`dottie/model.py`: raise `ImportError("torch>=2.4 required (F.rms_norm)")` if version lower. (setup_env.sh
 from spec 01 already installs >=2.4; this is defense.)
 
 ## Interfaces (frozen contract for specs 05/06)
 
-- `from ava.model import build_model, set_router_bias`; `build_model(cfg) -> AvaModel1B` on CPU, fp32,
+- `from dottie.model import build_model, set_router_bias`; `build_model(cfg) -> DottieModel1B` on CPU, fp32,
   `use_memory=False`.
 - `model(input_ids=ids, task_type=t)` returns `{"lm_logits": [B,L,V], "jspace": {...}, "fused": [B,L,D]}`;
   `jspace` dict keys per multi_jspace_module.py:149-155 (`system1/system2/critic/planner` sub-dicts each
@@ -160,12 +160,12 @@ from spec 01 already installs >=2.4; this is defense.)
 ## Acceptance criteria (foreman runs, repo root)
 
 1. `pytest tests/test_model.py -q` → all pass, wall time < 60s on 4-core CPU.
-2. `python -m ava.config --preset nano --count-params` → exit 0, count in [13e6, 16e6].
-3. `python -c "from ava.config import AvaConfig; AvaConfig.load('mini'); AvaConfig.load('base1b'); print('ok')"` → ok (configs parse; models NOT built).
+2. `python -m dottie.config --preset nano --count-params` → exit 0, count in [13e6, 16e6].
+3. `python -c "from dottie.config import DottieConfig; DottieConfig.load('mini'); DottieConfig.load('base1b'); print('ok')"` → ok (configs parse; models NOT built).
 4. `python - <<'EOF'` two fwd+bwd+opt steps at B=2 then B=3 on nano (inline script mirroring
    `test_two_steps_varying_batch`) → exit 0. `EOF`
 5. `git diff --stat` touches ONLY model_1b.py and multi_jspace_module.py among pre-existing files;
-   `git status --porcelain` shows new files only under ava/, configs/, tests/, specs/.
+   `git status --porcelain` shows new files only under dottie/, configs/, tests/, specs/.
 
 ## Out of scope
 

@@ -6,14 +6,14 @@ import torch, random, math, hashlib
 from pathlib import Path
 import torch.nn.functional as F
 
-from ava.config import AvaConfig
-from ava.model import build_model
-from ava.pipeline.collector import load_sources
+from dottie.config import DottieConfig
+from dottie.model import build_model
+from dottie.pipeline.collector import load_sources
 import yaml
 
 REPO = Path(__file__).resolve().parent.parent
 
-cfg = AvaConfig.load("nano")
+cfg = DottieConfig.load("nano")
 print(f"[cfg] {cfg.preset} d_model={cfg.model.d_model} n_layers={cfg.model.n_layers} vocab={cfg.model.vocab_size}")
 
 # Build default
@@ -35,11 +35,11 @@ print(f"[model moe 32/2] {params_moe:.2f}M built OK")
 
 # Tokenizer test - use fallback simple BPE for smoke
 try:
-    from ava.tokenizer import AvaTokenizer
-    tok_path = REPO/"data/mini/tokenizer/ava_bpe_32k.json"
+    from dottie.tokenizer import DottieTokenizer
+    tok_path = REPO/"data/mini/tokenizer/dottie_bpe_32k.json"
     if tok_path.exists():
         # tokenizers library may fail on broken json? try load
-        tok = AvaTokenizer.load(tok_path)
+        tok = DottieTokenizer.load(tok_path)
         print(f"[tokenizer] vocab={tok.vocab_size} loaded")
         def encode(s): return tok.encode(s)[:256]
     else:
@@ -49,7 +49,7 @@ except Exception as e:
     def encode(s): return [ord(c)%8192 for c in s][:256]
 
 # Generate compression data
-from ava.datagen.compression import CompressionGenerator, entropy_bits, kraft_sum, lz77_compress, lz77_decompress
+from dottie.datagen.compression import CompressionGenerator, entropy_bits, kraft_sum, lz77_compress, lz77_decompress
 gen = CompressionGenerator(1234)
 docs=[]
 for doc in gen.generate(200_000):

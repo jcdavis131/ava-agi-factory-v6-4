@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-dataset_expansion.py — Continuous Dataset Expansion for Ava AGI Factory v6.4
+dataset_expansion.py — Continuous Dataset Expansion for Dottie AGI Factory v6.4
 Solo personal project, no connection to employer, built with public/free-tier only
 HOME persona only — never upload to work Drive (camd@meta.com)
 
@@ -138,7 +138,7 @@ def gen_textbook_example(topic, phase):
     }
 
 def main():
-    ap = argparse.ArgumentParser(description="Ava Dataset Expansion — incremental")
+    ap = argparse.ArgumentParser(description="Dottie Dataset Expansion — incremental")
     ap.add_argument("--tokens", default="10M", help="tokens to generate this run, e.g., 10M, 100M")
     ap.add_argument("--phases", nargs="+", default=["p0_logic","p1_math"], help="phases to expand")
     ap.add_argument("--out", default="data/daily_expanded", help="output root")
@@ -329,7 +329,7 @@ def main():
             "note": "Saved locally for efficient downstream use on Alienware RTX 4090. Copy via: scp or rclone to personal Drive / R2. DO NOT upload to work Drive camd@meta.com per AGENTS.md"
         }, indent=2))
         print(f"[Expansion] Saved locally to {for_upload_root}, manifest {upload_manifest}")
-        print(f"  -> For Alienware: rsync -avz {out_root}/ your-alienware:~/ava-agi-factory-v6-4/data/daily_expanded/")
+        print(f"  -> For Alienware: rsync -avz {out_root}/ your-alienware:~/dottie-agi-factory-v6-4/data/daily_expanded/")
     elif args.upload_mode == "gdrive":
         # Check work drive guard - import gdrive_uploader logic inline
         print("[Expansion] Checking Drive type before upload...")
@@ -343,7 +343,7 @@ def main():
             upload_manifest.write_text(json.dumps({"blocked": True, "reason": msg, "shards": new_shards, "timestamp": datetime.now(timezone.utc).isoformat()}, indent=2))
             return
         # proceed upload
-        remote_folder = "Ava-Datasets-Expansion"
+        remote_folder = "Dottie-Datasets-Expansion"
         upload_folder(out_root, remote_folder, dry_run=False)
     elif args.upload_mode == "r2":
         # R2 upload via boto3 if credentials present
@@ -351,7 +351,7 @@ def main():
         ak = os.environ.get("CLOUDFLARE_R2_ACCESS_KEY") or os.environ.get("R2_ACCESS_KEY_ID") or os.environ.get("AWS_ACCESS_KEY_ID")
         sk = os.environ.get("CLOUDFLARE_R2_SECRET_KEY") or os.environ.get("R2_SECRET_ACCESS_KEY") or os.environ.get("AWS_SECRET_ACCESS_KEY")
         endpoint = os.environ.get("CLOUDFLARE_R2_ENDPOINT") or os.environ.get("R2_ENDPOINT")
-        bucket = os.environ.get("CLOUDFLARE_R2_BUCKET", "ava-datasets")
+        bucket = os.environ.get("CLOUDFLARE_R2_BUCKET", "dottie-datasets")
         if not ak or not sk:
             print(f"[Expansion] R2 credentials missing, saving to {for_upload_root} instead. Set CLOUDFLARE_R2_ACCESS_KEY, SECRET_KEY, ENDPOINT")
             upload_manifest = for_upload_root / f"R2_MISSING_CREDS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"

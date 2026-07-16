@@ -14,14 +14,14 @@ if str(_REPO) not in sys.path:
 
 import numpy as np
 
-from ava.config import AvaConfig
-from ava.datagen.chat_safety import ChatSafetyGenerator
-from ava.datagen.code_gen import CodeGenGenerator
-from ava.datagen.encyclopedia import EncyclopediaGenerator
-from ava.datagen.logic import LogicGenerator
-from ava.datagen.math_gen import MathGenerator
-from ava.pipeline.pack import LoadedTokenizer, load_tokenizer, pack_docs, write_shard
-from ava.tokenizer import train as train_tokenizer
+from dottie.config import DottieConfig
+from dottie.datagen.chat_safety import ChatSafetyGenerator
+from dottie.datagen.code_gen import CodeGenGenerator
+from dottie.datagen.encyclopedia import EncyclopediaGenerator
+from dottie.datagen.logic import LogicGenerator
+from dottie.datagen.math_gen import MathGenerator
+from dottie.pipeline.pack import LoadedTokenizer, load_tokenizer, pack_docs, write_shard
+from dottie.tokenizer import train as train_tokenizer
 from evals.probe_items_gen import generate_probe_items
 
 _REPO_ROOT = _REPO
@@ -52,9 +52,9 @@ def _collect_docs(target_bytes: int = 500_000) -> list[dict]:
 
 
 def build(preset: str = "nano", force: bool = False) -> None:
-    cfg = AvaConfig.load(preset)
+    cfg = DottieConfig.load(preset)
     data_root = _REPO_ROOT / "data" / preset
-    tok_path = _REPO_ROOT / cfg.data.get("tokenizer_path", f"data/{preset}/tokenizer/ava_nano_bpe.json")
+    tok_path = _REPO_ROOT / cfg.data.get("tokenizer_path", f"data/{preset}/tokenizer/dottie_nano_bpe.json")
     corpus_dir = data_root / "eval_corpus"
     corpus_dir.mkdir(parents=True, exist_ok=True)
 

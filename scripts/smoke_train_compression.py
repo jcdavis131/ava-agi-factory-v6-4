@@ -16,26 +16,26 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
-from ava.config import AvaConfig
-from ava.model import build_model
-from ava.tokenizer import AvaTokenizer
+from dottie.config import DottieConfig
+from dottie.model import build_model
+from dottie.tokenizer import DottieTokenizer
 
 # generators
-from ava.datagen.compression import CompressionGenerator
-from ava.datagen.logic import LogicGenerator
-from ava.datagen.math_gen import MathGenerator
+from dottie.datagen.compression import CompressionGenerator
+from dottie.datagen.logic import LogicGenerator
+from dottie.datagen.math_gen import MathGenerator
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 def load_tokenizer():
     # try mini tokenizer (exists) then nano
-    cand = REPO_ROOT / "data/mini/tokenizer/ava_bpe_32k.json"
+    cand = REPO_ROOT / "data/mini/tokenizer/dottie_bpe_32k.json"
     if not cand.exists():
-        cand = REPO_ROOT / "data/nano/tokenizer/ava_nano_bpe.json"
+        cand = REPO_ROOT / "data/nano/tokenizer/dottie_nano_bpe.json"
     if not cand.exists():
         return None
     try:
-        tok = AvaTokenizer.load(cand)
+        tok = DottieTokenizer.load(cand)
         print(f"[tok] loaded {cand} vocab={tok.vocab_size}")
         return tok
     except Exception as e:
@@ -67,7 +67,7 @@ def main():
     args = ap.parse_args()
 
     print("[solo disclaimer] Solo personal project, no connection to employer, built with public/free-tier only")
-    cfg = AvaConfig.load(args.preset)
+    cfg = DottieConfig.load(args.preset)
     print(f"[cfg] preset={cfg.preset} d_model={cfg.model.d_model} layers={cfg.model.n_layers} vocab orig={cfg.model.vocab_size}")
 
     # Override model config for inkling flags test
@@ -147,7 +147,7 @@ def main():
 
     # Verify verifiers inside compression (entropy, kraft, lz)
     # sample checks
-    from ava.datagen.compression import entropy_bits, kraft_sum, lz77_compress, lz77_decompress, bwt_transform, bwt_inverse
+    from dottie.datagen.compression import entropy_bits, kraft_sum, lz77_compress, lz77_decompress, bwt_transform, bwt_inverse
     print(f"[verify] entropy_bits([0.5,0.5])={entropy_bits([0.5,0.5]):.3f} expected 1.0")
     print(f"[verify] kraft_sum([1,2,3])={kraft_sum([1,2,3]):.3f} <=1? {kraft_sum([1,2,3])<=1}")
     samp = "ABABABAB"
@@ -219,7 +219,7 @@ def main():
     print(f"[metrics] losses={losses}")
     
     # Collector distribution simulation for compression
-    from ava.pipeline.collector import load_sources
+    from dottie.pipeline.collector import load_sources
     try:
         sources = load_sources(REPO_ROOT / "configs/sources.yaml")
         phases_weights = {i:{} for i in range(6)}

@@ -3,13 +3,13 @@
 - **Spec ID:** 09_conversion_release
 - **Worker tier:** Sonnet
 - **Dependencies:** Spec 01 (env, `.gitignore` already contains `export/` and `runs/`); model spec
-  (`ava/model.py` + `ava/config.py` able to rebuild the nano architecture from a config); training
-  spec (checkpoints `runs/chat/ava_nano_chat.pt`, `runs/base/ava_nano_final.pt`,
-  `runs/base/ava_nano_stable.pt`, metrics `runs/*/metrics.jsonl`); tokenizer spec
-  (`data/nano/tokenizer/ava_nano_bpe.json`); eval spec (`reports/branch_eval_results_real.json`).
-- **Status when done:** `python scripts/convert_checkpoint.py --ckpt runs/chat/ava_nano_chat.pt
-  --out export/ava-nano && python scripts/convert_checkpoint.py --verify --ckpt
-  runs/chat/ava_nano_chat.pt --out export/ava-nano` both exit 0 in the container.
+  (`dottie/model.py` + `dottie/config.py` able to rebuild the nano architecture from a config); training
+  spec (checkpoints `runs/chat/dottie_nano_chat.pt`, `runs/base/dottie_nano_final.pt`,
+  `runs/base/dottie_nano_stable.pt`, metrics `runs/*/metrics.jsonl`); tokenizer spec
+  (`data/nano/tokenizer/dottie_nano_bpe.json`); eval spec (`reports/branch_eval_results_real.json`).
+- **Status when done:** `python scripts/convert_checkpoint.py --ckpt runs/chat/dottie_nano_chat.pt
+  --out export/dottie-nano && python scripts/convert_checkpoint.py --verify --ckpt
+  runs/chat/dottie_nano_chat.pt --out export/dottie-nano` both exit 0 in the container.
 
 ## Purpose
 
@@ -26,7 +26,7 @@ policy).
 1. `scripts/convert_checkpoint.py` (new)
 2. `docs/RELEASE.md` (new — results template + distribution policy)
 3. `tests/test_convert.py` (new)
-4. Generated at runtime, gitignored, never committed: `export/ava-nano/` containing
+4. Generated at runtime, gitignored, never committed: `export/dottie-nano/` containing
    `model.safetensors`, `config.json`, `tokenizer.json`, `modeling/` (source copies),
    `README.md`, `checksums.txt`.
 5. Additive edit to `scripts/setup_env.sh`: add `safetensors>=0.4` to the pip install list
@@ -38,7 +38,7 @@ policy).
 ### scripts/convert_checkpoint.py — export mode
 
 CLI: `python scripts/convert_checkpoint.py --ckpt <path> --out <dir> [--verify] [--prompts N]`.
-Default `--ckpt runs/chat/ava_nano_chat.pt`, default `--out export/ava-nano`. Loads with
+Default `--ckpt runs/chat/dottie_nano_chat.pt`, default `--out export/dottie-nano`. Loads with
 `torch.load(..., map_location="cpu", weights_only=True)` (fall back to `weights_only=False` with
 a printed warning only if the checkpoint contains the config object). Writes:
 
@@ -48,24 +48,24 @@ a printed warning only if the checkpoint contains the config object). Writes:
   rejects shared storage.
 - **`config.json`** — HONEST, machine-generated from the checkpoint's actual config/shapes, never
   hardcoded. Required keys and their real nano values:
-  `{"model_type": "ava-nano", "architectures": ["AvaModel"], "vocab_size": 8192, "d_model": 256,
+  `{"model_type": "dottie-nano", "architectures": ["DottieModel"], "vocab_size": 8192, "d_model": 256,
   "n_heads": 4, "head_dim": 64, "n_layers_text": 2, "n_layers_fusion": 6, "n_layers_reasoning":
   2, "jspace_slots": {"S1": 32, "S2": 64, "Critic": 16, "Planner": 32}, "jspace_half_life":
   {"S1": 8, "S2": 60, "Critic": 30, "Planner": 50}, "rope_base": 10000, "tie_embeddings": true,
   "torch_dtype": "float32", "tokenizer_file": "tokenizer.json", "param_count": <real int from
   sum(numel)>, "training_tokens": <from the last line of the source run's metrics.jsonl, null if
-  unavailable>, "source_checkpoint": "<--ckpt value>", "ava_version": "6.4", "export_utc":
+  unavailable>, "source_checkpoint": "<--ckpt value>", "dottie_version": "6.4", "export_utc":
   "<ISO8601>"}`. Values MUST be read from the loaded config/state_dict (e.g. d_model from an
   embedding shape) so a mini/base1b checkpoint later exports correct numbers with zero code
   change.
-- **`tokenizer.json`** — byte-identical copy of `data/nano/tokenizer/ava_nano_bpe.json`.
-- **`modeling/`** — source copies making the export self-contained: `ava/model.py`,
-  `ava/config.py`, every other `ava/*.py` module needed to instantiate the model (resolve by
+- **`tokenizer.json`** — byte-identical copy of `data/nano/tokenizer/dottie_nano_bpe.json`.
+- **`modeling/`** — source copies making the export self-contained: `dottie/model.py`,
+  `dottie/config.py`, every other `dottie/*.py` module needed to instantiate the model (resolve by
   following imports), plus the blueprint references `model_1b.py` and `multi_jspace_module.py`
   (copied verbatim, labeled `# reference blueprint` in a `modeling/README_SOURCES.txt` manifest
   listing each file's origin path and sha256).
 - **`README.md`** (inside the export) — model card: honest one-paragraph description ("14M-param
-  nano pilot of the Ava Multi-J-Space architecture, trained on synthetic curriculum data on CPU"),
+  nano pilot of the Dottie Multi-J-Space architecture, trained on synthetic curriculum data on CPU"),
   a working load snippet (build model from `modeling/` + `config.json`, load safetensors, tie
   embeddings), the eval summary if `reports/branch_eval_results_real.json` exists, and the
   standard disclaimer line ("Solo personal project, no connection to employer").
@@ -100,8 +100,8 @@ Two sections, both concrete:
    (14M params, synthetic data, CPU-trained pilot — results validate the pipeline, not the
    capability claims of the 1B blueprint).
 2. **Distribution & git-LFS policy** — checkpoints and exports are NOT committed: `runs/` and
-   `export/` are gitignored (spec 01). Distribution paths: (a) copy `export/ava-nano/` out of the
-   container, or (b) deterministic retrain (`make data tokenizer && python -m ava.train --preset
+   `export/` are gitignored (spec 01). Distribution paths: (a) copy `export/dottie-nano/` out of the
+   container, or (b) deterministic retrain (`make data tokenizer && python -m dottie.train --preset
    nano --seed 1234` — same seed, same data, same checkpoint). Include the exact git-LFS commands
    (`git lfs install`, `git lfs track "*.safetensors"`, edit `.gitattributes`) as
    DOCUMENTED-BUT-NOT-EXECUTED, with a warning about LFS quota on free GitHub. State explicitly
@@ -110,8 +110,8 @@ Two sections, both concrete:
 ### tests/test_convert.py
 
 - `test_export_creates_files`: run export (skip via `pytest.skip` if
-  `runs/chat/ava_nano_chat.pt` absent); assert the 6 artifacts exist and `config.json` parses
-  with `model_type == "ava-nano"`, `d_model == 256`, `vocab_size == 8192`, `param_count` in
+  `runs/chat/dottie_nano_chat.pt` absent); assert the 6 artifacts exist and `config.json` parses
+  with `model_type == "dottie-nano"`, `d_model == 256`, `vocab_size == 8192`, `param_count` in
   [13_000_000, 16_000_000].
 - `test_verify_passes`: `--verify` returns exit code 0.
 - `test_tamper_detected`: copy export to a temp dir under the scratch/tmp area, add 1e-3 to one
@@ -127,15 +127,15 @@ Two sections, both concrete:
 
 ## Acceptance criteria (foreman runs, from repo root)
 
-1. `python scripts/convert_checkpoint.py --ckpt runs/chat/ava_nano_chat.pt --out export/ava-nano`
-   → exit 0; `ls export/ava-nano` shows `model.safetensors config.json tokenizer.json modeling
+1. `python scripts/convert_checkpoint.py --ckpt runs/chat/dottie_nano_chat.pt --out export/dottie-nano`
+   → exit 0; `ls export/dottie-nano` shows `model.safetensors config.json tokenizer.json modeling
    README.md checksums.txt`.
-2. `python -c "import json; c=json.load(open('export/ava-nano/config.json')); assert c['model_type']=='ava-nano' and c['d_model']==256 and c['vocab_size']==8192 and 13e6<c['param_count']<16e6"`
+2. `python -c "import json; c=json.load(open('export/dottie-nano/config.json')); assert c['model_type']=='dottie-nano' and c['d_model']==256 and c['vocab_size']==8192 and 13e6<c['param_count']<16e6"`
    → exit 0 (proves the config is real, unlike convert_to_hf.py's hardcoded 2048/48).
-3. `python scripts/convert_checkpoint.py --verify --ckpt runs/chat/ava_nano_chat.pt --out export/ava-nano`
+3. `python scripts/convert_checkpoint.py --verify --ckpt runs/chat/dottie_nano_chat.pt --out export/dottie-nano`
    → prints `VERIFY PASS 10/10`, exit 0.
 4. `pytest tests/test_convert.py` → all pass (tamper test proves FAIL path works).
-5. `git check-ignore export/ava-nano/model.safetensors` → exit 0 (never committable).
+5. `git check-ignore export/dottie-nano/model.safetensors` → exit 0 (never committable).
 6. `git diff --stat convert_to_hf.py` → empty output (blueprint untouched).
 7. `git status --porcelain` → only new `scripts/convert_checkpoint.py`, `docs/RELEASE.md`,
    `tests/test_convert.py`, plus the one-line `scripts/setup_env.sh` edit.

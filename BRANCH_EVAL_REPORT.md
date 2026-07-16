@@ -1,4 +1,4 @@
-# Branch Eval Report - Ava v6.4 + SpikeSparseSink
+# Branch Eval Report - Dottie v6.4 + SpikeSparseSink
 
 Solo personal project, no connection to employer, built with public/free-tier only
 
@@ -50,7 +50,7 @@ All 5 tests PASS per branch, frozen capability preservation 100% while chat alig
 Real-mode implementation uses verbalizer.weight as Jacobian: tok_id=sha256(concept)%vocab, vec=verbalizer.weight[tok_id] normalized, edit_ws via dot product + max-proj swap + global bias 0.05*alpha*to_vec, broadcast recomputed via norm ratio, delta_logits (new_verbalizer-orig)*0.5*0.3
 
 ## SpikeSink Ablation (Sec4/5)
-- pre-norm (baseline Ava): RMSNorm before q/k/v + before MLP → massive activations + attention sinks co-occur (architectural artifact), hidden reps near-constant → implicit params compete with explicit J-Space slots
+- pre-norm (baseline Dottie): RMSNorm before q/k/v + before MLP → massive activations + attention sinks co-occur (architectural artifact), hidden reps near-constant → implicit params compete with explicit J-Space slots
 - post-norm (ablation): RMSNorm after residual → decouples: massive acts reduced, sinks persist differently, J-Space verbalizable_mass 0.06 cleaner
 - V-scale (value-path gradient valve): forward identity, backward scale grad at BOS sink tokens by α=0.1 → attenuates sink-induced gradient pressure → massive acts suppressed while forward sinks preserved → forces explicit workspace to carry persistent info, improves long-context 64k/128k YaRN + quantization robustness
 - Decorrelation loss: MSE(cos_sim(BOS_hidden, other_hidden),0) → mitigates intermediate sinks, reduces cos_BOS_other from 0.45→0.15

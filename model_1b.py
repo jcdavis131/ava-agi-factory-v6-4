@@ -1,5 +1,5 @@
 """
-Ava — YaRN + LongRoPE2 + Relative Pos (Inkling) + Short Conv + QK-Norm + Peri-LN + attention sinks + Multi-J-Space
+Dottie — YaRN + LongRoPE2 + Relative Pos (Inkling) + Short Conv + QK-Norm + Peri-LN + attention sinks + Multi-J-Space
 Solo personal project, no connection to employer, built with public/free-tier only
 
 Inkling wins ported:
@@ -694,7 +694,7 @@ class AudioEncoder(nn.Module):
         return self.norm(self.proj(audio))
 
 
-class AvaModel1B(nn.Module):
+class DottieModel1B(nn.Module):
     def __init__(self, vocab_size=128000, d_model=2048, n_text=12, n_fusion=28, n_reason=8,
                  multi_jspace_enabled=True, n_heads=16, head_dim=128, use_qk_norm=True,
                  n_kv_heads=None, mlp="gelu", mlp_mult=4, mlp_ratio=None,
@@ -936,7 +936,7 @@ class AvaModel1B(nn.Module):
             p.requires_grad = True
 
 
-def apply_rope_scaling(model: AvaModel1B, base: int, scale: float):
+def apply_rope_scaling(model: DottieModel1B, base: int, scale: float):
     model.rope_base = base
     model.rope_scale = scale
     if model.rope is not None:
@@ -952,7 +952,7 @@ def get_model(vocab_size=128000, d_model=2048, multi_jspace_enabled=True,
               relative_max_distance: int = 128):
     if use_relative:
         rope_type = "relative"
-    return AvaModel1B(vocab_size=vocab_size, d_model=d_model,
+    return DottieModel1B(vocab_size=vocab_size, d_model=d_model,
                       multi_jspace_enabled=multi_jspace_enabled,
                       rope_type=rope_type, n_sinks=n_sinks, use_peri_ln=use_peri_ln,
                       use_short_conv=use_short_conv, use_relative=use_relative,

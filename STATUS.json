@@ -29,7 +29,7 @@
       "phases_joined": "p0_logic p1_math p2_foundation",
       "guard": "Personal Drive safe - no work indicators in 30 files, per AGENTS.md absolute separation, checked 2026-07-16T15:56 UTC - appears to be personal Drive or empty, safe to proceed",
       "gdrive_upload": {
-        "folder_name": "Ava-Datasets-Expansion",
+        "folder_name": "Dottie-Datasets-Expansion",
         "folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
         "attempted": "dry-run 158 files (148 skipped dedup), then real upload 10 files with --workers 2",
         "status": "success - 10 files uploaded to personal Drive, 148 dedup skipped, 0 failed",
@@ -96,9 +96,9 @@
       "run_context": "dataset_expansion.py --tokens 500K --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local 2026-07-16T15:55:35 UTC - 5045 docs 9700 dup 8581 qual filtered, shard 165KB gz sha12 8c79b428c2f2 + manifest 1.7M sha12 d8cb5a396dbf + global manifest 1269K lines, guard Personal Safe, gdrive dry-run 158 + real upload 10 files success --workers 2",
       "disk_usage": "100G 14G 86G 14% - PASS",
       "hf_upload": {
-        "repo": "jcdavis131/ava-textbook-v6",
+        "repo": "jcdavis131/dottie-textbook-v6",
         "status": "HF_TOKEN missing in Hatch VM - saved local for Alienware push, personal Drive used instead",
-        "streaming": "load_dataset('jcdavis131/ava-textbook-v6', streaming=True, split='train')",
+        "streaming": "load_dataset('jcdavis131/dottie-textbook-v6', streaming=True, split='train')",
         "local_manifest": "data/for_upload/upload_manifest_20260716_155601.json"
       },
       "global_manifest_lines": 1269199,
@@ -126,7 +126,7 @@
       "phases_joined": "p0_logic p1_math p2_foundation",
       "guard": "Personal Drive safe - no work indicators, per AGENTS.md absolute separation, checked 30 files - 2026-07-16 03:57 UTC",
       "gdrive_upload": {
-        "folder_name": "Ava-Datasets-Expansion",
+        "folder_name": "Dottie-Datasets-Expansion",
         "folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
         "uploaded": [
           {
@@ -142,9 +142,9 @@
       "run_context": "dataset_expansion.py --tokens 500K --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local 2026-07-16T03:58:49.999996+00:00 - 5055 docs 9303 dup 8271 qual filtered, 1 shard 165K gz + 1.7M manifest 27s, guard Personal Safe, gdrive upload 1 file to canonical 19tqzjB id 1V-Ajqm",
       "disk_usage": "100G 14G 87G 14% - PASS",
       "hf_upload": {
-        "repo": "jcdavis131/ava-textbook-v6",
+        "repo": "jcdavis131/dottie-textbook-v6",
         "status": "HF_TOKEN missing in Hatch VM - saved local + gdrive uploaded for Alienware push",
-        "streaming": "load_dataset('jcdavis131/ava-textbook-v6', streaming=True, split='train')",
+        "streaming": "load_dataset('jcdavis131/dottie-textbook-v6', streaming=True, split='train')",
         "local_manifest": "data/for_upload/upload_manifest_20260716_035554.json"
       },
       "global_manifest_lines": 1238906
@@ -171,7 +171,7 @@
       "phases_joined": "p0_logic p1_math p2_foundation",
       "guard": "Personal Drive safe - no work indicators in 30 files, per AGENTS.md absolute separation, checked 2026-07-16T11:56 UTC",
       "gdrive_upload": {
-        "folder_name": "Ava-Datasets-Expansion",
+        "folder_name": "Dottie-Datasets-Expansion",
         "folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
         "attempted": "dry-run 154 files (148 skipped dedup), then real upload 1 shard + 1 manifest",
         "status": "success - 2 files uploaded to personal Drive, content-addressable dedup",
@@ -195,9 +195,9 @@
       "run_context": "dataset_expansion.py --tokens 500K --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local 2026-07-16T11:55 UTC - 5050 docs 9469 dup 8088 qual filtered, 1 shard 165K gz sha12 53a14b6581b2 + manifest 1.8M sha12 9ccc6d9492c2 + global manifest 1.2M lines, guard Personal Safe, gdrive dry-run + real upload success 2 files",
       "disk_usage": "100G 14G 86G 14% - PASS",
       "hf_upload": {
-        "repo": "jcdavis131/ava-textbook-v6",
+        "repo": "jcdavis131/dottie-textbook-v6",
         "status": "HF_TOKEN missing in Hatch VM - saved local for Alienware push, personal Drive used instead",
-        "streaming": "load_dataset('jcdavis131/ava-textbook-v6', streaming=True, split='train')",
+        "streaming": "load_dataset('jcdavis131/dottie-textbook-v6', streaming=True, split='train')",
         "local_manifest": "data/for_upload/upload_manifest_20260716_115557.json"
       },
       "global_manifest_lines": 1259104,
@@ -225,7 +225,7 @@
       "phases_joined": "p0_logic p1_math p2_foundation",
       "guard": "Personal Drive safe - no work indicators, per AGENTS.md absolute separation, checked 30 files - 2026-07-15 23:55 UTC",
       "gdrive_upload": {
-        "folder_name": "Ava-Datasets-Expansion",
+        "folder_name": "Dottie-Datasets-Expansion",
         "folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
         "uploaded": [
           {
@@ -240,9 +240,9 @@
       "run_context": "dataset_expansion.py --tokens 500K --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local 2026-07-15 23:55 UTC - 5059 docs 9662 dup 8698 qual filtered, 1 shard 165K gz + 1.7M manifest 29s, guard blocked work Drive correctly (personal safe), gdrive upload 1 file to canonical 19tqzjB",
       "disk_usage": "100G 13G 87G 13% - PASS",
       "hf_upload": {
-        "repo": "jcdavis131/ava-textbook-v6",
+        "repo": "jcdavis131/dottie-textbook-v6",
         "status": "HF_TOKEN missing in Hatch VM - saved local + gdrive uploaded for Alienware push",
-        "streaming": "load_dataset('jcdavis131/ava-textbook-v6', streaming=True, split='train')",
+        "streaming": "load_dataset('jcdavis131/dottie-textbook-v6', streaming=True, split='train')",
         "local_manifest": "data/for_upload/upload_manifest_20260715_235600.json"
       }
     },
@@ -262,7 +262,7 @@
       "shard": "packed_20260716_155535_00081_6671.jsonl.gz"
     },
     "crons": {
-      "ava-data-gather-4h": true
+      "dottie-data-gather-4h": true
     }
   },
   "curriculum": {
@@ -341,10 +341,10 @@
       ]
     },
     "crons": {
-      "ava-data-gather-4h": true,
+      "dottie-data-gather-4h": true,
       "autoresearch-loop-hourly": true,
       "rtx-releases-hourly-sync": true,
-      "ava-data-gather-daily": false
+      "dottie-data-gather-daily": false
     },
     "expansion": {
       "tokens": 500114,
@@ -367,7 +367,7 @@
     }
   },
   "weekly_training": {
-    "job_id": "ava-training-weekly",
+    "job_id": "dottie-training-weekly",
     "timestamp_utc": "2026-07-12T03:00:44.961272Z",
     "scheduled_for_local": "Sat 2026-07-11 22:00:00 CDT",
     "status": "BLOCKED_NO_GPU",

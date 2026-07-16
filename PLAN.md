@@ -1,4 +1,4 @@
-# Ava — Continuous Gather → Clean → Train → Serve
+# Dottie — Continuous Gather → Clean → Train → Serve
 
 Collection, curation, and training run **concurrently** as five Docker services coordinated by a
 SQLite manifest. Training on the local RTX 4080; everything else in containers.
@@ -22,7 +22,7 @@ The v6.4 repo was a blueprint, not a system. The audit found, and this project f
 | "AutoInit std=0.02" | Dead code. nano started at cross-entropy **196** where ln(8192)=9.01 |
 | `verbalizable_mass` | The literal constant **0.06** (a `hasattr` guard that was always False) |
 | 5 canonical eval tests | Every score **hardcoded**; the "intervention engine" edited a `torch.randn` matrix indexed by `sha256(concept) % vocab` |
-| "ava-tokenizer" | Does not exist anywhere |
+| "dottie-tokenizer" | Does not exist anywhere |
 | `server.py` | `NameError` on import (`Optional` never imported) |
 
 ## Measured environment (not assumed)
@@ -54,12 +54,12 @@ The v6.4 repo was a blueprint, not a system. The audit found, and this project f
                                              delete CONSUMED, rotate ckpts
 ```
 
-**Shard lifecycle** (`ava/pipeline/manifest.py`, enforced):
+**Shard lifecycle** (`dottie/pipeline/manifest.py`, enforced):
 `RAW → CLAIMED_CURATE → PACKED → CLAIMED_TRAIN → CONSUMED → DELETED` (+`FAILED`), leases requeued on
 worker death. Claims are `SELECT`+`UPDATE` inside one `BEGIN IMMEDIATE` — proven by a negative
 control: weakening it to `BEGIN DEFERRED` makes the 12-claimer test fail immediately.
 
-**Flow control** (`ava/pipeline/flow.py`) keeps the system *training-bound*:
+**Flow control** (`dottie/pipeline/flow.py`) keeps the system *training-bound*:
 - collector pauses on `free_disk < 12GB` **or** `raw > 4GB` **or** `packed_runway > 3B tokens`
 - trainer emits `DATA_STARVED` (never crashes) and collectors re-prioritize that phase
 - collector prefetches `phase_current` **and** `phase_next` so transitions don't stall the GPU

@@ -5,9 +5,9 @@
   silently overfits the model or makes runs unreproducible; 🟦 Sonnet for compaction/eviction/observability
   (T10.8–T10.10) once the invariants below are fixed.
 - **Dependencies:** 02_data_generation (generators stream + are byte-deterministic), the manifest +
-  flow modules already shipped (`ava/pipeline/manifest.py`, `ava/pipeline/flow.py`, `configs/pipeline.yaml`),
+  flow modules already shipped (`dottie/pipeline/manifest.py`, `dottie/pipeline/flow.py`, `configs/pipeline.yaml`),
   03_tokenizer (freeze gate), 04_model_and_configs (curriculum weights, seq-len per phase).
-- **Consumers:** the trainer (`ava/data.py`, `ava/train.py`), the collector/curator/janitor service
+- **Consumers:** the trainer (`dottie/data.py`, `dottie/train.py`), the collector/curator/janitor service
   loops, and the eval harness (frozen snapshots).
 
 ## Purpose
@@ -20,12 +20,12 @@ subset is available when and where it is needed, on a single 28GB drive, reprodu
 
 This spec does **not** re-implement Stage 2/4. It is the governor, the reproducible view, and the retention
 policy layered on top of them. Everything here is a pure function of the manifest + a config plus a small
-number of new service behaviors, in the exact style of `ava/pipeline/flow.py` (cheap to poll, no hidden
+number of new service behaviors, in the exact style of `dottie/pipeline/flow.py` (cheap to poll, no hidden
 state, assert the *property* not the absence of a crash).
 
 ## Existing API surface these tasks must build on (do not reinvent)
 
-`ava/pipeline/manifest.py` (`Manifest`):
+`dottie/pipeline/manifest.py` (`Manifest`):
 - `tokens_ready(phase: int, *, split: str = "train") -> int` — PACKED-train tokens available for a phase. **The runway measure.**
 - `claim(stage, *, by, phases=None, splits=None) -> Shard | None` — atomic, `ORDER BY phase ASC, created_at ASC`. Trainer forced to `splits=("train",)`.
 - `add_shard(id, *, source, phase, path, split="train", bytes_, docs, sha256, state=RAW) -> bool` — idempotent (INSERT OR IGNORE).
@@ -35,7 +35,7 @@ state, assert the *property* not the absence of a crash).
 - `upsert_run(run_id, *, preset, step, phase, status)` / `log_metric(run_id, key, value)` — observability sink.
 - `shards` table columns: `id (TEXT PK), source, phase, split, state, path, bytes, tokens, docs, sha256, tokenizer_sha, attempts, claimed_by, lease_expires_at, error, created_at, updated_at`. `tokens_ready` sums the `tokens` column over `state=PACKED`. The table is **not** `WITHOUT ROWID`, so the implicit `rowid` is monotonic in registration order — **it is the watermark primitive (T10.5)**. Claim hot path is indexed `(state, phase, created_at)`.
 
-`ava/pipeline/flow.py`: `FlowConfig.load()`, `free_gb()`, `collector_should_pause()`, `prefetch_phases()`,
+`dottie/pipeline/flow.py`: `FlowConfig.load()`, `free_gb()`, `collector_should_pause()`, `prefetch_phases()`,
 `starved_phase()`, `trainer_data_state() -> (DataState, str)`, `StarvationTracker`. New logic extends these;
 it does not replace them.
 
@@ -71,7 +71,7 @@ replay:
 
 ## Components
 
-### T10.1 — `ava/pipeline/pacer.py`: curriculum pacing controller (🟪)
+### T10.1 — `dottie/pipeline/pacer.py`: curriculum pacing controller (🟪)
 Pure decision functions, `flow.py`-style. No I/O beyond the manifest + `free_gb`.
 - `runway_steps(manifest, cfg, *, phase, batch_tokens) -> float` = `tokens_ready(phase) / batch_tokens`.
 - `effort_weights(manifest, cfg, *, current_phase, batch_tokens, n_phases=6) -> dict[int, float]` —
@@ -86,7 +86,7 @@ Pure decision functions, `flow.py`-style. No I/O beyond the manifest + `free_gb`
   uniform constant makes the transition test show a starvation window — prove the test is not vacuous.
 
 ### T10.2 — infinite-generator governor (🟪, in `pacer.py`)
-The synthetic generators (`ava/datagen/*`) accept `generate(target_bytes)` and stream unbounded; the
+The synthetic generators (`dottie/datagen/*`) accept `generate(target_bytes)` and stream unbounded; the
 governor sets each generator run's `target_bytes` from that `(source, phase)`'s runway *deficit*
 (`effort_weights`), so P0 cannot overproduce and evict P5's disk budget. Deterministic resume via the
 existing `get_cursor`/`set_cursor` (source key carries the phase). The collector loop already calls the
@@ -95,7 +95,7 @@ generators post-T3.4; the governor only supplies the per-tick budget + gates on 
   no phase starves another; killing and restarting mid-tick resumes at the same cursor and yields
   byte-identical shards (extends the T3.2 determinism guarantee end-to-end).
 
-### T10.3 — bounded-memory streaming ingestion (`ava/data.py`, extends T6.3) (🟪)
+### T10.3 — bounded-memory streaming ingestion (`dottie/data.py`, extends T6.3) (🟪)
 `StreamingShardSampler` and the curator readers must keep RSS flat regardless of corpus size:
 - `np.memmap` the uint16 `.bin` (never load a full shard); read `[start:end]` slices per `.idx.json`.
 - Fixed-size bounded queues across claim → decompress → collate (a producer thread blocks, it does not grow).
@@ -116,7 +116,7 @@ comfortably above, it relaxes. The T5.4 `3×` gate becomes this invariant's cold
 - **accept:** an injected trainer speedup (fewer grad-accum steps) drives the ratio < 1; the gauge detects
   it within one `control_period_s` and the recommended curator replica count rises; ratio recovers.
 
-### T10.5 — reproducible dataset view / as-of watermark (🟪; manifest + `ava/train.py`)
+### T10.5 — reproducible dataset view / as-of watermark (🟪; manifest + `dottie/train.py`)
 Pin each run to a **watermark** = max `rowid` at run start (or resume). Add
 `Manifest.claim(..., max_rowid=None)` so the trainer only ever claims shards registered at or before its
 watermark; the corpus may grow underneath it without changing the run's data order. Persist
@@ -143,7 +143,7 @@ do a **controlled** replay — re-shuffle order, stamp `replay_epoch`, and never
 - **accept:** a phase forced into replay logs `replay_epoch` and a re-shuffled order; dedup confirms no
   `doc_id` recurs within the window. **Assert the property**, not merely that it ran.
 
-### T10.8 — shard compaction + addressable index (🟦; `ava/pipeline/compact.py`)
+### T10.8 — shard compaction + addressable index (🟦; `dottie/pipeline/compact.py`)
 Merge PACKED shards under `compact_below_bytes` per `(phase, split, seq_len)` into ~`compact_target_bytes`
 outputs; maintain a compact index (`packed/index.json` or a manifest view) so any `(phase, task_type,
 split)` subset is addressable without scanning. Respect the frozen-tokenizer and val/test gates; compaction

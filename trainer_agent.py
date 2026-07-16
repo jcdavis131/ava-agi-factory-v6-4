@@ -11,9 +11,9 @@ Uses open-source:
 
 Behavior:
 - Polls data/streaming_shards/ for new shards, waits for phase0 .ready
-- Uses AvaStreamingDataset(use_chonkie=True) which is constant memory: shuffle_buffer + batch + 1 doc chunks
+- Uses DottieStreamingDataset(use_chonkie=True) which is constant memory: shuffle_buffer + batch + 1 doc chunks
 - Mirrors dolma_config phases + WSD 736k + YaRN 10k->1M from train_1b_deepspeed.py
-- Trains base first, saves ava_stable_736k.pt, then branches code/math/chat
+- Trains base first, saves dottie_stable_736k.pt, then branches code/math/chat
 - While training phase0, builder agent already building phase1 in background -> curriculum loop
 - Checkpoint: checkpoints/trainer_state.json + STATUS.json
 - Can be launched as background daemon via workflow
@@ -24,7 +24,7 @@ import yaml
 
 # import our factory
 try:
-    from streaming_data import AvaStreamingDataset, get_phase_for_tokens, PHASE_TOKENS
+    from streaming_data import DottieStreamingDataset, get_phase_for_tokens, PHASE_TOKENS
     HAS_STREAMING = True
 except Exception as e:
     print(f"[Trainer] streaming_data import failed {e}")
@@ -134,8 +134,8 @@ def main():
         BRANCH_CONFIGS={}
 
     # Build streaming dataset with Chonkie enabled - constant memory
-    print(f"[Trainer] Building AvaStreamingDataset data_root={data_root} branch={args.branch} shuffle_buffer={args.shuffle_buffer} seq_len={args.seq_len} use_chonkie={args.use_chonkie}")
-    ds = AvaStreamingDataset(
+    print(f"[Trainer] Building DottieStreamingDataset data_root={data_root} branch={args.branch} shuffle_buffer={args.shuffle_buffer} seq_len={args.seq_len} use_chonkie={args.use_chonkie}")
+    ds = DottieStreamingDataset(
         data_root=str(data_root),
         branch=args.branch,
         phase="auto",
@@ -241,8 +241,8 @@ def main():
             # WSD checkpoint at 736k (mock at small)
             if steps == 20 and args.branch=="base":  # demo checkpoint, real is 736000
                 try:
-                    Path("ava_stable_736k.pt").write_text(f"mock stable at step {steps} tokens {tokens_seen} with chonkie")
-                    print("[Trainer] Saved ava_stable_736k.pt demo - other agents can start branch training code/math/chat")
+                    Path("dottie_stable_736k.pt").write_text(f"mock stable at step {steps} tokens {tokens_seen} with chonkie")
+                    print("[Trainer] Saved dottie_stable_736k.pt demo - other agents can start branch training code/math/chat")
                 except:
                     pass
 

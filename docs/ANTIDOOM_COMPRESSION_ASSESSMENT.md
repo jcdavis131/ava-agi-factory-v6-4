@@ -1,25 +1,25 @@
-# Ava v6.4 — Antidoom + Compression Curriculum Assessment
+# Dottie v6.4 — Antidoom + Compression Curriculum Assessment
 
 > **Solo personal project, no connection to employer, built with public/free-tier only**  
-> **HOME directory only** — `~/workspace/ava-agi-factory-v6-4` · Free-tier: HF datasets streaming, R2/Workers/Supabase if needed, ONNX WASM, public pip only  
+> **HOME directory only** — `~/workspace/dottie-agi-factory-v6-4` · Free-tier: HF datasets streaming, R2/Workers/Supabase if needed, ONNX WASM, public pip only  
 > Date: 2026-07-15 · Assessment for: https://github.com/Liquid4All/antidoom + compression algorithms
 
 ## 0. Executive Summary
 
-Ava is healthy in **continuous data-gather mode**. Builder is shipping 10M-token shards on the new fast path, GDrive sync is live, weekly trainer correctly BLOCKED_NO_GPU in Hatch VM (expected — real training runs on Alienware / local). Frontier eval mock scores 0.49-0.69 point to weak domains macro/materials/climate/bio/finance — consistent with Phase0 still being only Logic.
+Dottie is healthy in **continuous data-gather mode**. Builder is shipping 10M-token shards on the new fast path, GDrive sync is live, weekly trainer correctly BLOCKED_NO_GPU in Hatch VM (expected — real training runs on Alienware / local). Frontier eval mock scores 0.49-0.69 point to weak domains macro/materials/climate/bio/finance — consistent with Phase0 still being only Logic.
 
-**antidoom** is a narrow, high-ROI post-training fix for "doom loops" — repetitive `Wait / So / But / Alternatively` spirals that emerge when heavy synthetic reasoning overtrains a few discourse tokens + low-temp sampling + self-reinforcing context. Ava's Phase 3 Reasoning (6T-11.25T, 55% math_reasoning + synthetic textbooks) is exactly the recipe that creates this.
+**antidoom** is a narrow, high-ROI post-training fix for "doom loops" — repetitive `Wait / So / But / Alternatively` spirals that emerge when heavy synthetic reasoning overtrains a few discourse tokens + low-temp sampling + self-reinforcing context. Dottie's Phase 3 Reasoning (6T-11.25T, 55% math_reasoning + synthetic textbooks) is exactly the recipe that creates this.
 
 **Compression** should be injected as 3 parallel tracks:
-- **(a) Knowledge curriculum**: teach Ava Shannon entropy, Huffman, LZ77/78/LZW, Arithmetic Coding, BWT, ANS — verified by recomputing — improves LM-is-compression reasoning.
+- **(a) Knowledge curriculum**: teach Dottie Shannon entropy, Huffman, LZ77/78/LZW, Arithmetic Coding, BWT, ANS — verified by recomputing — improves LM-is-compression reasoning.
 - **(b) Model serving compression**: quantization (GPTQ/AWQ/SmoothQuant/AutoRound/SpinQuant/QuIP), KV-cache quantization, Zarr chunked storage — required to fit base1b 1409M params (8.4GB bf16+grads+AdamW8bit before activations) into Alienware 4080 12GB at 128k context.
-- **(c) Semantic / neural compression**: Z-token compressor/decompressor, Training LLMs over Neurally Compressed Text, DeepMind LMC work — direct mapping to Ava's J-Space: 144 workspace slots (32+64+16+32) compressing 2k-131k context at 20% broadcast target.
+- **(c) Semantic / neural compression**: Z-token compressor/decompressor, Training LLMs over Neurally Compressed Text, DeepMind LMC work — direct mapping to Dottie's J-Space: 144 workspace slots (32+64+16+32) compressing 2k-131k context at 20% broadcast target.
 
 All three are HOME-safe, MIT/Apache public repos, no work IP.
 
 ---
 
-## 1. Current Ava Health Check (July 15 2026)
+## 1. Current Dottie Health Check (July 15 2026)
 
 ### 1.1 Builder / Lake
 
@@ -30,10 +30,10 @@ From `STATUS.json` (live):
 - **Last expansion** `2026-07-15T10:04:18Z`: 10,000,063 tokens, 32,084 docs, 1 shard `packed_20260715_100412_00060_6385.jsonl.gz`, qual_filtered 1,379 (alpha>0.6 reward>0.8)
 - **Detailed** `07:58Z`: 500,030 tokens, 5,058 docs, dup_filtered 9,720 (simhash th=3 + md5), qual_filtered 8,528 — this is the new 500K HatchVM path with daily_expanded 59 files, global_manifest_lines 930k
 - **Previous** `05:59Z`: 10,000,285 tokens, 32,097 docs, 2 shards
-- **GDrive upload**: `Ava-Datasets-Expansion` folder `19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve` — uploaded 2 new shards with content-addressable sha12 dedup, personal-safe guard passed
+- **GDrive upload**: `Dottie-Datasets-Expansion` folder `19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve` — uploaded 2 new shards with content-addressable sha12 dedup, personal-safe guard passed
 - **Efficiency**: 500K run in 27s, disk 88% (100G total, 12G used) — healthy
 
-**Interpretation**: The 4h cron `ava-data-gather-4h` and `ava-data-gather-daily` are both healthy. Migration from 10M shards → 500K shards + simhash dedup improved quality. `phase_progress: 1.0` is misleading — that's per-builder-run, not curriculum-wide. Real need: Pacer (T10.1) to hold lead buffer.
+**Interpretation**: The 4h cron `dottie-data-gather-4h` and `dottie-data-gather-daily` are both healthy. Migration from 10M shards → 500K shards + simhash dedup improved quality. `phase_progress: 1.0` is misleading — that's per-builder-run, not curriculum-wide. Real need: Pacer (T10.1) to hold lead buffer.
 
 ### 1.2 Trainer / WSD / YaRN
 
@@ -50,11 +50,11 @@ From `STATUS.json` (live):
 ### 1.4 Cron Health
 
 All healthy:
-- `ava-dataset-discovery-daily` 10:00 UTC — generates weak_domain needs
-- `ava-eval-distill-daily` 09:00 — runs mock frontier eval
-- `ava-data-gather-4h` / `ava-data-gather-daily` interval 4h — live
-- `ava-training-monitor` interval 30m
-- `ava-training-weekly` Sun 03:00
+- `dottie-dataset-discovery-daily` 10:00 UTC — generates weak_domain needs
+- `dottie-eval-distill-daily` 09:00 — runs mock frontier eval
+- `dottie-data-gather-4h` / `dottie-data-gather-daily` interval 4h — live
+- `dottie-training-monitor` interval 30m
+- `dottie-training-weekly` Sun 03:00
 
 ### 1.5 Open TODOs Relevant
 
@@ -94,9 +94,9 @@ Hyperparams starting point from README:
 - **Self-reinforcing context**: once short sequence appears, prior context makes it more likely → probability →1
 - **Low-temp sampling**: temp 0 keeps selecting highest-prob continuation, no escape
 
-This is exactly Ava Phase 3: synthetic reasoning 55%, logic textbooks 60% Phase0 — high risk.
+This is exactly Dottie Phase 3: synthetic reasoning 55%, logic textbooks 60% Phase0 — high risk.
 
-### 2.3 Why relevant to Ava
+### 2.3 Why relevant to Dottie
 
 - Blueprint already expects reasoning chain length 7,400 tokens (per LOCAL_LLMS_2026_SOTA.md Zaya1 note) beating GPT-5.5 — long chains → loops
 - J-Space routing: deliberate S2 (hl 300) handles System2 — if it loops, Critic (hl30) should catch, but Critic currently has verbalizable_mass only 0.08 — needs anti-loop training signal
@@ -108,8 +108,8 @@ This is exactly Ava Phase 3: synthetic reasoning 55%, logic textbooks 60% Phase0
 | Phase | Injection | How |
 |-------|-----------|-----|
 | Phase 3 Reasoning | Data generation | Add synthetic generator that deliberately creates then breaks loops -> negative examples; also filter training docs with loop detector |
-| Phase 4 Long | Serving | KV-cache growth magnifies loops; need detection in `ava/serve_engine.py` generate loop (abort + resample at higher temp, like antidoom temp sweep) |
-| Phase 5 Anneal | Post-training | **Primary**: Run antidoom pipeline on `ava_stable_736k.pt` to produce LoRA adapter `ava_branch_chat_antidoom_lora`, merge |
+| Phase 4 Long | Serving | KV-cache growth magnifies loops; need detection in `dottie/serve_engine.py` generate loop (abort + resample at higher temp, like antidoom temp sweep) |
+| Phase 5 Anneal | Post-training | **Primary**: Run antidoom pipeline on `dottie_stable_736k.pt` to produce LoRA adapter `dottie_branch_chat_antidoom_lora`, merge |
 | Branches | Branch eval | Math branch especially — synthetic math R1 15% + lean_mathlib 20% → overtrained "Therefore" |
 | Chat branch | Final polish | After chat fine-tune, second antidoom pass on chat distribution (prompts from frontier weak domains) |
 
@@ -122,10 +122,10 @@ Best order: Add eval metric first → then collect data at Phase5 → train LoRA
 - Full FTPO training: reuse `peft` LoRA + custom loss (already in `OPEN_SOURCE_TOOLCHAIN.md` PEFT section). Can port their FTPO loss: logit difference loss + MSE tether.
 
 File changes proposed:
-- `ava/datagen/compression.py` contains loop-detector helper as subset (repetition detection shared with compression)
+- `dottie/datagen/compression.py` contains loop-detector helper as subset (repetition detection shared with compression)
 - `scripts/antidoom_integration.py` wrapper: `generate -> detect -> build FTPO jsonl -> train LoRA`
 - `evals/doom_loop.py` metric: % generations containing loop (>2 repeats of span length >=10 tokens within 200-token window at temp 0)
-- `ava/serve_engine.py`: add `DoomLoopBreaker` — if 3 consecutive tokens probability >0.95 and n-gram repeats, resample with temp 0.7 once, log to `serve_audit.jsonl`
+- `dottie/serve_engine.py`: add `DoomLoopBreaker` — if 3 consecutive tokens probability >0.95 and n-gram repeats, resample with temp 0.7 once, log to `serve_audit.jsonl`
 
 License: MIT, public — OK per AGENTS.md solo disclaimer.
 
@@ -133,7 +133,7 @@ License: MIT, public — OK per AGENTS.md solo disclaimer.
 
 ## 3. Deep Dive: Compression Algorithms
 
-### 3a. Knowledge Curriculum (Teach Ava to compress)
+### 3a. Knowledge Curriculum (Teach Dottie to compress)
 
 Why: DeepMind paper "Language Modeling Is Compression" — Chinchilla 70B compresses ImageNet patches 43.4% (vs PNG 58.5%) and LibriSpeech 16.4% (vs FLAC 30.3%) with NO vision/audio training. Training loss = negative log likelihood = bits. **Better compressor = better world model.**
 
@@ -164,9 +164,9 @@ What to teach (verifiable by recomputing in generator):
    - Long reasoning chains computing BWT matrix rotation
 
 Integration with existing:
-- `ava/datagen/logic.py` already has truth-table walkthroughs → add entropy walkthroughs same template 25%
-- `ava/datagen/math_gen.py` has staged arithmetic→probability → insert compression math after probability (fits order)
-- `ava/datagen/code_gen.py` already execs code → add compression code family
+- `dottie/datagen/logic.py` already has truth-table walkthroughs → add entropy walkthroughs same template 25%
+- `dottie/datagen/math_gen.py` has staged arithmetic→probability → insert compression math after probability (fits order)
+- `dottie/datagen/code_gen.py` already execs code → add compression code family
 
 Benefits: improves reasoning, gives model ability to reason about its own tokenization compression ratio (currently 3.28 chars/token measured), directly evaluates via compression_chars_per_token metric.
 
@@ -184,7 +184,7 @@ Solutions in open source toolchain (all already listed in OPEN_SOURCE_TOOLCHAIN.
 
 - **LLM Compressor (vLLM)** https://github.com/vllm-project/llm-compressor — GPTQ, AWQ, SmoothQuant, AutoRound, FP8/INT8 KV cache quantization
   - W8A8 int8: weight+activation, W4A16 for memory
-  - For Ava: use W4A16 GPTQ for 4x memory (2.8GB→0.7GB weights) on server side after training
+  - For Dottie: use W4A16 GPTQ for 4x memory (2.8GB→0.7GB weights) on server side after training
 - **LightCompress** — EMNLP 2024 & AAAI 2026 toolkit, supports Llama, Mistral, Qwen, quantization + sparsity + mixed-precision
   - Mixed-precision: keep Critic (safety) at bf16, compress S1 fast.
 - **AWQ / SpinQuant / QuIP** — rotation-based quantization preserves outliers (important for J-Space broadcast vectors)
@@ -200,7 +200,7 @@ Where in curriculum:
 File changes:
 
 - `configs/base1b.yaml` add `compression: {kv_quant: fp8, weight_quant: w4a16, use_deltanet: [0,1,2,...21 indices]}`
-- `ava/attention/compressed_conv.py` exists (Zaya1 8x) — wire via `AvaConfig(attn_mode=compressed_conv)`
+- `dottie/attention/compressed_conv.py` exists (Zaya1 8x) — wire via `DottieConfig(attn_mode=compressed_conv)`
 - `specs/04_model_and_configs.md` update param math with compression numbers
 - `specs/11_arch_hillclimb.md` T11.3 promotion to T11.1 priority
 
@@ -208,7 +208,7 @@ File changes:
 
 This is the deepest fit.
 
-Ava J-Space is already a **semantic compressor**:
+Dottie J-Space is already a **semantic compressor**:
 - Input: 2048-131k tokens
 - Bottleneck: 144 slots total (S1 32 hl8 automatic, S2 64 hl300 deliberate, Critic 16 hl30, Planner 32 hl150) — each slot is latent vector
 - Broadcast: 20% norm → deliberate compression to 20% of fused norm
@@ -217,20 +217,20 @@ Ava J-Space is already a **semantic compressor**:
 
 Papers relevant:
 
-- **Large Language Model as Token Compressor and Decompressor (Z-token)** — train 3 LoRA adapters on same backbone: compressor (NL→Z), decompressor (Z→NL), inferencer (Z→Z). Length regularizer `(K/|X| - 1/r)^2` controls compression ratio r. Codebook usage + commitment regularizers. Directly maps to Ava: S2 is compressor, broadcast is Z, Planner is inferencer.
+- **Large Language Model as Token Compressor and Decompressor (Z-token)** — train 3 LoRA adapters on same backbone: compressor (NL→Z), decompressor (Z→NL), inferencer (Z→Z). Length regularizer `(K/|X| - 1/r)^2` controls compression ratio r. Codebook usage + commitment regularizers. Directly maps to Dottie: S2 is compressor, broadcast is Z, Planner is inferencer.
 
-- **Training LLMs over Neurally Compressed Text** — M1 compresses raw bytes via arithmetic coding, M2 trains over compressed bitstream chunked into tokens. Finding: AC-compressed text not readily learnable even with unigram M1 — suggests need for learnable Z-tokens not pure arithmetic coding. Implication for Ava: don't use pure gzip for training, use learned slots.
+- **Training LLMs over Neurally Compressed Text** — M1 compresses raw bytes via arithmetic coding, M2 trains over compressed bitstream chunked into tokens. Finding: AC-compressed text not readily learnable even with unigram M1 — suggests need for learnable Z-tokens not pure arithmetic coding. Implication for Dottie: don't use pure gzip for training, use learned slots.
 
-- **Language Modeling is Compression (DeepMind)** — Chinchilla as compressor → evaluation metric: compress held-out sets (enwik9, ImageNet patches, LibriSpeech) and measure compression rate. Can add as eval harness: measure Ava's cross-entropy on enwik9 as compression rate (bits per byte).
+- **Language Modeling is Compression (DeepMind)** — Chinchilla as compressor → evaluation metric: compress held-out sets (enwik9, ImageNet patches, LibriSpeech) and measure compression rate. Can add as eval harness: measure Dottie's cross-entropy on enwik9 as compression rate (bits per byte).
 
 Integration:
 
-| Paper idea | Ava mapping | Implementation |
+| Paper idea | Dottie mapping | Implementation |
 |---|---|---|
-| Z-token compressor adapter Δφ, decompressor Δθ, inferencer Δψ | S1=fast compressor hl8, S2=slow compressor hl300, Planner=inferencer hl150, Critic=safety verifier of decompressed | Create `ava/compression/z_token.py` — LoRA adapters sharing backbone, train on reconstruction + continuation tasks |
+| Z-token compressor adapter Δφ, decompressor Δθ, inferencer Δψ | S1=fast compressor hl8, S2=slow compressor hl300, Planner=inferencer hl150, Critic=safety verifier of decompressed | Create `dottie/compression/z_token.py` — LoRA adapters sharing backbone, train on reconstruction + continuation tasks |
 | Length regularizer controlling K/|X| | Broadcast strength loss already does 20% — can add explicit length penalty (slots used / seq_len - target)^2 | Extend `multi_jspace_module.py` with `compression_ratio_loss` |
 | Contextual regularity of Z-tokens, repeated Z in semantically related contexts | Concept vector in `concept_token()` — France/Peking etc — measure if same slot fires for semantically related paraphrases | Add metric in `evals/probes.py`: Z-slot cosine similarity across paraphrases |
-| Training over neurally compressed text | Train mini over Chonkie-compressed shards but also over Z-bottlenecked representation (autoencoding) | In `streaming_data.py` Phase Chonkie config, add `neural_compress: True` option that feeds through current Ava checkpoint to compress then trains decompressor |
+| Training over neurally compressed text | Train mini over Chonkie-compressed shards but also over Z-bottlenecked representation (autoencoding) | In `streaming_data.py` Phase Chonkie config, add `neural_compress: True` option that feeds through current Dottie checkpoint to compress then trains decompressor |
 
 Curriculum injection:
 
@@ -247,27 +247,27 @@ Curriculum injection:
 
 **New generators:**
 
-- `ava/datagen/compression.py` — `CompressionGenerator` (phases 0,1,2,3,5)
+- `dottie/datagen/compression.py` — `CompressionGenerator` (phases 0,1,2,3,5)
   - Families: shannon 25% (entropy calc, Kraft), huffman 20% (tree build), lz77 20% (sliding window tuples), arithmetic 15% (interval narrowing), bwt_ans 10% (BWT matrix), z_token 10% (compress-to-20% task)
   - Each doc: `text` is textbook walkthrough + problem + solution, with solution **computed by Python** (Huffman via heapq, LZ via naive search, entropy via -sum p log2 p), byte-deterministic via `random.Random(seed)`, not global RNG
-  - Schema matches `ava/datagen/base.py`: `text, task_type, concept, phase, source`
+  - Schema matches `dottie/datagen/base.py`: `text, task_type, concept, phase, source`
   - `task_type`: shannon/huffman/entropy → deliberate, lz/bwt code → deliberate, z_token → automatic + deliberate mix (routing test)
   - Phases: p0 small (entropy), p1 med (Huffman), p2 15MB (LZ code), p3 12MB (BWT + Z compression reasoning 6000+ chars → long), p5 (anneal high-quality verified proofs of Kraft inequality)
-  - Acceptance: `python -m ava.datagen.compression --seed 1234 --out /tmp/comp --mb 5` → byte-deterministic, `tests/test_datagen.py -k compression` green
+  - Acceptance: `python -m dottie.datagen.compression --seed 1234 --out /tmp/comp --mb 5` → byte-deterministic, `tests/test_datagen.py -k compression` green
 
 **Antidoom integration:**
 
-- `ava/evals/doom_loop.py` — detector: scan completion for repeated span detection (min span 10 tokens, appears 3x within 200-token window, or probability >0.9 loop) + metrics
+- `dottie/evals/doom_loop.py` — detector: scan completion for repeated span detection (min span 10 tokens, appears 3x within 200-token window, or probability >0.9 loop) + metrics
 - `scripts/antidoom_integration.py` — lightweight port:
-  - `python scripts/antidoom_integration.py generate --ckpt ava_stable_736k.pt --prompts data/discovery/prompts.jsonl --temp 0.01 --out runs/antidoom/ftpo.jsonl` → samples 15k prompts, detects loops using detector, builds FTPO rows
+  - `python scripts/antidoom_integration.py generate --ckpt dottie_stable_736k.pt --prompts data/discovery/prompts.jsonl --temp 0.01 --out runs/antidoom/ftpo.jsonl` → samples 15k prompts, detects loops using detector, builds FTPO rows
   - `train` subcommand: PEFT LoRA r=128 alpha=128 target_modules [q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj,lm_head] lr 1e-5, MSE tether lambda_mse 10, tau 0.1, early stop chosen_win 0.4
-  - No vLLM dep for generate (uses `ava/serve_engine.py` generate), optional vLLM flag
+  - No vLLM dep for generate (uses `dottie/serve_engine.py` generate), optional vLLM flag
 
 **Model compression wiring:**
 
-- `ava/attention/compressed_conv.py` — already exists (Zaya1 8x) — add test + wire via `configs/nano.yaml` `model.attn_mode: compressed_conv`
-- `ava/attention/sparse_compressed.py` — new (DeepSeek V4 Flash style 10% KV) — hybrid full:compressed 1:3
-- `ava/compression/quantization.py` — wrapper for llm-compressor: load HF converted model, apply GPTQ W4A16, save
+- `dottie/attention/compressed_conv.py` — already exists (Zaya1 8x) — add test + wire via `configs/nano.yaml` `model.attn_mode: compressed_conv`
+- `dottie/attention/sparse_compressed.py` — new (DeepSeek V4 Flash style 10% KV) — hybrid full:compressed 1:3
+- `dottie/compression/quantization.py` — wrapper for llm-compressor: load HF converted model, apply GPTQ W4A16, save
 
 **Spec updates:**
 
@@ -291,7 +291,7 @@ Phase5: + Anneal with verified compression proofs + antidoom LoRA FT
 
 - `OPEN_SOURCE_TOOLCHAIN.md` — add:
   - **Antidoom** https://github.com/Liquid4All/antidoom — FTPO LoRA for doom loops, MIT
-  - **LLM Compressor (vLLM)** — already there but promote + add usage example for Ava
+  - **LLM Compressor (vLLM)** — already there but promote + add usage example for Dottie
   - **LightCompress** https://github.com/ModelTC/LightCompress — EMNLP 2024 & AAAI 2026 comprehensive quantization/sparsity
   - **Z-Token** arxiv — LoRA compressor/decompressor/inferencer paradigm
 
@@ -303,15 +303,15 @@ Phase5: + Anneal with verified compression proofs + antidoom LoRA FT
 
 ```bash
 # Compression generator
-python -m ava.datagen.compression --seed 1234 --out /tmp/comp --mb 1
-python -m ava.datagen.compression --seed 1234 --out /tmp/comp2 --mb 1
+python -m dottie.datagen.compression --seed 1234 --out /tmp/comp --mb 1
+python -m dottie.datagen.compression --seed 1234 --out /tmp/comp2 --mb 1
 diff <(sha256sum /tmp/comp/*.jsonl) <(sha256sum /tmp/comp2/*.jsonl) # empty
 
 # Datagen suite
 pytest tests/test_datagen.py -k compression -q  # green
 
 # Doom loop eval
-python -m ava.evals.doom_loop --ckpt checkpoints/nano/latest.pt --prompts evals/probe_items/doom_prompts.jsonl --temp 0
+python -m dottie.evals.doom_loop --ckpt checkpoints/nano/latest.pt --prompts evals/probe_items/doom_prompts.jsonl --temp 0
 
 # Full datagen small
 python scripts/gen_all_data.py --seed 1234 --tiny --include compression
@@ -320,7 +320,7 @@ python scripts/gen_all_data.py --seed 1234 --tiny --include compression
 python scripts/antidoom_integration.py generate --dry-run --prompts 100
 
 # Model compression dry-run
-AVA_SMOKE_DRY_RUN=1 python scripts/bench_pipeline.py # ensure tok/s ratio still >3
+DOTTIE_SMOKE_DRY_RUN=1 python scripts/bench_pipeline.py # ensure tok/s ratio still >3
 ```
 
 ### 4.3 Effort Estimates
@@ -350,11 +350,11 @@ AVA_SMOKE_DRY_RUN=1 python scripts/bench_pipeline.py # ensure tok/s ratio still 
 ## 6. Suggested Roadmap Order
 
 1. **Immediate (today)**: Land this assessment doc, update OPEN_SOURCE_TOOLCHAIN.md with antidoom + lightCompress links
-2. **T12.6** (next): `ava/datagen/compression.py` + spec 02 B6 — adds 30MB verified synthetic (fits existing pipeline, no GPU needed, unblocks Phase0-2 quality)
+2. **T12.6** (next): `dottie/datagen/compression.py` + spec 02 B6 — adds 30MB verified synthetic (fits existing pipeline, no GPU needed, unblocks Phase0-2 quality)
 3. **T7.6**: `evals/doom_loop.py` + `evals/compression_reconstruct.py` — measure baseline before training
-4. **T8.6**: Add DoomLoopBreaker to `ava/serve_engine.py` — cheap inference-time fix, no retrain
+4. **T8.6**: Add DoomLoopBreaker to `dottie/serve_engine.py` — cheap inference-time fix, no retrain
 5. **T11.1 + T11.3** revived: Wire `compressed_conv` and `sparse_compressed` attention via config flags, keep default-off regression guard (same pattern as DeltaNet T11.2)
-6. **T9.5 / Phase5**: After `ava_stable_736k.pt` exists, run full antidoom generate+train on Alienware: `uv run antidoom -c configs/antidoom.yaml -r runs/antidoom1 --temp 0.01 --model-name <hf_converted>` OR our port `scripts/antidoom_integration.py`
+6. **T9.5 / Phase5**: After `dottie_stable_736k.pt` exists, run full antidoom generate+train on Alienware: `uv run antidoom -c configs/antidoom.yaml -r runs/antidoom1 --temp 0.01 --model-name <hf_converted>` OR our port `scripts/antidoom_integration.py`
 7. **T9.6**: QAT anneal: last 10% Phase5 steps with KV FP8 + W4 simulation, evaluate compression reconstruction BLEU + frontier macro
 
 All tasks HOME-only, solo, free-tier.
@@ -370,7 +370,7 @@ All additions are **Solo personal project, no connection to employer, built with
 - Antidoom: https://github.com/Liquid4All/antidoom
 - Dataset: LiquidAI/antidoom-mix-v1.0
 - Paper ideas: Antislop (single-token preference), LLM as Token Compressor and Decompressor (Z-token, budget-aware length regularizer), Training LLMs over Neurally Compressed Text (M1→M2), Language Modeling is Compression (DeepMind ICLR 2024, Chinchilla 70B 12x, ImageNet 43.4% vs PNG 58.5%)
-- Existing Ava files: `ava/attention/compressed_conv.py` (Zaya1 8x), `specs/11_arch_hillclimb.md` T11.1-T11.3, `OPEN_SOURCE_TOOLCHAIN.md` 1370 lines, `CURRICULUM_LOOP_PLAN.md`, `STATUS.json` today's expansions
+- Existing Dottie files: `dottie/attention/compressed_conv.py` (Zaya1 8x), `specs/11_arch_hillclimb.md` T11.1-T11.3, `OPEN_SOURCE_TOOLCHAIN.md` 1370 lines, `CURRICULUM_LOOP_PLAN.md`, `STATUS.json` today's expansions
 
 ---
 *Kitty Scout — curiouser about compression* 🐾

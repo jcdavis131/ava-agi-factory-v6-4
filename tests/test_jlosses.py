@@ -13,10 +13,10 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from ava.config import AvaConfig
-from ava.jlosses import JSpaceObjective
-from ava.model import build_model
-from ava.pipeline.pack import UNTAGGED_CONCEPT
+from dottie.config import DottieConfig
+from dottie.jlosses import JSpaceObjective
+from dottie.model import build_model
+from dottie.pipeline.pack import UNTAGGED_CONCEPT
 
 TERMS = ("lm", "report", "broadcast", "selectivity", "modulation",
          "half_life", "inter_mi", "routing")
@@ -25,7 +25,7 @@ TERMS = ("lm", "report", "broadcast", "selectivity", "modulation",
 @pytest.fixture(scope="module")
 def setup():
     torch.manual_seed(0)
-    cfg = AvaConfig.load("nano")
+    cfg = DottieConfig.load("nano")
     model = build_model(cfg)
     obj = JSpaceObjective(cfg)
     return cfg, model, obj

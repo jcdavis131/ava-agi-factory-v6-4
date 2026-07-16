@@ -1,7 +1,7 @@
 """Server endpoint regressions — TestClient, no uvicorn boot.
 
 Uses a mock ServeEngine by default so the suite runs without a nano checkpoint.
-When ``runs/chat/ava_nano_chat.pt`` (or ``AVA_CKPT``) exists, an optional live
+When ``runs/chat/dottie_nano_chat.pt`` (or ``DOTTIE_CKPT``) exists, an optional live
 smoke can be enabled; otherwise we skip real-weight paths.
 """
 
@@ -21,7 +21,7 @@ os.environ["AVA_SKIP_ENGINE_BOOT"] = "1"
 from fastapi.testclient import TestClient
 
 from server import InterveneReq, app
-from ava import serve_engine as se
+from dottie import serve_engine as se
 
 
 class _FakeEngine:
@@ -269,12 +269,12 @@ def test_resolve_ckpt_latest_pointer(tmp_path):
 def test_hot_reload_skips_tmp_and_reloads_under_lock(tmp_path, monkeypatch):
     """Pointer change → reload under lock; never reads *.tmp."""
     torch = pytest.importorskip("torch")
-    from ava.config import AvaConfig
-    from ava.model import build_model
+    from dottie.config import DottieConfig
+    from dottie.model import build_model
 
     ckpt_dir = tmp_path / "ckpt"
     ckpt_dir.mkdir()
-    cfg = AvaConfig.load("nano")
+    cfg = DottieConfig.load("nano")
     m = build_model(cfg, use_memory=False)
     p1 = ckpt_dir / "step_1.pt"
     p2 = ckpt_dir / "step_2.pt"
@@ -284,7 +284,7 @@ def test_hot_reload_skips_tmp_and_reloads_under_lock(tmp_path, monkeypatch):
         m.embed.weight[0, 0] += 1.0
     torch.save({"model": m.state_dict()}, p2)
 
-    tok = Path(__file__).resolve().parent.parent / "data" / "nano" / "tokenizer" / "ava_nano_bpe.json"
+    tok = Path(__file__).resolve().parent.parent / "data" / "nano" / "tokenizer" / "dottie_nano_bpe.json"
     if not tok.is_file():
         pytest.skip("tokenizer missing")
 

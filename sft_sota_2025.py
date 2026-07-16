@@ -1,15 +1,15 @@
-"""sft_sota_2025.py — chat/tool-use branch SFT data prep for Ava.
+"""sft_sota_2025.py — chat/tool-use branch SFT data prep for Dottie.
 
 Was a 2-line stub (`print("SFT 2025: iw-SFT importance weighted, instruction
 tuning for code/math/chat branches")`). This is Phase 6 of
 ~/.claude/plans/tender-tinkering-sketch.md: the model-side lever for the
 coding-agent stack — generates and packs the training data a future chat/
-tool-use branch fine-tune needs, so `ava/train.py --branch chat` has real
+tool-use branch fine-tune needs, so `dottie/train.py --branch chat` has real
 data to consume instead of nothing.
 
 Data sources, combined:
-  * ava/datagen/chat_safety.py — existing chat/safety/delegation corpus.
-  * ava/datagen/react_tools.py — new (Phase 6) synthetic ReAct tool-use
+  * dottie/datagen/chat_safety.py — existing chat/safety/delegation corpus.
+  * dottie/datagen/react_tools.py — new (Phase 6) synthetic ReAct tool-use
     corpus, weighted toward grounding/anti-hallucination per the project's
     north star.
   * agent-eval/results/*.json via agent-eval/scripts/export_sft_corpus.py's
@@ -33,10 +33,10 @@ import argparse
 import json
 from pathlib import Path
 
-from ava.datagen.chat_safety import ChatSafetyGenerator
-from ava.datagen.react_tools import ReactToolsGenerator
-from ava.pipeline.manifest import RAW, Manifest
-from ava.pipeline.pack import load_tokenizer, pack_docs, write_shard
+from dottie.datagen.chat_safety import ChatSafetyGenerator
+from dottie.datagen.react_tools import ReactToolsGenerator
+from dottie.pipeline.manifest import RAW, Manifest
+from dottie.pipeline.pack import load_tokenizer, pack_docs, write_shard
 
 
 def _load_distilled_docs(distilled_jsonl: str | Path) -> list[dict]:
@@ -98,7 +98,7 @@ def prepare_branch_data(
     # consumable.
     # Manifest shard-phase vs. doc-phase: the docs themselves keep their
     # honest phase="p3"/"p5" metadata from react_tools.py/chat_safety.py
-    # (unchanged in idx.json). But ava/train.py's --branch path never reads
+    # (unchanged in idx.json). But dottie/train.py's --branch path never reads
     # nano.yaml's branch_chat.mix -- confirmed by grep, it's dead config --
     # so a branch run's phase_for_step() always starts at phase 0 of the
     # BASE curriculum and would need ~200M+ tokens before ever reaching

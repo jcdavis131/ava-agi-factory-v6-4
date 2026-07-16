@@ -669,7 +669,7 @@ def main():
         # save MD
         md = Path("FRONTIER_EVAL_REPORT.md")
         with open(md, "w") as f:
-            f.write(f"{DISCLAIMER}\n\n# Frontier Eval Report — Ava v6.4 Inkling Dual Grader\n\n")
+            f.write(f"{DISCLAIMER}\n\n# Frontier Eval Report — Dottie v6.4 Inkling Dual Grader\n\n")
             f.write(f"Judge: {args.judge} dual rubric+claims (Inkling steal) Mode: {args.mode} Tasks: {len(results)} Effort sweep: {args.effort_sweep}\n\n")
             f.write(f"Metrics: rubric recall + claims precision dual = 0.5*r + 0.5*c, abstention-aware 0.4 baseline, Brier proxy (r-c)^2, effort 0.2-0.99 controllable via system msg + per-token cost, emergent telegraphic CoT compression\n\n")
             f.write("| Task | Domain | Effort | Rubric | Claims | Dual | Final | Tokens | Brier |\n|---|---|---|---|---|---|---|---|---|\n")
@@ -707,7 +707,7 @@ def main():
 
         md = Path("FRONTIER_EVAL_REPORT.md")
         with open(md, "w") as f:
-            f.write(f"{DISCLAIMER}\n\n# Frontier Eval Report — Ava v6.4\n\n")
+            f.write(f"{DISCLAIMER}\n\n# Frontier Eval Report — Dottie v6.4\n\n")
             f.write(f"Judge: {args.judge} Mode: {args.mode} | Total tasks: {len(results)}\n\n")
             f.write(f"Metrics: weighted clipped 0-1 per Samaya FrontierFinance Criteria Eval (11 cats), mock uses keyword overlap\n\n")
             f.write("| Task | Domain | Overall | Cats |\n|---|---|---|---|\n")

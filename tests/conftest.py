@@ -1,7 +1,7 @@
 """Skip test modules whose dependencies aren't in the current image.
 
-The two images are deliberately disjoint: `ava/cpu` carries the data stack
-(datasets, datasketch, zstandard, tokenizers) and no torch; `ava/gpu` carries
+The two images are deliberately disjoint: `dottie/cpu` carries the data stack
+(datasets, datasketch, zstandard, tokenizers) and no torch; `dottie/gpu` carries
 torch and no data stack. Neither is wrong -- a 2.5GB CUDA wheel has no business
 in a collector container. So a module that imports what this image lacks is
 skipped, not an error.

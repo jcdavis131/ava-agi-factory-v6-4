@@ -1,4 +1,4 @@
-# OpenWiki Integration for Ava AGI Factory v6.4
+# OpenWiki Integration for Dottie AGI Factory v6.4
 
 > Solo personal project, no connection to employer, built with public/free-tier only
 
@@ -8,14 +8,14 @@ OpenWiki is a CLI that writes and maintains agent documentation for your codebas
 - **Personal mode** builds a local personal brain wiki in `~/.openwiki/wiki` from configured sources like local repositories, Gmail, Notion, Web Search, Hacker News, and X/Twitter
 - **Code mode** builds repository documentation in `openwiki/` for the current codebase
 
-For Ava, this maps directly to our J-Space architecture:
+For Dottie, this maps directly to our J-Space architecture:
 
-| OpenWiki Concept | Ava Mapping | Implementation |
+| OpenWiki Concept | Dottie Mapping | Implementation |
 |---|---|---|
-| Personal wiki `~/.openwiki/wiki` | S2 Slow Workspace (hl=300 deliberate long-term memory) | `ava/memory/openwiki_adapter.py` |
+| Personal wiki `~/.openwiki/wiki` | S2 Slow Workspace (hl=300 deliberate long-term memory) | `dottie/memory/openwiki_adapter.py` |
 | Code wiki `openwiki/` | S1 Fast + Planner (codebase awareness + temporal planning) | `openwiki/` + AGENTS.md block |
-| Connectors (git-repo, gmail, notion, web-search, hackernews) | Data ingestion connectors (git, gmail receipts, web edu) | `ava/connectors/openwiki_connectors.py` |
-| Deterministic connector tools write raw data and manifests under `~/.openwiki/connectors/<connector>/raw/`, then agent synthesizes wiki | Ava streaming_data.py dual-track (raw dolma + curated logic) | Same pattern |
+| Connectors (git-repo, gmail, notion, web-search, hackernews) | Data ingestion connectors (git, gmail receipts, web edu) | `dottie/connectors/openwiki_connectors.py` |
+| Deterministic connector tools write raw data and manifests under `~/.openwiki/connectors/<connector>/raw/`, then agent synthesizes wiki | Dottie streaming_data.py dual-track (raw dolma + curated logic) | Same pattern |
 | AGENTS.md + CLAUDE.md maintained with `<!-- OPENWIKI:START -->` block | Foreman + worker protocol | We preserve existing AGENTS.md, only rewrite our block |
 
 ## Installation
@@ -27,12 +27,12 @@ bun add -g openwiki
 # Windows needs VS Build Tools for better-sqlite3
 ```
 
-## Quick Start for Ava
+## Quick Start for Dottie
 
 ```bash
 # Code brain mode - repo docs
 openwiki code --init
-# Personal brain mode - Ava's long-term memory
+# Personal brain mode - Dottie's long-term memory
 openwiki personal --init
 ```
 
@@ -42,11 +42,11 @@ Then to keep docs up-to-date, add the CI workflow:
 
 For repo docs in CI, use `openwiki code --update --print` - no need for --init in CI
 
-## Connectors for Ava
+## Connectors for Dottie
 
 OpenWiki onboarding offers connector setup for local Git repos, Notion, Gmail, X/Twitter, Web Search, Hacker News. You can configure same connector multiple times as separate instances like `web-search-1` and `web-search-2`.
 
-For Ava we configure:
+For Dottie we configure:
 - `git-repo` → reads local paths, writes compact manifests
 - `google` → Gmail API with OAuth user credentials (reuse existing Gmail hookup for receipts)
 - `notion` → targets hosted Notion MCP server via Notion OAuth
@@ -58,11 +58,11 @@ Auth: `openwiki auth gmail` runs local browser OAuth flow, saves tokens into `~/
 
 Config and secrets saved to `~/.openwiki/.env` on local machine. Connector secrets referenced by env var name and stored in `.env`; config files should never contain raw secret values.
 
-## Ava-Specific Extensions
+## Dottie-Specific Extensions
 
 ### 1. OpenWiki → J-Space Bridge
 
-Create `ava/memory/openwiki_adapter.py`:
+Create `dottie/memory/openwiki_adapter.py`:
 
 - Watches `~/.openwiki/wiki/` markdown files
 - Embeds them into S2 Slow slots (hl=300) as verbalizable concepts
@@ -72,7 +72,7 @@ Create `ava/memory/openwiki_adapter.py`:
 ### 2. Wiki-aware Evaluations
 
 Add evals:
-- `evals/openwiki_knowledge.py` — does Ava's S2 recall facts from personal wiki?
+- `evals/openwiki_knowledge.py` — does Dottie's S2 recall facts from personal wiki?
 - Measures reportability mass (should be 0.06+) after wiki ingestion
 
 ### 3. Family Brain Port
@@ -96,7 +96,7 @@ We keep our existing AGENTS.md (Home/Work separation) outside the block, and let
 
 ```bash
 # dev: generate docs
-openwiki code --init "Document Ava AGI Factory v6.4 architecture, training phases, J-Space losses, eval harness"
+openwiki code --init "Document Dottie AGI Factory v6.4 architecture, training phases, J-Space losses, eval harness"
 
 # update
 openwiki code --update
@@ -132,5 +132,5 @@ Supports OpenAI (API key or ChatGPT login), OpenRouter, Fireworks, Baseten, NVID
 - [] Install openwiki CLI
 - [] Run `openwiki code --init` in this repo -> creates openwiki/ + updates AGENTS.md block
 - [] Copy workflow `.github/workflows/openwiki-update.yml`
-- [] Implement `ava/memory/openwiki_adapter.py` bridge
+- [] Implement `dottie/memory/openwiki_adapter.py` bridge
 - [] Family Brain: ship WikiTab + wikiConnector

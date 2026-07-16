@@ -606,7 +606,7 @@ def build_index_html(payload: dict, eval_table: str) -> str:
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Ava training report</title>
+<title>Dottie training report</title>
 <style>
 {_CSS}
 </style>
@@ -614,7 +614,7 @@ def build_index_html(payload: dict, eval_table: str) -> str:
 <body>
 {pad}
 <header>
-  <h1>Ava</h1>
+  <h1>Dottie</h1>
   <p>Training dashboard — loss, schedule, half-lives, routing, broadcast, eval.</p>
 </header>
 <nav>
@@ -669,7 +669,7 @@ window.AVA_REPORT = {data_json};
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Build self-contained Ava HTML reports")
+    ap = argparse.ArgumentParser(description="Build self-contained Dottie HTML reports")
     ap.add_argument("--runs", default="runs", help="directory of run folders with metrics.jsonl")
     ap.add_argument("--out", default="reports/index.html")
     ap.add_argument("--eval", default="reports/branch_eval_results_real.json")

@@ -10,13 +10,13 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from ava.config import AvaConfig
-from ava.train import micro_batch_for, phase_for_step, wsd_lr
+from dottie.config import DottieConfig
+from dottie.train import micro_batch_for, phase_for_step, wsd_lr
 
 
 @pytest.fixture(scope="module")
-def cfg() -> AvaConfig:
-    return AvaConfig.load("nano")
+def cfg() -> DottieConfig:
+    return DottieConfig.load("nano")
 
 
 def test_wsd_warms_up_then_plateaus_then_decays(cfg):

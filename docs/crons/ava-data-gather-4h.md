@@ -1,5 +1,5 @@
 ---
-id: ava-data-gather-4h
+id: dottie-data-gather-4h
 enabled: true
 mode: task
 schedule:
@@ -11,7 +11,7 @@ metadata:
   created_by: dataset_expansion
   note: HOME persona only, solo project, no employer resources
 ---
-# Ava Dataset Expansion — Every 4h (Hatch VM Efficient Downstream)
+# Dottie Dataset Expansion — Every 4h (Hatch VM Efficient Downstream)
 # Solo personal project, no connection to employer, built with public/free-tier only. HOME only.
 
 Purpose: Continuously expand training data more frequently than daily. Efficient for downstream.
@@ -28,7 +28,7 @@ Recommended sizing:
 - Alienware RTX 4090: 10M per run = 60M/day = 1.8B/month (crontab: 0 */4 * * *)
 
 Steps:
-1. cd ~/workspace/ava-agi-factory-v6-4
+1. cd ~/workspace/dottie-agi-factory-v6-4
 2. Check disk: df -h, ensure <80% usage, else rotate old shards to data/for_upload/ and clean data/daily_expanded/ keeping last 2 days.
 3. Run expansion (Hatch VM size):
    python3 scripts/dataset_expansion.py --tokens 500K --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local
@@ -40,16 +40,16 @@ Steps:
    - If WORK DRIVE DETECTED (owners @meta.com, health.json files like gchak_health.json), ABORT upload, save to data/for_upload/ only
    - Log warning: "WORK DRIVE DETECTED — Home/Work separation violation risk, not uploading Home data to work Drive. Please connect personal Drive jcdavis131@gmail.com or use R2"
 5. If personal Drive connected AND safe:
-   python3 scripts/gdrive_uploader.py --upload data/daily_expanded/ --folder Ava-Datasets-Expansion --dry-run (first)
-   Then real: --upload data/daily_expanded/ --folder Ava-Datasets-Expansion
+   python3 scripts/gdrive_uploader.py --upload data/daily_expanded/ --folder Dottie-Datasets-Expansion --dry-run (first)
+   Then real: --upload data/daily_expanded/ --folder Dottie-Datasets-Expansion
    - Batch 2 workers, dedup by sha12 in filename, retry 3x backoff
 6. Else if R2 creds present (CLOUDFLARE_R2_*):
    python3 scripts/dataset_expansion.py --tokens 500K --upload-mode r2 (or 10M on Alienware)
-   - Uploads to s3://ava-datasets/expansion/ with content-addressable keys
+   - Uploads to s3://dottie-datasets/expansion/ with content-addressable keys
 7. Else local fallback:
    - Copy manifest to data/for_upload/upload_manifest_{ts}.json
-   - Write your_files/ava-agi/runs/expansion-{date}.log with tokens, shards, disk usage
-   - For Alienware: rsync -avz data/daily_expanded/ your-alienware:~/ava-agi-factory-v6-4/data/daily_expanded/
+   - Write your_files/dottie-agi/runs/expansion-{date}.log with tokens, shards, disk usage
+   - For Alienware: rsync -avz data/daily_expanded/ your-alienware:~/dottie-agi-factory-v6-4/data/daily_expanded/
 8. Update STATUS.json: builder.last_expansion tokens, shards, timestamp
 
 Efficiency:
@@ -68,5 +68,5 @@ Downstream usage (Alienware):
   torchrun train_1b_deepspeed.py --preset mini --data_manifest data/manifest.jsonl --tokens_total 2B
 
 Alienware crontab addition:
-  0 */4 * * * cd ~/ava-agi-factory-v6-4 && python3 scripts/dataset_expansion.py --tokens 10M --phases p0_logic p1_math p2_foundation p3_code --out data/daily_expanded --upload-mode local >> logs/cron-expansion.log 2>&1
+  0 */4 * * * cd ~/dottie-agi-factory-v6-4 && python3 scripts/dataset_expansion.py --tokens 10M --phases p0_logic p1_math p2_foundation p3_code --out data/daily_expanded --upload-mode local >> logs/cron-expansion.log 2>&1
 

@@ -5,17 +5,17 @@ Solo personal project, no connection to employer, built with public/free-tier on
 HOME persona only
 
 Purpose:
-- Reads branch_eval_results.json, frontier_eval_results.json (if exists), your_files/ava-agi/runs/latest-log.html to identify weak domains
+- Reads branch_eval_results.json, frontier_eval_results.json (if exists), your_files/dottie-agi/runs/latest-log.html to identify weak domains
 - Maps weak domains to data needs
 - Searches HuggingFace Hub free public API for candidate datasets with permissive licenses (MIT, Apache2, CC0, CC-BY)
-- Logs candidates to your_files/ava-agi/dataset_discovery/candidates_{date}.json
+- Logs candidates to your_files/dottie-agi/dataset_discovery/candidates_{date}.json
 - Does NOT auto-download massive data in Hatch VM (limited disk), but prepares download manifests for Alienware
 - Writes data/discovery/needs.json: what domains need more tokens
 
 Usage:
   python scripts/dataset_discovery.py --dry-run
-  python scripts/dataset_discovery.py --eval-file branch_eval_results.json --out your_files/ava-agi/dataset_discovery/
-  python scripts/dataset_discovery.py --eval-results frontier_eval_results.json branch_eval_results.json --out data/discovery/needs.json --candidates-out your_files/ava-agi/dataset_discovery/candidates_2026-07-12.json
+  python scripts/dataset_discovery.py --eval-file branch_eval_results.json --out your_files/dottie-agi/dataset_discovery/
+  python scripts/dataset_discovery.py --eval-results frontier_eval_results.json branch_eval_results.json --out data/discovery/needs.json --candidates-out your_files/dottie-agi/dataset_discovery/candidates_2026-07-12.json
 """
 import argparse, json, os, re, pathlib, time, hashlib
 from pathlib import Path
@@ -186,7 +186,7 @@ def search_hf_datasets_free(domain, query_list, license_pref, dry_run=False):
         if not dry_run:
             try:
                 api_url = f"https://huggingface.co/api/datasets/{urllib.parse.quote(ds_name, safe='')}"
-                req = urllib.request.Request(api_url, headers={"User-Agent": "Ava-Dataset-Discovery/6.4"})
+                req = urllib.request.Request(api_url, headers={"User-Agent": "Dottie-Dataset-Discovery/6.4"})
                 with urllib.request.urlopen(req, timeout=5) as resp:
                     if resp.status == 200:
                         j = json.loads(resp.read().decode())
@@ -304,8 +304,8 @@ def main():
             if not candidates_dir.is_absolute():
                 candidates_dir = repo_root / candidates_dir
         else:
-            # default candidates dir sibling to needs? use data/discovery parent? Actually spec says your_files/ava-agi/dataset_discovery
-            candidates_dir = repo_root / "your_files/ava-agi/dataset_discovery"
+            # default candidates dir sibling to needs? use data/discovery parent? Actually spec says your_files/dottie-agi/dataset_discovery
+            candidates_dir = repo_root / "your_files/dottie-agi/dataset_discovery"
     else:
         candidates_dir = out_arg
         needs_path = repo_root / "data/discovery/needs.json"
@@ -327,7 +327,7 @@ def main():
     # For task compliance, also ensure date-based path with %Y-%m-%d exists
     # Create both timestamped and date-based if needed
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    date_based_path = repo_root / f"your_files/ava-agi/dataset_discovery/candidates_{date_str}.json"
+    date_based_path = repo_root / f"your_files/dottie-agi/dataset_discovery/candidates_{date_str}.json"
     date_based_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 2. For each weak domain, search candidates

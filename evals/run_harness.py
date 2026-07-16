@@ -129,7 +129,7 @@ def write_reports(results: dict) -> None:
                 comp_rows.append(f"| probe {key} | {b:.3f} | {c:.3f} | {delta:+.1f}% | {note} |")
 
     md = [
-        "# Ava Real Eval Report",
+        "# Dottie Real Eval Report",
         "",
         f"Preset: {results['meta'].get('preset')} | Wall: {results['meta'].get('wall_s')}s | Device: {results['meta'].get('device')}",
         "",

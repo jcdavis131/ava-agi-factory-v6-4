@@ -16,7 +16,7 @@ Hill-climb perfect curriculum + architecture using neuroscience advantage, with 
 
 1. Install Inkling-Small Q4: `ollama pull inkling-small:q4` or HF download + `llama.cpp --quant q4_k_m`
 2. Verify VRAM: 4090 should stay <22GB peak, 4080 <15.5GB with offload to CPU for inactive experts
-3. Existing Ava nano 13.8M / mini 171M unaffected; this program trains Ava 1B with Inkling-inspired flags + uses Small as judge, not training Small itself (future: distill from Small)
+3. Existing Dottie nano 13.8M / mini 171M unaffected; this program trains Dottie 1B with Inkling-inspired flags + uses Small as judge, not training Small itself (future: distill from Small)
 4. Hardware profile: ada-24gb-plus batch64 BF16 SDPA for base1b, ada-16gb batch32 for nano/mini, same as base track
 
 ## Architecture flags (all config-gated default-off byte-identical)
@@ -27,7 +27,7 @@ From docs/INKLING_STEALS.md T11.8:
 - `use_moe=True` scaled: nano 32 routed +2 shared k=2, mini 64/3, base1b 256/6, sigmoid router aux-loss-free bias, joint norm softmax over routed+shared
 - `use_effort=True` — EffortConditioning 0.2-0.99 via system message + per-token cost, S1 Fast hl=8 0.2-0.4, S2 Slow hl=300 0.8-0.99, Critic 16 hl=30, Planner 32 hl=150
 - Optimizer: Muon hybrid large mats Newton-Schulz 5 steps + Adam rest, wd ∝ lr² wd_t = base* (lr/lr_max)² Kosson 2023/Defazio 2025
-- Encoder-free hooks: ava/audio/dmel.py STFT 128 mel bins, ava/embeddings/hmlp.py 40x40 patch 4-layer MLP, joint sequence text+audio+vision, gated off now
+- Encoder-free hooks: dottie/audio/dmel.py STFT 128 mel bins, dottie/embeddings/hmlp.py 40x40 patch 4-layer MLP, joint sequence text+audio+vision, gated off now
 - Peri-LN + QK-Norm anti entropic collapse for 1M ctx
 
 ## Training loop upgrades (T11.8)
@@ -59,20 +59,20 @@ From eval_frontier_rubric.py v2:
 
 ## Experimentation loop — RTX offload compatible
 
-Use same autonomous loop as program-base.md but with Ava presets:
+Use same autonomous loop as program-base.md but with Dottie presets:
 
 ```
 LOOP:
 1. Pick preset nano/mini/base1b + flags combo (relative / short_conv / moe / effort)
 2. git commit -m "inkling-steal: {flag}"
-3. uv run python ava/train.py --preset nano --max-steps 1000 --effort-conditioning (smoke)
+3. uv run python dottie/train.py --preset nano --max-steps 1000 --effort-conditioning (smoke)
 4. Evaluate: python eval_frontier_rubric.py --judge inkling --effort_sweep --domain finance,bio,code
 5. Log: results.tsv val_bpb + frontier_eval_results.json dual=... brier=... tokens curve
 6. If val_bpb improved (lower) + dual up + brier down → keep, else revert
 7. After kept: append to bb-offload/results/results.jsonl for dashboard + scout rtx releases
 ```
 
-Timeout: 30 min per smoke (vs 5 min for tiny autoresearch), since Ava 1B larger.
+Timeout: 30 min per smoke (vs 5 min for tiny autoresearch), since Dottie 1B larger.
 
 VRAM targets: nano <8GB, mini <14GB, base1b <22GB on 4090, <15.5GB on 4080 with ada-16gb profile (activation checkpoint True, batch 32).
 
@@ -85,12 +85,12 @@ VRAM targets: nano <8GB, mini <14GB, base1b <22GB on 4090, <15.5GB on 4080 with 
 ## Deliverables checklist
 
 - [x] model_1b.py: RelativePositionBias, MoELayer sigmoid + bias, short_conv causal, EffortConditioning, flags gated default-off
-- [x] ava/muon.py: Muon hybrid Newton-Schulz + Adam + wd coupling + effort classes
-- [x] ava/train.py: effort sampling Uniform 0.2-0.99 + wd coupling lr² + hybrid optimizer selection
+- [x] dottie/muon.py: Muon hybrid Newton-Schulz + Adam + wd coupling + effort classes
+- [x] dottie/train.py: effort sampling Uniform 0.2-0.99 + wd coupling lr² + hybrid optimizer selection
 - [x] eval_frontier_rubric.py: RubricGrader + ClaimsGrader dual + abstention + Brier + effort_sweep + --judge inkling
-- [ ] encoders: ava/audio/dmel.py + ava/embeddings/hmlp.py 40x40 stub (next)
+- [ ] encoders: dottie/audio/dmel.py + dottie/embeddings/hmlp.py 40x40 stub (next)
 - [ ] This doc + CURRICULUM_V2_INKLING.md + INKLING_STEALS.md + spec 11_arch_hillclimb T11.8
-- [ ] GitHub release v0.6.0-ava-0716 with results.tsv + frontier_eval_results.json including effort curve
+- [ ] GitHub release v0.6.0-dottie-0716 with results.tsv + frontier_eval_results.json including effort curve
 
 ## Solo disclaimer
 Solo personal project, no connection to employer, built with public/free-tier only

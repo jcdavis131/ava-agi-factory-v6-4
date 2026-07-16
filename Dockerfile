@@ -1,11 +1,11 @@
-# Ava serve image (Stage 8 self-host package).
+# Dottie serve image (Stage 8 self-host package).
 # Two-stage: builder installs into /opt/venv; runtime copies venv + app code.
-# Checkpoints are NOT baked in - mount runs/ and set AVA_CKPT.
+# Checkpoints are NOT baked in - mount runs/ and set DOTTIE_CKPT.
 #
 # CPU (default):
-#   docker build -t ava-serve .
+#   docker build -t dottie-serve .
 # CUDA wheels:
-#   docker build -t ava-serve --build-arg TORCH_INDEX=https://download.pytorch.org/whl/cu124 .
+#   docker build -t dottie-serve --build-arg TORCH_INDEX=https://download.pytorch.org/whl/cu124 .
 #
 # Primary multi-service path remains docker-compose.yml + docker/Dockerfile.gpu.
 # This image is the slim single-process serve package from specs/07.
@@ -32,10 +32,10 @@ FROM python:3.11-slim AS runtime
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH" \
-    AVA_CKPT=/app/runs/chat/ava_nano_chat.pt
+    DOTTIE_CKPT=/app/runs/chat/dottie_nano_chat.pt
 WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
-COPY ava/ /app/ava/
+COPY dottie/ /app/dottie/
 COPY evals/ /app/evals/
 COPY multi_jspace_module.py /app/multi_jspace_module.py
 COPY server.py /app/server.py

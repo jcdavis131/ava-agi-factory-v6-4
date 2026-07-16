@@ -1,13 +1,13 @@
-# Ava Ecosystem Review Prompt — LLMVM / Metamate Advanced Auto Architecture
+# Dottie Ecosystem Review Prompt — LLMVM / Metamate Advanced Auto Architecture
 
 > **Solo personal project, no connection to employer, built with public/free-tier only**
 
 ## Role
-You are the Principal Architect for Ava AGI Factory v6.4 — a 1B-parameter model with 4 J-Spaces (S1 Fast hl=8, S2 Slow hl=300, Critic hl=30, Planner hl=150) plus Router/veto, YaRN RoPE 10k→1M, WSD 736k steps, 6-phase logic-first curriculum, and a living ecosystem of continuous pipelines.
+You are the Principal Architect for Dottie AGI Factory v6.4 — a 1B-parameter model with 4 J-Spaces (S1 Fast hl=8, S2 Slow hl=300, Critic hl=30, Planner hl=150) plus Router/veto, YaRN RoPE 10k→1M, WSD 736k steps, 6-phase logic-first curriculum, and a living ecosystem of continuous pipelines.
 
 Your job: audit the current ecosystem and propose an upgrade inspired by Metamate Advanced Auto (Unified Auto / LLMVM).
 
-## Context: Ava v6.4 As-Is
+## Context: Dottie v6.4 As-Is
 
 **Factory layout:**
 - `train_1b_deepspeed.py` — WSD + YaRN + J-Space losses (reportability, broadcast 20%, selectivity, modulation, inter-MI cos 0.45)
@@ -16,7 +16,7 @@ Your job: audit the current ecosystem and propose an upgrade inspired by Metamat
 - `streaming_data.py` / `data_builder_agent.py` / `trainer_agent.py` / `prefect_flows.py` — data gather + manifest concurrency
 - `server.py` — J-Lens viewer (audit vs research mode), WebSocket layer stream
 - `docs/HARNESS_SKILL_INTEGRATION.md` — 8 starter skills: jspace-inspector, openwiki-sync, logic-prover, code-bench, safety-scanner, memory-router, eval-harness-runner, family-brain-wiki
-- Continuous crons: ava-data-gather 4h interval (fast md5 10M shards), ava-dataset-discovery daily (58 HF candidates), ava-eval-distill daily (branch harness mock PASS cap_score 0.983)
+- Continuous crons: dottie-data-gather 4h interval (fast md5 10M shards), dottie-dataset-discovery daily (58 HF candidates), dottie-eval-distill daily (branch harness mock PASS cap_score 0.983)
 
 **Current execution model:**
 - JSON tool-calling loop for agents (trainer_agent, data_builder_agent)
@@ -30,7 +30,7 @@ Read these before answering:
 - `ORCHESTRATION.md` — Foreman / Sonnet / Opus dispatch protocol
 - `docs/HARNESS_SKILL_INTEGRATION.md` — skill / OpenWiki bridge
 - `specs/08_alienware_runbook.md` — local RTX 4080/4090 constraints
-- `ava/ecosystem_status.py` + `ava/pipeline_status.py` — live status
+- `dottie/ecosystem_status.py` + `dottie/pipeline_status.py` — live status
 
 ## Inspiration: Metamate Advanced Auto (What Changes)
 
@@ -40,8 +40,8 @@ Read these before answering:
 > You can't write a for-loop in JSON. You can't handle errors. You can't compose.
 > Unified Auto: LLM writes and executes real Python in a persistent notebook. Every tool from Confucius/DevMate/Metamate is an async function. Loops, branches, asyncio.gather(), try/except all in one execution.
 
-**Why it matters for Ava:**
-- **Round-trip overhead:** 15+ LLM calls → 1 Python cell. Ava data gather currently: discover → dedup → filter → shard → manifest → validate = 6 round-trips. Should be 1.
+**Why it matters for Dottie:**
+- **Round-trip overhead:** 15+ LLM calls → 1 Python cell. Dottie data gather currently: discover → dedup → filter → shard → manifest → validate = 6 round-trips. Should be 1.
 - **No composition:** Can't do "search 3 patterns in parallel, filter deprecated, summarize top 5" in JSON. In Python you just write it.
 - **Schema tax:** 3-param function = 16 lines JSON boilerplate. In LLMVM, signature is schema, docstring is description. Tax = 0.
 - **Context blowup:** Bento kernel sandboxes execution, only final output enters context. Not intermediate 10MB logs.
@@ -50,7 +50,7 @@ Read these before answering:
 
 1. **UnifiedCodeExtension — Code is orchestration:**
    ```python
-   # What Ava should be able to do in ONE cell:
+   # What Dottie should be able to do in ONE cell:
    docs = await asyncio.gather(
      search_code("S2 hl=300 broadcast"),
      search_logs("loss spike 3x median"),
@@ -83,15 +83,15 @@ Read these before answering:
 3. **TMUX Extension — Real terminal interaction:**
    - Persistent tmux sessions, send keystrokes including Ctrl+C, capture pane output
    - Unlocks: debugging failing test by iteratively running, inspecting partial output, adjusting
-   - For Ava: debugging `train_1b_deepspeed.py` CUDA OOM, watching `rocm-smi`, interactive `ipdb`
+   - For Dottie: debugging `train_1b_deepspeed.py` CUDA OOM, watching `rocm-smi`, interactive `ipdb`
    - Strategy as code: "run test, if fails check log for X, if X try Y" across multiple panes
 
 4. **Skills and Skillbooks — Knowledge + code + notebooks, versioned:**
    - Skill = complete package, not function signature
    - Skillbooks: anyone can create/share without diff, edit in Bento Notebook, use immediately, private/team/everyone visibility, latest vs published versions
    - Fastest creation: get workflow working in conversation, tell agent "save as skillbook"
-   - Example for Ava: "create a skillbook for diagnosing WSD phase transition loss spikes from this notebook" → 1 hour → whole team uses it
-   - Map to Ava's 8 skills: make each a Skillbook with docs + Python + bootstrap notebook
+   - Example for Dottie: "create a skillbook for diagnosing WSD phase transition loss spikes from this notebook" → 1 hour → whole team uses it
+   - Map to Dottie's 8 skills: make each a Skillbook with docs + Python + bootstrap notebook
 
 5. **1000+ Tools, No Context Blowup:**
    - Defer-load: only lightweight metadata upfront (~100 tokens per skill)
@@ -109,23 +109,23 @@ For each pipeline in `docs/CONTINUOUS_PIPELINES.md` and `TODOS.md`:
 - Where is orchestration stateless? (bash tool stateless between invocations, state only on disk)
 - Grade: Could this be emergent capability vs designed tool? e.g., parsing training logs with regex vs needing a `parse_logs` tool.
 
-### 2. Apply LLMVM Lens — Propose Ava v6.5 LLMVM Layer
+### 2. Apply LLMVM Lens — Propose Dottie v6.5 LLMVM Layer
 Design:
 
 **A. Runtime:**
 - Persistent notebook: Python kernel (Bento-like sandbox) vs Jupyter? Local on Alienware RTX 4080 box, free-tier only, no work systems.
-- Tool exposure: every function in `ava/` as async def. Signature = schema. How to expose `train_1b_deepspeed.py`, `eval_branch_harness.py`, `server.py` as async?
+- Tool exposure: every function in `dottie/` as async def. Signature = schema. How to expose `train_1b_deepspeed.py`, `eval_branch_harness.py`, `server.py` as async?
 - Sandboxing: execution pauses for host calls (HF download, CUDA), resumes, only final output → context.
 
 **B. Self-Modification Protocol:**
-- Where should Ava self-modify? Propose 3 high-value overrides:
+- Where should Dottie self-modify? Propose 3 high-value overrides:
   1. Caching wrapper for `scripts/hf_uploader.py` + `streaming_data.py`
   2. Code smell analyzer that watches `multi_jspace_module.py` for broadcast leaking future→past
   3. Training watchdog that auto-adjusts `j_weight` on loss spike >3x median (currently manual in ORCHESTRATION.md)
 - Define safety: audit log for overrides, rollback, `ENABLE_JSPACE_WRITE` gate analogy.
 
 **C. TMUX Layer:**
-- Design 3 tmux sessions for Ava: `train`, `eval`, `data`
+- Design 3 tmux sessions for Dottie: `train`, `eval`, `data`
 - Show interactive debug flow: "run `python eval_branch_harness.py --mode real`, if OOM check `nvidia-smi`, if spike check last 100 lines of `logs/builder.log`"
 - How combined with Python: write debugging strategy as code that drives tmux panes.
 
@@ -133,10 +133,10 @@ Design:
 - Convert 8 starter skills to Skillbooks: each needs docs + code + bootstrap notebook + versioning
 - Propose 3 new Skillbooks unlocked by LLMVM: `diagnose-wsd-spike`, `audit-jspace-leak`, `discover-dataset-fast`
 - Flow: get working in conversation → `save as skillbook` → version latest/published
-- Storage: `ava/skills/` local, free, public-tier only, with `AGENTS.md` block for OpenWiki.
+- Storage: `dottie/skills/` local, free, public-tier only, with `AGENTS.md` block for OpenWiki.
 
 **E. Context Management:**
-- Defer-load: design metadata ~100 tokens per Ava tool. Which 1000+ tools? (Confucius equivalent = HF datasets, GitHub, Papers, Ollama judges, W&B)
+- Defer-load: design metadata ~100 tokens per Dottie tool. Which 1000+ tools? (Confucius equivalent = HF datasets, GitHub, Papers, Ollama judges, W&B)
 - Compaction: agent actively removes failed attempts, summarizes verbose `frontier_eval_results.json`
 - Measure: current eval harness uses ~8k tokens intermediate, target <1k after compaction.
 
@@ -152,11 +152,11 @@ Pick 2 POCs to one-shot, like Metamate one-shotted nest app:
 
 Each POC must show: before (15+ JSON round-trips) vs after (1 Python execution), tokens saved, emergent tool invented.
 
-### 4. Comparison — Claude Code vs Ava LLMVM
+### 4. Comparison — Claude Code vs Dottie LLMVM
 
-Map same axes as Metamate note, but for Ava:
+Map same axes as Metamate note, but for Dottie:
 
-| Dimension | Current Ava (JSON loop) | Ava LLMVM (Python runtime) |
+| Dimension | Current Dottie (JSON loop) | Dottie LLMVM (Python runtime) |
 |-----------|-------------------------|----------------------------|
 | Parallel execution | Sequential tool calls | `asyncio.gather()` 10 ops in one cell |
 | Persistent state | Stateless bash, state on disk | Variables persist across cells |
@@ -168,10 +168,10 @@ Map same axes as Metamate note, but for Ava:
 
 Write `docs/LLMVM_REDESIGN_v6.5.md` with:
 
-- **TL;DR** — 3-bullet why Python runtime not JSON loop for Ava, with one concrete example from `logs/builder.log`
+- **TL;DR** — 3-bullet why Python runtime not JSON loop for Dottie, with one concrete example from `logs/builder.log`
 - **Audit Table** — 5 current bottlenecks, token cost, failure mode
 - **Architecture Diagram** — text Mermaid: Bento kernel ↔ orchestrator ↔ host calls (HF, CUDA, OpenWiki) ↔ TMUX sessions ↔ Skillbooks
-- **Self-Modification Examples** — 2 code snippets where Ava overrides its own download/eval function mid-session (with caching layer)
+- **Self-Modification Examples** — 2 code snippets where Dottie overrides its own download/eval function mid-session (with caching layer)
 - **TMUX Debug Recipe** — copy-paste interactive debug flow for training stall
 - **Skillbook Migration Plan** — 8 skills → Skillbooks, plus 3 new ones, with `openwiki code --init` step
 - **1000 Tools Without Blowup** — defer-load design, ~100 tokens metadata list
@@ -189,12 +189,12 @@ Keep it short/concise — one tight update with links to detailed docs. Design q
 - Every artifact footer includes: "Solo personal project, no connection to employer, built with public/free-tier only"
 - Free-to-build/host/serve — Ollama before paid APIs (qwen3:32b default for judges), WANDB offline if needed.
 
-## Prompt Starter to Use in Ava
+## Prompt Starter to Use in Dottie
 
 ```
-You are Ava's self-modifying architect running in LLMVM.
+You are Dottie's self-modifying architect running in LLMVM.
 
-Goal: Audit ava-agi-factory-v6-4 codebase like Metamate Advanced Auto audited itself.
+Goal: Audit dottie-agi-factory-v6-4 codebase like Metamate Advanced Auto audited itself.
 
 1. In ONE Python cell, search three patterns in parallel:
    - "BEGIN DEFERRED" vs "BEGIN IMMEDIATE" in manifest concurrency

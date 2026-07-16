@@ -1,6 +1,6 @@
 #!/bin/bash
 # Solo personal project, no connection to employer, built with public/free-tier only
-# Local max-potential wrapper for Ava AGI Factory v6.4 on consumer RTX 4080/4090 + Docker + Ollama host
+# Local max-potential wrapper for Dottie AGI Factory v6.4 on consumer RTX 4080/4090 + Docker + Ollama host
 
 set -e
 
@@ -13,7 +13,7 @@ PRESET_DEFAULT="mini"
 # Colors for UX
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
-echo -e "${GREEN}[Ava] Local Max Setup — Solo personal project, public/free-tier only${NC}"
+echo -e "${GREEN}[Dottie] Local Max Setup — Solo personal project, public/free-tier only${NC}"
 echo "Prereqs: Docker + nvidia-container-toolkit + Ollama on host (ollama serve) + 100GB disk"
 
 # 1. Check nvidia-smi on host
@@ -42,34 +42,34 @@ else
 fi
 
 # 4. Build & up
-echo ">> Building docker image ava-agi-factory:2.4.0-cuda12.4 (may take 10-20min with flash-attn)..."
+echo ">> Building docker image dottie-agi-factory:2.4.0-cuda12.4 (may take 10-20min with flash-attn)..."
 docker compose -f $COMPOSE_FILE build --progress=plain
 
-echo ">> Starting ava-train container detached..."
+echo ">> Starting dottie-train container detached..."
 docker compose -f $COMPOSE_FILE up -d
 sleep 2
 docker compose -f $COMPOSE_FILE ps
 
 # 5. Smoke inside container
 echo ">> Inside-container CUDA check..."
-docker compose -f $COMPOSE_FILE exec ava-train bash -c "nvidia-smi && python -c 'import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))'"
+docker compose -f $COMPOSE_FILE exec dottie-train bash -c "nvidia-smi && python -c 'import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))'"
 
 echo ">> Checking Ollama from inside container..."
-docker compose -f $COMPOSE_FILE exec ava-train bash -c "echo OLLAMA_HOST=\$OLLAMA_HOST && curl -s http://host.docker.internal:11434/api/tags | head -c 200 || echo 'host Ollama not reachable from container — check extra_hosts host-gateway'"
+docker compose -f $COMPOSE_FILE exec dottie-train bash -c "echo OLLAMA_HOST=\$OLLAMA_HOST && curl -s http://host.docker.internal:11434/api/tags | head -c 200 || echo 'host Ollama not reachable from container — check extra_hosts host-gateway'"
 
 # 6. Default action: if args given, exec them; else interactive instructions
 if [ $# -eq 0 ]; then
   echo -e "${GREEN}Container ready. Next steps (run inside container):${NC}"
   cat <<'EOF'
-docker compose exec ava-train bash
+docker compose exec dottie-train bash
 # inside:
 export OLLAMA_HOST=http://host.docker.internal:11434
 export OLLAMA_MODEL=qwen3:32b
 
 # tokenizer + data
-python -c "from streaming_data import build_tokenizer; build_tokenizer('data/mini/tokenizer/ava_bpe_32k.json')"
+python -c "from streaming_data import build_tokenizer; build_tokenizer('data/mini/tokenizer/dottie_bpe_32k.json')"
 python logic_textbook_pipeline.py --phases p0_logic p1_math --out data/mini/raw --tokens 500M
-python -m streaming_data pack --in data/mini/raw --out data/mini/packed --seq 1024
+python -m dottie.data pack --in data/mini/raw --out data/mini/packed --seq 1024
 
 # mini — 162M — 2.5B tokens — 3-5 days 12GB, 1.5-2 days 4090
 tmux new -s ava
@@ -88,18 +88,18 @@ OLLAMA_HOST=http://host.docker.internal:11434 OLLAMA_MODEL=qwen3:32b python eval
 torchrun --nproc_per_node=1 train_1b_deepspeed.py --preset base1b --deepspeed deepspeed_zero3_bf16.json --tokens_total 2000000000 --compile
 
 # branch after M1 stable
-torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch code --ckpt checkpoints/base1b/ava_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json --preset base1b
+torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch code --ckpt checkpoints/base1b/dottie_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json --preset base1b
 
 # serve
 uvicorn server:app --host 0.0.0.0 --port 8000 &
 # open http://localhost:8000/jspace/viewer?mode=audit
 
 # convert to hf
-python convert_to_hf.py --ckpt checkpoints/base1b/ava_stable_736k.pt --out hf_model/base1b
+python convert_to_hf.py --ckpt checkpoints/base1b/dottie_stable_736k.pt --out hf_model/base1b
 EOF
   exit 0
 fi
 
 # 7. Exec custom command inside container
 echo ">> Executing inside container: $@"
-docker compose -f $COMPOSE_FILE exec ava-train bash -c "export OLLAMA_HOST=http://host.docker.internal:11434; export OLLAMA_MODEL=${OLLAMA_MODEL_DEFAULT}; $*"
+docker compose -f $COMPOSE_FILE exec dottie-train bash -c "export OLLAMA_HOST=http://host.docker.internal:11434; export OLLAMA_MODEL=${OLLAMA_MODEL_DEFAULT}; $*"

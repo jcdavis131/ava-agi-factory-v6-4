@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from ava.pipeline.demand import (
+from dottie.pipeline.demand import (
     apply_demand_weights,
     compute_demand,
     read_demand,
     write_demand,
 )
-from ava.pipeline.flow import FlowConfig
+from dottie.pipeline.flow import FlowConfig
 
 
 def _cfg(**over) -> FlowConfig:

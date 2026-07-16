@@ -2,19 +2,19 @@
 
 > Solo personal project, no connection to employer, built with public/free-tier only
 
-This doc ties three pieces together for Ava v6.4.
+This doc ties three pieces together for Dottie v6.4.
 
 ## Repos
 
-- **ava-agi-factory-v6-4** — main model factory (this repo)
-- **ava-open-harness** — open eval harness (standalone, pip installable) at `../ava-open-harness`
+- **dottie-agi-factory-v6-4** — main model factory (this repo)
+- **dottie-open-harness** — open eval harness (standalone, pip installable) at `../dottie-open-harness`
 - `harness/registry.py` — @register_eval
 - `harness/runner.py` — CLI `python -m harness run --eval all --mode mock`
 - `harness/evals/jspace_tests.py` — 5 canonical tests real measurements: Spider→Ant S2 hl300-400, France→China Planner hl150-200 generalization over capital/language/continent/currency, Soccer→Rugby verbal reportability mass 0.06, Spanish→French selectivity S1 hl8 vs S2 hl300, Safety 0/180 Blackmail Critic hl30-35 early warning 4-5 tok
 - `harness/evals/frontier_rubric.py` — 11-category weighted rubric (reportability, broadcast 20% norm, selectivity, modulation, routing KL, inter-MI cos 0.45, temporal planning, safety critic AUC, knowledge recall wiki->S2, reasoning depth, process transparency)
 - `harness/evals/openwiki_knowledge.py` — does S2 recall facts from `~/.openwiki/wiki`?
-- Mock mode no torch needed, real mode loads `ava_stable_736k.pt`
-- **ava-skills** — skill system at `../ava-skills`
+- Mock mode no torch needed, real mode loads `dottie_stable_736k.pt`
+- **dottie-skills** — skill system at `../dottie-skills`
 - 8 starter skills mapping to workspaces: jspace-inspector (Planner hl150), openwiki-sync (S2 hl300), logic-prover (S2 hl300), code-bench (S2 hl350), safety-scanner (Critic hl30), memory-router (Router), eval-harness-runner (Planner), family-brain-wiki (S2)
 
 ## OpenWiki CLI
@@ -48,12 +48,12 @@ First-run onboarding lets choose wiki template, customize scope, save ingestion 
 
 Provider support: OpenAI, OpenRouter, Fireworks, Baseten, NVIDIA NIM, OpenAI-compatible, Anthropic default OpenAI gpt-5.6-terra. Alternative base via ANTHROPIC_BASE_URL, OpenAI-compatible via OPENAI_COMPATIBLE_BASE_URL, openai-chatgpt provider via ChatGPT login stores access_token, refresh_token etc.
 
-## Integration flow for Ava
+## Integration flow for Dottie
 
 1. Install CLI + init code docs:
 ```
 npm install -g openwiki
-cd ava-agi-factory-v6-4
+cd dottie-agi-factory-v6-4
 openwiki code --init "Document YaRN RoPE 10k->1M, WSD 736k, 4 J-Spaces S1 hl8 S2 hl300 Critic hl30 Planner hl150, branch biases"
 ```
 
@@ -69,14 +69,14 @@ openwiki ingest all # writes raw under ~/.openwiki/connectors/<connector>/raw/ t
 ```
 python -m skills.loader run openwiki-sync --mode mock
 # real with ckpt reads ~/.openwiki/wiki/*.md -> embeds -> S2 slots
-python -m skills.loader run openwiki-sync --mode real --ckpt ava_stable_736k.pt
+python -m skills.loader run openwiki-sync --mode real --ckpt dottie_stable_736k.pt
 ```
 
 4. Gate training:
 ```
-cd ava-open-harness
+cd dottie-open-harness
 python -m harness run --eval jspace_all,frontier_rubric,openwiki_knowledge --mode mock
-python -m harness run --eval all --mode real --ckpt../ava-agi-factory-v6-4/ava_stable_736k.pt
+python -m harness run --eval all --mode real --ckpt../dottie-agi-factory-v6-4/dottie_stable_736k.pt
 ```
 
 ## Family Brain port (offline-first)
@@ -84,7 +84,7 @@ python -m harness run --eval all --mode real --ckpt../ava-agi-factory-v6-4/ava_s
 Family Brain OS cannot use `~/.openwiki/wiki` (client-only). So we built `WikiTab.tsx`:
 
 - Personal mode builds local personal brain wiki in ~/.openwiki/wiki from configured sources -> here `family-brain-wiki-pages:v1` in localStorage from house, finance-auto, git-repo connectors
-- Code mode builds repo docs in openwiki/ -> for Ava: openwiki/ + AGENTS.md block
+- Code mode builds repo docs in openwiki/ -> for Dottie: openwiki/ + AGENTS.md block
 - Deterministic connector tools write raw data and manifests under ~/.openwiki/connectors/<connector>/raw/, then agent synthesizes wiki -> we mimic with `wikiConnector.ts` buildManifests()
 - Connector secrets stored in.env, never raw in config -> we use AES-GCM encrypted at rest
 
@@ -94,23 +94,23 @@ Export/Import JSON includes wikiPages.
 
 ## Skill execution in training loop
 
-In `ava/train.py`, after stable checkpoint:
+In `dottie/train.py`, after stable checkpoint:
 
 ```python
 from harness.runner import run_harness
 from skills.loader import run_skill
 
 # sync wiki into S2 before branching
-run_skill("openwiki-sync", ckpt="ava_stable_736k.pt", mode="real")
+run_skill("openwiki-sync", ckpt="dottie_stable_736k.pt", mode="real")
 
 # gate
-results = run_harness(eval_names="jspace_all,frontier_rubric", mode="real", ckpt="ava_stable_736k.pt")
+results = run_harness(eval_names="jspace_all,frontier_rubric", mode="real", ckpt="dottie_stable_736k.pt")
 if results["meta"]["passed"] < 3:
 raise RuntimeError("Harness gate failed")
 ```
 
 ## Next
 
-- [] Push `ava-open-harness` and `ava-skills` to GitHub as `jcdavis131/ava-open-harness` and `jcdavis131/ava-skills` (repos scaffolded, need `gh repo create` + push)
+- [] Push `dottie-open-harness` and `dottie-skills` to GitHub as `jcdavis131/dottie-open-harness` and `jcdavis131/dottie-skills` (repos scaffolded, need `gh repo create` + push)
 - [] Run `openwiki code --init` in all three repos
 - [] Add Family Brain WikiTab build to production bundle

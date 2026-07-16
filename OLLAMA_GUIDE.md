@@ -1,6 +1,6 @@
 Solo personal project, no connection to employer, built with public/free-tier only
 
-# Ollama Local SOTA Free Judge — Ava v6.4 Frontier
+# Ollama Local SOTA Free Judge — Dottie v6.4 Frontier
 
 This guide shows how to run Frontier rubric eval 100% free using Ollama on your own machine. No API costs, no keys, offline.
 
@@ -36,7 +36,7 @@ ollama pull llama3.1:8b
 curl http://localhost:11434/api/tags
 
 # 5. Run Frontier eval
-cd ~/workspace/ava-agi-factory-v6-4
+cd ~/workspace/dottie-agi-factory-v6-4
 
 # finance only — fast smoke test
 OLLAMA_HOST=http://localhost:11434 OLLAMA_MODEL=qwen3:32b \

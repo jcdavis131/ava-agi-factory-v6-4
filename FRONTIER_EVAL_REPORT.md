@@ -1,6 +1,6 @@
 Solo personal project, no connection to employer, built with public/free-tier only
 
-# Frontier Eval Report — Ava v6.4 Inkling Dual Grader
+# Frontier Eval Report — Dottie v6.4 Inkling Dual Grader
 
 Judge: ollama dual rubric+claims (Inkling steal) Mode: mock Tasks: 7 Effort sweep: False
 

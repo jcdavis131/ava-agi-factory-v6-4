@@ -1,4 +1,4 @@
-# Plan: Antidoom + Compression Integration — Ava v6.4
+# Plan: Antidoom + Compression Integration — Dottie v6.4
 
 > Solo personal project, no connection to employer, built with public/free-tier only  
 > Tier breakdown: 🟦 Sonnet · 🟪 Opus · 👷 foreman/human
@@ -8,7 +8,7 @@ Integrate antidoom loop fix and 3-bucket compression (knowledge, serving, neural
 
 ## Tasks
 
-### T13.1 🟦 Compression textbook generator `ava/datagen/compression.py`
+### T13.1 🟦 Compression textbook generator `dottie/datagen/compression.py`
 - **What**: B6 generator per spec 02 style. Families: shannon 25%, huffman 20%, lz77 20%, arithmetic 15%, bwt_ans 10%, z_token 10%
 - **Verifiable**: 
   - entropy = -sum p log2 p recomputed
@@ -17,23 +17,23 @@ Integrate antidoom loop fix and 3-bucket compression (knowledge, serving, neural
   - Arithmetic interval contains symbol
 - **Schema**: text, task_type, concept, phase, source ; deterministic via private Random(seed)
 - **Phases**: p0 shannon, p1 huffman+kraft, p2 lz code, p3 bwt+z long docs 6000+, p5 proofs
-- **Accept**: `python -m ava.datagen.compression --seed 1234 --out /tmp/c --mb 1` → byte-deterministic, `pytest tests/test_datagen.py -k compression`
-- **Files**: `ava/datagen/compression.py`, `ava/datagen/__init__.py` register, `configs/sources.yaml` add `synth_compression` weights p0 5% p1 10% p2 10% p3 10% p4 5% p5 10% rescaled.
+- **Accept**: `python -m dottie.datagen.compression --seed 1234 --out /tmp/c --mb 1` → byte-deterministic, `pytest tests/test_datagen.py -k compression`
+- **Files**: `dottie/datagen/compression.py`, `dottie/datagen/__init__.py` register, `configs/sources.yaml` add `synth_compression` weights p0 5% p1 10% p2 10% p3 10% p4 5% p5 10% rescaled.
 
 ### T13.2 🟦 Doom loop eval `evals/doom_loop.py` + `evals/compression_recon.py`
 - **doom_loop**: detector min_span 10 tokens appears >=3 in 200 window, or P(token)>0.95 repeated. Metric: % generations with loop at temp 0, temp 0.7
-- **compression**: enwik9 slice 2048b → bits per byte via Ava CE, also reconstruct task: comrpess paragraph to 144-slot summary then ROUGE/BLEU
-- **Accept**: `python -m ava.evals.doom_loop --help` exits 0, smoke test on 20 prompts no crash.
+- **compression**: enwik9 slice 2048b → bits per byte via Dottie CE, also reconstruct task: comrpess paragraph to 144-slot summary then ROUGE/BLEU
+- **Accept**: `python -m dottie.evals.doom_loop --help` exits 0, smoke test on 20 prompts no crash.
 
 ### T13.3 🟪 Serve breaker + antidoom integration script
-- `ava/serve_engine.py`: add `class DoomLoopBreaker` with sliding window n-gram tracker, if repeat detected, resample once at temp 0.7, log to serve_audit.jsonl
+- `dottie/serve_engine.py`: add `class DoomLoopBreaker` with sliding window n-gram tracker, if repeat detected, resample once at temp 0.7, log to serve_audit.jsonl
 - `scripts/antidoom_integration.py`: generate FTPO jsonl from checkpoint sampling, build rows {context_before, rejected, chosen[]}, train PEFT LoRA r=128 lr 1e-5 with MSE tether lambda_mse 10.0 tau 0.1
 - **No vLLM dep** for Hatch VM dry-run; flag `--use-vllm` for Alienware.
 - **Accept**: dry-run `python scripts/antidoom_integration.py generate --dry-run --n-prompts 10` creates valid jsonl.
 
 ### T13.4 🟪 Model compression wiring
-- Wire existing `ava/attention/compressed_conv.py` via config: `model.attn_mode` enum `full, compressed_conv, gated_deltanet, sparse_compressed`
-- Create `ava/attention/sparse_compressed.py` (DeepSeek Flash 10% KV)
+- Wire existing `dottie/attention/compressed_conv.py` via config: `model.attn_mode` enum `full, compressed_conv, gated_deltanet, sparse_compressed`
+- Create `dottie/attention/sparse_compressed.py` (DeepSeek Flash 10% KV)
 - Update `configs/base1b.yaml`: `compression: {kv_quant: fp8, weight_quant: w4a16}`
 - Update `specs/04_model_and_configs.md` VRAM math with compressed numbers:
   - 1409M bf16 2.8GB → W4 0.7GB weights
