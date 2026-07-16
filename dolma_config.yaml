@@ -58,7 +58,9 @@ phases:
       web_edu>=2: 35%
       code_early: 20%
       math: 12%
-      dclm: 33%
+      dclm: 23%
+      etcot_db_compression_micro: 10%
+    note: "ET-CoT (execution-trace CoT) db/compression micro-traces sized to seq 4096; see specs/02 B6"
   phase3_reasoning:
     tokens: "6T-11.25T"
     seq_len: [8192,16384,32768]
@@ -70,6 +72,7 @@ phases:
       workflow_jobbench: 10%
       workflow_gaia2_simple: 5%
       workflow_karpathy: 0%
+      etcot_db_compression: 12%
     note: "Gradual context + NTK-aware scaling, long-form natural outperforms concatenated"
   phase4_long:
     tokens: "11.25T-13.8T"
@@ -81,6 +84,7 @@ phases:
       qk_norm: true
       workflow_jobbench_messy: 10%
       workflow_gaia2_dynamic: 15%
+      etcot_db_compression_long: 10%
     phase_aware_filtering:
       dclm_score: 0.85
       edu_score: 4.5

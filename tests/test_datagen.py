@@ -49,6 +49,28 @@ from ava.datagen.workflow_gaia2 import (
     _deadline_doc,
     _collaboration_doc,
 )
+from ava.datagen.db_trace import (
+    DBTraceGenerator,
+    _btree_point_doc,
+    _btree_range_doc,
+    _btree_insert_doc,
+    _doc_filter_doc,
+    _kv_hash_doc,
+    _wide_column_doc,
+    _graph_doc,
+    _ts_agg_doc,
+    _vector_knn_doc,
+    _hnsw_doc,
+)
+from ava.datagen.compress_trace import (
+    CompressTraceGenerator,
+    _rle_doc,
+    _lz77_doc,
+    _huffman_doc,
+    _delta_varint_doc,
+    _quant_int8_doc,
+    _arith_eiw_doc,
+)
 
 ALL_GENERATORS = [
     LogicGenerator,
@@ -59,6 +81,8 @@ ALL_GENERATORS = [
     ReactToolsGenerator,
     WorkflowJobBenchGenerator,
     WorkflowGaia2Generator,
+    DBTraceGenerator,
+    CompressTraceGenerator,
 ]
 
 # A small byte target keeps tests fast while still exercising every family.
@@ -931,3 +955,318 @@ def test_react_tools_parse_with_ava_bridge():
         parsed = ava_bridge.parse_react_response(first_assistant)
         assert "tool_calls" in parsed, f"ava_bridge failed to parse a real Action: line: {d['text']!r}"
         assert parsed["tool_calls"][0]["function"]["name"], "empty tool name parsed"
+
+
+# ---------------------------------------------------------------------------
+# db_trace.py / compress_trace.py (spec 02 B6): every answer is re-derived
+# independently from the builder's meta inputs (re-run BFS, re-encode LZ77,
+# recompute FNV-1a, ...) -- never trusted from generator internals.
+# ---------------------------------------------------------------------------
+
+_NO_ELIDE = 10 ** 9
+
+
+def _rng(seed=4242):
+    return random.Random(seed)
+
+
+def test_etcot_docs_have_think_answer_structure():
+    for gen_cls in (DBTraceGenerator, CompressTraceGenerator):
+        docs = _collect(gen_cls)
+        assert docs
+        for d in docs:
+            t = d["text"]
+            assert t.startswith("### Task:"), f"{d['source']} missing task header"
+            for tag in ("<think>", "</think>", "<answer>", "</answer>"):
+                assert t.count(tag) == 1, f"{d['source']} bad tag count for {tag}"
+            assert t.index("<think>") < t.index("</think>") < t.index("<answer>") < t.index("</answer>")
+            assert "[step 1]" in t, f"{d['source']} trace has no step markers"
+
+
+def test_etcot_task_types():
+    db_tt = {d["task_type"] for d in _collect(DBTraceGenerator)}
+    assert {"deliberate", "temporal"} <= db_tt  # time-series family is temporal
+    cp_tt = {d["task_type"] for d in _collect(CompressTraceGenerator)}
+    assert {"deliberate", "temporal"} <= cp_tt  # delta+varint family is temporal
+
+
+def test_etcot_phase4_docs_are_long():
+    """Spec 02: P4-tagged docs must land in the 6000-12000 char long-doc band."""
+    for gen_cls in (DBTraceGenerator, CompressTraceGenerator):
+        docs = _collect(gen_cls, target=1_500_000)
+        p4 = [d for d in docs if d["phase"] == "p4"]
+        assert p4, f"{gen_cls.__name__}: no phase-4 docs at this target size"
+        for d in p4:
+            assert 6000 <= len(d["text"]) <= 12000, (
+                f"{d['source']} phase4 doc length {len(d['text'])} out of band")
+
+
+def test_etcot_p3_elision_emits_true_checkpoints():
+    """Some p3 docs must exercise the checkpoint-elision context-budget path,
+    and the elision marker must carry a state checkpoint."""
+    for gen_cls in (DBTraceGenerator, CompressTraceGenerator):
+        docs = [d for d in _collect(gen_cls, target=1_500_000) if d["phase"] == "p3"]
+        elided = [d for d in docs if "steps elided" in d["text"]]
+        assert elided, f"{gen_cls.__name__}: no p3 doc exercised elision"
+        for d in elided:
+            assert "state checkpoint before step" in d["text"]
+
+
+# ---- relational / B-tree ---------------------------------------------------
+
+def test_btree_point_query_answers_correct():
+    rng = _rng()
+    for _ in range(25):
+        text, tt, concept, meta = _btree_point_doc(rng, rng.randint(10, 40), _NO_ELIDE)
+        present = meta["target"] in set(meta["keys"])
+        assert meta["found"] == present
+        if present:
+            item, qty = meta["rows"][meta["target"]]
+            assert f"(id={meta['target']}, item='{item}', qty={qty})" in text
+        else:
+            assert "0 rows" in text
+
+
+def test_btree_range_scan_answers_correct():
+    rng = _rng(7)
+    for _ in range(25):
+        text, tt, concept, meta = _btree_range_doc(rng, rng.randint(10, 50), _NO_ELIDE)
+        expect = [k for k in meta["keys"] if meta["lo"] <= k <= meta["hi"]]
+        assert meta["got"] == expect
+        assert sum(meta["rows"][k][1] for k in expect) == meta["total"]
+        assert f"SUM(qty)" in text and str(meta["total"]) in text
+
+
+def test_btree_insert_keeps_tree_ordered():
+    rng = _rng(9)
+    for _ in range(25):
+        text, tt, concept, meta = _btree_insert_doc(rng, rng.randint(8, 30), _NO_ELIDE)
+        assert meta["inorder"] == sorted(meta["order"] + [meta["inserted"]])
+
+
+# ---- document / key-value / wide-column ------------------------------------
+
+def test_docstore_filter_projection_correct():
+    rng = _rng(11)
+    for _ in range(25):
+        text, tt, concept, meta = _doc_filter_doc(rng, rng.randint(4, 20), _NO_ELIDE)
+        expect = [d["user"]["name"] for d in meta["docs"]
+                  if d["user"]["age"] >= meta["min_age"] and meta["tag"] in d["tags"]]
+        assert meta["names"] == expect
+        assert str(expect) in text
+
+
+def test_kv_hash_placement_matches_independent_simulation():
+    def fnv1a(s):  # independent re-implementation
+        h = 2166136261
+        for ch in s:
+            h = ((h ^ ord(ch)) * 16777619) % 2 ** 32
+        return h
+
+    rng = _rng(13)
+    for _ in range(25):
+        text, tt, concept, meta = _kv_hash_doc(rng, rng.randint(4, 12), _NO_ELIDE)
+        m = meta["buckets"]
+        slots = [None] * m
+        for k in meta["keys"]:
+            b = fnv1a(k) % m
+            while slots[b] is not None:
+                b = (b + 1) % m
+            slots[b] = k
+            assert meta["placed"][k] == b
+        assert f"-> {meta['values'][meta['target']]} (slot {meta['placed'][meta['target']]}" in text
+
+
+def test_wide_column_sum_correct():
+    rng = _rng(17)
+    for _ in range(25):
+        text, tt, concept, meta = _wide_column_doc(rng, rng.randint(4, 40), _NO_ELIDE)
+        assert meta["total"] == sum(r[2] for r in meta["rows"])
+        assert f"SUM(sales) = {meta['total']}" in text
+
+
+# ---- graph / time-series / vector ------------------------------------------
+
+def test_graph_traversal_matches_independent_replay():
+    rng = _rng(19)
+    for _ in range(30):
+        text, tt, concept, meta = _graph_doc(rng, rng.randint(5, 20), _NO_ELIDE)
+        adj = meta["adj"]
+        if meta["kind"] == "bfs":
+            dist = {0: 0}
+            q = [0]
+            while q:
+                u = q.pop(0)
+                for v in adj[u]:
+                    if v not in dist:
+                        dist[v] = dist[u] + 1
+                        q.append(v)
+            target = max(adj)
+            assert meta["dist"] == dist[target]
+            path = meta["path"]
+            assert path[0] == 0 and path[-1] == target and len(path) == dist[target] + 1
+            for a, b in zip(path, path[1:]):
+                assert b in adj[a], "path uses a non-edge"
+        else:
+            stack, seen, order = [0], set(), []
+            while stack:
+                u = stack.pop()
+                if u in seen:
+                    continue
+                seen.add(u)
+                order.append(u)
+                stack.extend(v for v in reversed(adj[u]) if v not in seen)
+            assert meta["order"] == order
+
+
+def test_ts_window_aggregation_correct():
+    rng = _rng(23)
+    for _ in range(25):
+        text, tt, concept, meta = _ts_agg_doc(rng, rng.randint(5, 30), _NO_ELIDE)
+        assert tt == "temporal"
+        buckets = {}
+        for t, v in meta["pts"]:
+            buckets.setdefault((t - meta["t0"]) // meta["window"], []).append(v)
+        for b, vals in buckets.items():
+            c, s, mn, mx, avg = meta["table"][b]
+            assert (c, mn, mx) == (len(vals), min(vals), max(vals))
+            assert abs(s - sum(vals)) < 1e-9 and abs(avg - sum(vals) / len(vals)) < 1e-9
+
+
+def test_vector_knn_topk_correct():
+    rng = _rng(29)
+    for _ in range(25):
+        text, tt, concept, meta = _vector_knn_doc(rng, rng.randint(4, 25), _NO_ELIDE)
+        q = meta["q"]
+        d2 = [sum((a - b) ** 2 for a, b in zip(q, v)) for v in meta["vecs"]]
+        expect = sorted(range(len(d2)), key=lambda i: (d2[i], i))[:meta["k"]]
+        assert [i for i, _ in meta["topk"]] == expect
+        assert all(dd == d2[i] for i, dd in meta["topk"])
+
+
+def test_hnsw_greedy_is_honest_about_local_minima():
+    rng = _rng(31)
+    for _ in range(20):
+        text, tt, concept, meta = _hnsw_doc(rng, rng.randint(8, 20), _NO_ELIDE)
+        q, vecs = meta["q"], meta["vecs"]
+        d2 = lambda v: sum((a - b) ** 2 for a, b in zip(q, v))  # noqa: E731
+        # independent greedy replay over the doc's own link lists
+        cur = meta["entry"]
+        for nbrs in (meta["nbrs1"], meta["nbrs0"]):
+            while True:
+                cand = min(nbrs[cur], key=lambda j: (d2(vecs[j]), j))
+                if d2(vecs[cand]) < d2(vecs[cur]):
+                    cur = cand
+                else:
+                    break
+        assert meta["got"] == cur
+        exact = min(range(len(vecs)), key=lambda i: (d2(vecs[i]), i))
+        assert meta["exact"] == exact
+        if meta["got"] == exact:
+            assert "found the true nearest neighbour" in text
+        else:
+            assert "local minimum" in text
+
+
+# ---- compression -------------------------------------------------------------
+
+def test_rle_runs_correct():
+    rng = _rng(37)
+    for _ in range(25):
+        text, tt, concept, meta = _rle_doc(rng, rng.randint(3, 25), _NO_ELIDE)
+        assert "".join(c * k for c, k in meta["runs"]) == meta["data"]
+        for (a, _), (b, _) in zip(meta["runs"], meta["runs"][1:]):
+            assert a != b, "adjacent runs share a byte -- not maximal"
+
+
+def test_lz77_triples_decode_to_input():
+    rng = _rng(41)
+    for _ in range(25):
+        text, tt, concept, meta = _lz77_doc(rng, rng.randint(8, 60), _NO_ELIDE)
+        buf = []  # independent decoder
+        for off, length, lit in meta["triples"]:
+            for _i in range(length):
+                buf.append(buf[-off])
+            buf.append(lit)
+        assert "".join(buf) == meta["data"]
+
+
+def test_huffman_codes_prefix_free_and_decode():
+    rng = _rng(43)
+    for _ in range(25):
+        text, tt, concept, meta = _huffman_doc(rng, rng.randint(10, 80), _NO_ELIDE)
+        codes = meta["codes"]
+        for a in codes.values():
+            for b in codes.values():
+                assert a == b or not b.startswith(a), "codes are not prefix-free"
+        if len(codes) > 1:  # full binary tree satisfies Kraft with equality
+            assert sum(Fraction(1, 2 ** len(c)) for c in codes.values()) == 1
+        inv = {v: k for k, v in codes.items()}
+        out, cur = [], ""
+        for bit in meta["encoded"]:
+            cur += bit
+            if cur in inv:
+                out.append(inv[cur])
+                cur = ""
+        assert cur == "" and "".join(out) == meta["data"]
+
+
+def test_delta_varint_roundtrip():
+    rng = _rng(47)
+    for _ in range(25):
+        text, tt, concept, meta = _delta_varint_doc(rng, rng.randint(3, 30), _NO_ELIDE)
+        assert tt == "temporal"
+        vals, cur, shift = [], 0, 0  # independent LEB128 decoder
+        for b in meta["stream"]:
+            cur |= (b & 0x7F) << shift
+            if b & 0x80:
+                shift += 7
+            else:
+                vals.append(cur)
+                cur, shift = 0, 0
+        rebuilt = [vals[0]]
+        for d in vals[1:]:
+            rebuilt.append(rebuilt[-1] + d)
+        assert rebuilt == meta["ts"]
+
+
+def test_quant_int8_math_correct():
+    rng = _rng(53)
+    for _ in range(25):
+        text, tt, concept, meta = _quant_int8_doc(rng, rng.randint(4, 30), _NO_ELIDE)
+        amax = max(abs(v) for v in meta["vals"])
+        scale = amax / 127.0
+        assert meta["scale"] == scale
+        assert meta["q"] == [max(-127, min(127, round(v / scale))) for v in meta["vals"]]
+        assert all(-127 <= qi <= 127 for qi in meta["q"])
+
+
+def test_arith_eiw_windows_decode_independently():
+    P = {"A": Fraction(1, 2), "B": Fraction(1, 4), "C": Fraction(1, 4)}
+    CUM = {"A": Fraction(0), "B": Fraction(1, 2), "C": Fraction(3, 4)}
+    BITS = {"A": 1, "B": 2, "C": 2}
+
+    rng = _rng(59)
+    for _ in range(25):
+        text, tt, concept, meta = _arith_eiw_doc(rng, rng.randint(6, 50), _NO_ELIDE)
+        decoded = []
+        for syms, bits, code in meta["windows"]:
+            assert len(code) == bits
+            v = Fraction(int(code, 2), 2 ** bits)  # independent decoder
+            low, width, used, out = Fraction(0), Fraction(1), 0, ""
+            while used < bits:
+                for s in "ABC":
+                    lo = low + width * CUM[s]
+                    if lo <= v < lo + width * P[s]:
+                        out += s
+                        low, width, used = lo, width * P[s], used + BITS[s]
+                        break
+                else:
+                    raise AssertionError("no interval contains code value")
+            assert out == syms
+            decoded.append(out)
+        assert "".join(decoded) == meta["seq"]
+        # equal-info property: every non-final window crosses the 8-bit budget
+        # by at most one symbol's information (<= 9 bits, >= 8 bits)
+        for syms, bits, code in meta["windows"][:-1]:
+            assert 8 <= bits <= 9

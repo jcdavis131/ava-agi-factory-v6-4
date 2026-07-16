@@ -186,6 +186,51 @@ not depend on it).
   `ALL_GENERATORS`, task_type accuracy, per-family reconciliation math re-derived independently, phase-4
   long-doc char-band, and the four GAIA2 state-machine replay tests).
 
+## B6 — ava/datagen/db_trace.py + ava/datagen/compress_trace.py — P2/P3/P4 (Execution-Trace CoT)
+Systems curriculum: teach the model to *simulate* database engines and compression algorithms, not just
+read about them. Every doc is an ET-CoT (Execution-Trace Chain-of-Thought) triplet — (Input State,
+Execution Trace, Final Output) — rendered as a task statement with the complete starting state inlined
+(page tables, hash buckets, adjacency lists, byte streams, vectors), a `<think>` block of `[step N]`
+state-transition lines, and an `<answer>` block with the terminal state. Same base contract as B1-B5
+(zero network, private seeded RNG, byte-determinism); wiring via `configs/sources.yaml` +
+`GENERATORS`. Shared rendering/elision helpers live in `ava/datagen/trace_common.py`.
+
+- **db_trace.py** (`DBTraceGenerator`, name=`"db_trace"`, phases `(2,3,4)`): one family per primary
+  data model of the "Types of Databases" taxonomy — relational (a REAL order-4 B-tree with CLRS
+  preemptive splits: point query with planner cost comparison + per-page-load descent, prune-aware
+  range scan, insert with split/median-promotion trace), document (filter+projection collection scan
+  with short-circuit predicate evaluation), key-value (FNV-1a-32 hashed char-by-char + linear-probe
+  collision resolution over 16 slots), wide-column (columnar byte-offset arithmetic; SUM over one
+  column block vs full row-store I/O), graph (BFS with queue/dist/parent frontier state or DFS with
+  explicit stack), time-series (window bucketing `(t-t0)//W` with running count/sum/min/max), and
+  vector (exact top-k with expanded squared-Euclidean terms, plus a greedy 2-layer HNSW-style descent
+  whose answer honestly reports whether greedy matched the brute-force argmin or stopped in a local
+  minimum). `task_type="temporal"` for time-series, `"deliberate"` otherwise.
+- **compress_trace.py** (`CompressTraceGenerator`, name=`"compress_trace"`, phases `(2,3,4)`): RLE,
+  LZ77 (window 16 / lookahead 8 / min-match 2, per-position window+lookahead+longest-match trace),
+  Huffman (deterministic tie-break by node creation order; merge steps, code table, grouped bitstream),
+  TSDB-style delta+LEB128-varint timestamp packing (`task_type="temporal"`), symmetric INT8
+  quantization (amax → scale → clamp(round(x/scale)) per element, dequant error), and arithmetic
+  coding with **Equal-Info Windows** — dyadic model P(A)=1/2, P(B)=P(C)=1/4 tracked in exact
+  `Fraction`s, interval flushed as the binary expansion of `low` whenever accumulated information
+  crosses the 8-bit budget, reset per window so every window is independently decodable (the property
+  that makes AC output learnable rather than opaque). Every encoder round-trips through its decoder
+  (assert) before the doc is yielded.
+- **Context-window management** (why traces don't blow the budget): (1) *phase-sized inputs* — the
+  phase decides the instance size, so p2 docs are micro-traces (500-4000 chars, fit seq 2048/4096),
+  p3 medium, p4 grown until the 6000-12000 long-doc band (jobbench-style growth loop; families that
+  cannot grow that far — kv_hash, btree_insert, hnsw — are excluded from p4); (2) *checkpoint
+  elision* — at p3, traces longer than `PHASE_ELIDE_OVER[3]`=28 steps collapse their middle into a
+  `[.. K steps elided .. state checkpoint before step N: <computed true state> ..]` block
+  (`trace_common.elide`), teaching the model to re-anchor from a verified state summary instead of
+  replaying every step; (3) *step markers* — `[step N]` line prefixes give Chonkie's RecursiveChunker
+  clean split points so a training chunk never starts mid-state.
+- Acceptance, same shape as B1-B5: `python -m ava.datagen.db_trace --seed 1234 --out /tmp/dg --mb 5`
+  (and the `compress_trace` equivalent) exit 0 and are byte-reproducible; `pytest tests/test_datagen.py
+  -k "db_trace or compress or btree or huffman or lz77 or eiw"` green — the tests re-derive every
+  answer independently (re-run BFS from the adjacency in `meta`, re-encode LZ77/Huffman/varint from
+  the raw input, recompute FNV-1a, re-quantize) rather than trusting generator internals.
+
 ## Orchestrator + tests (owned by whichever worker the foreman assigns last, or B4)
 - `scripts/gen_all_data.py --seed 1234 [--out data/nano/raw/]`: runs all generators with fixed
   derived seeds `{logic: seed+1, math_gen: seed+2, encyclopedia: seed+3, code_gen: seed+4,
