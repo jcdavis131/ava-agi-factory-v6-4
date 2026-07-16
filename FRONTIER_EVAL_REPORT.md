@@ -2,7 +2,7 @@ Solo personal project, no connection to employer, built with public/free-tier on
 
 # Frontier Eval Report — Ava v6.4 Inkling Dual Grader
 
-Judge: inkling dual rubric+claims (Inkling steal) Mode: mock Tasks: 7 Effort sweep: True
+Judge: ollama dual rubric+claims (Inkling steal) Mode: mock Tasks: 7 Effort sweep: False
 
 Metrics: rubric recall + claims precision dual = 0.5*r + 0.5*c, abstention-aware 0.4 baseline, Brier proxy (r-c)^2, effort 0.2-0.99 controllable via system msg + per-token cost, emergent telegraphic CoT compression
 
@@ -15,13 +15,6 @@ Metrics: rubric recall + claims precision dual = 0.5*r + 0.5*c, abstention-aware
 | CODE-001 | code | 0.8 | 0.618 | 1.0 | 0.809 | 0.809 | 53 | 0.146 |
 | LAW-001 | law | 0.8 | 0.674 | 1.0 | 0.837 | 0.837 | 53 | 0.106 |
 | MAC-001 | macro | 0.8 | 0.463 | 1.0 | 0.732 | 0.732 | 55 | 0.288 |
-
-## Effort Curve 0.2-0.99 (avg final)
-- effort 0.20: avg 0.466 tokens compressed S1 hl=8 vs S2 hl=300 verbose
-- effort 0.40: avg 0.742 tokens compressed S1 hl=8 vs S2 hl=300 verbose
-- effort 0.60: avg 0.762 tokens compressed S1 hl=8 vs S2 hl=300 verbose
-- effort 0.80: avg 0.785 tokens compressed S1 hl=8 vs S2 hl=300 verbose
-- effort 0.99: avg 0.920 tokens compressed S1 hl=8 vs S2 hl=300 verbose
 
 ## Per-task details
 

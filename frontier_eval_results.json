@@ -1,15 +1,11 @@
 {
   "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-  "judge": "inkling",
+  "judge": "ollama",
   "mode": "mock",
   "dual": true,
-  "effort_sweep": true,
+  "effort_sweep": false,
   "effort_curve": {
-    "0.2": 0.4657142857142857,
-    "0.4": 0.7421428571428572,
-    "0.6": 0.7618571428571429,
-    "0.8": 0.7854285714285715,
-    "0.99": 0.9197142857142858
+    "0.8": 0.7854285714285715
   },
   "results": [
     {

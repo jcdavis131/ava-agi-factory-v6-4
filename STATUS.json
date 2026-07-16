@@ -2,122 +2,249 @@
   "builder": {
     "current_phase_idx": 0,
     "current_phase": "phase0_logic",
-    "writes_this_phase": 11931868,
-    "total_shards": 67,
+    "writes_this_phase": 12431939,
+    "total_shards": 74,
     "phase_progress": 1.0,
-    "ts": 1784138421,
+    "ts": 1784203099,
     "lake_gb": 1.8182e-05,
     "last_expansion": {
-      "timestamp": "2026-07-15T23:29:11+00:00",
-      "tokens": 1000038,
-      "docs": 10224,
+      "timestamp": "2026-07-16T15:56:01.603296+00:00",
+      "scheduled_for_local": "Thu 2026-07-16 11:00:00 CDT (America/Chicago)",
+      "tokens": 500034,
+      "docs": 5045,
       "shards": [
-        "packed_20260715_232714_00072_3460.jsonl.gz"
+        "packed_20260716_155535_00081_6671.jsonl.gz"
       ],
-      "manifest": "manifest_20260715_232714.jsonl",
-      "dup_filtered": 29297,
-      "qual_filtered": 23059,
-      "upload_manifest": "data/for_upload/upload_manifest_20260715_232911.json",
+      "manifest": "manifest_20260716_155535.jsonl",
+      "dup_filtered": 9700,
+      "qual_filtered": 8581,
+      "upload_manifest": "data/for_upload/upload_manifest_20260716_155601.json",
       "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-      "mode": "1M HatchVM p0_logic p1_math p2_foundation simhash th3 + md5 fast + qual alpha>0.6 reward>0.8, reset window on strict dedup",
+      "mode": "500K_HatchVM_4h_p0-p2_simhash th3+md5 fast+qual alpha>0.6 reward>0.8 reset window",
       "phases": [
         "p0_logic",
         "p1_math",
         "p2_foundation"
       ],
       "phases_joined": "p0_logic p1_math p2_foundation",
-      "guard": "Personal Drive safe - no work indicators, per AGENTS.md absolute separation, checked 30 files - 2026-07-15 23:29 UTC",
+      "guard": "Personal Drive safe - no work indicators in 30 files, per AGENTS.md absolute separation, checked 2026-07-16T15:56 UTC - appears to be personal Drive or empty, safe to proceed",
+      "gdrive_upload": {
+        "folder_name": "Ava-Datasets-Expansion",
+        "folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
+        "attempted": "dry-run 158 files (148 skipped dedup), then real upload 10 files with --workers 2",
+        "status": "success - 10 files uploaded to personal Drive, 148 dedup skipped, 0 failed",
+        "uploaded": [
+          {
+            "name": "packed_20260716_115830_00080_8520.jsonl_0ea84d43edda.gz",
+            "id": "1i_0bWi0504-nFMXCz4JvMOG6HJ8RdrrE",
+            "sha12": "0ea84d43edda"
+          },
+          {
+            "name": "manifest_20260716_075747_a2b78aeb362a.jsonl",
+            "id": "13fJJLa0Dii0QuXOLgwLW54aEwaZusXZe",
+            "sha12": "a2b78aeb362a"
+          },
+          {
+            "name": "packed_20260716_035911_00076_8445.jsonl_ebd535840119.gz",
+            "id": "167wXIBuXQUbN1-jw742f9vzmawTIu4Ps",
+            "sha12": "ebd535840119"
+          },
+          {
+            "name": "packed_20260716_075747_00078_4992.jsonl_8188444e5600.gz",
+            "id": "1pTLPPKyx3zr1qD9cg0s127jiutAWcwpG",
+            "sha12": "8188444e5600"
+          },
+          {
+            "name": "packed_20260716_075531_00077_9772.jsonl_a6bc9ad8039b.gz",
+            "id": "1hXK6NtgFyYpyiw8JpNc8Q99GBCIpepex",
+            "sha12": "a6bc9ad8039b"
+          },
+          {
+            "name": "manifest_20260716_155535_d8cb5a396dbf.jsonl",
+            "id": "10ed_264VhI0nH9AAUBVpbgB1z43yZJs-",
+            "sha12": "d8cb5a396dbf"
+          },
+          {
+            "name": "packed_20260716_155535_00081_6671.jsonl_8c79b428c2f2.gz",
+            "id": "1usPf2PMOdn3xfaJJWDIxWnT8hKdntZi5",
+            "sha12": "8c79b428c2f2"
+          },
+          {
+            "name": "manifest_20260716_075531_74802f4e0b17.jsonl",
+            "id": "1S4pOmyeUEXPZFVr2-nn4J_tR7ErCtSUv",
+            "sha12": "74802f4e0b17"
+          },
+          {
+            "name": "manifest_20260716_115830_63dee00f1ddf.jsonl",
+            "id": "1e-C4ri9M7aI1ifdDZXDmDqsl2rVVvmW8",
+            "sha12": "63dee00f1ddf"
+          },
+          {
+            "name": "manifest_20260716_035911_a129e12ec875.jsonl",
+            "id": "18_jepj0Kl02HgcfIZinMmZHnL2iwZ3Em",
+            "sha12": "a129e12ec875"
+          }
+        ],
+        "failed": 0,
+        "skipped": 148,
+        "new_shard": {
+          "name": "packed_20260716_155535_00081_6671.jsonl_8c79b428c2f2.gz",
+          "id": "1usPf2PMOdn3xfaJJWDIxWnT8hKdntZi5",
+          "sha12": "8c79b428c2f2"
+        }
+      },
+      "run_context": "dataset_expansion.py --tokens 500K --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local 2026-07-16T15:55:35 UTC - 5045 docs 9700 dup 8581 qual filtered, shard 165KB gz sha12 8c79b428c2f2 + manifest 1.7M sha12 d8cb5a396dbf + global manifest 1269K lines, guard Personal Safe, gdrive dry-run 158 + real upload 10 files success --workers 2",
+      "disk_usage": "100G 14G 86G 14% - PASS",
       "hf_upload": {
         "repo": "jcdavis131/ava-textbook-v6",
-        "status": "HF_TOKEN missing in Hatch VM - saved local hf_ready + upload_manifest for Alienware push",
+        "status": "HF_TOKEN missing in Hatch VM - saved local for Alienware push, personal Drive used instead",
         "streaming": "load_dataset('jcdavis131/ava-textbook-v6', streaming=True, split='train')",
-        "local_manifest": "data/for_upload/hf_ready_20260715_232911.json"
+        "local_manifest": "data/for_upload/upload_manifest_20260716_155601.json"
       },
-      "run_context": "dataset_expansion.py --tokens 1M --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local 2026-07-15 23:27 UTC - 10224 docs 29297 dup 23059 qual filtered, 1 shard 331K"
+      "global_manifest_lines": 1269199,
+      "live_test": "500K tokens 5045 docs 9700 dup 8581 qual filtered 165KB gz + manifest 1.7M, 26s, guard blocked work Drive correctly, Drive upload 10 files (148 dedup) success"
     },
     "last_expansion_detailed": {
-      "timestamp": "2026-07-15T18:00:20.825941+00:00",
-      "tokens": 10000223,
-      "docs": 32055,
+      "timestamp": "2026-07-16T03:58:49.999996+00:00",
+      "scheduled_for_local": "Wed 2026-07-15 23:00:00 CDT",
+      "tokens": 500064,
+      "docs": 5055,
       "shards": [
-        "packed_20260715_175947_00065_7206.jsonl.gz"
+        "packed_20260716_035527_00075_9169.jsonl.gz"
       ],
-      "manifest": "manifest_20260715_175947.jsonl",
-      "dup_filtered": 0,
-      "qual_filtered": 1226,
-      "upload_manifest": "data/for_upload/upload_manifest_20260715_175947.json",
+      "manifest": "manifest_20260716_035527.jsonl",
+      "dup_filtered": 9303,
+      "qual_filtered": 8271,
+      "upload_manifest": "data/for_upload/upload_manifest_20260716_035554.json",
       "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-      "mode": "fast_md5_HatchVM_10M_interval_4h",
-      "phases": [
-        "p0_logic",
-        "p1_math",
-        "p2_foundation",
-        "p3_code"
-      ],
-      "guard": "Personal Drive safe - no work indicators, per AGENTS.md absolute separation, checked 30 files - 2026-07-15 17:59 UTC",
-      "phases_joined": "p0_logic p1_math p2_foundation p3_code",
-      "run_context": "ava-data-gather-4h scheduled Wed 2026-07-15 13:00 CDT (America/Chicago), executed 2026-07-15T18:00:20.825941+00:00 UTC - 10M fast md5 8.3s, 32k docs",
-      "disk_usage": "100G 13G 87G 13% /dev/mapper/rv \u2014 PASS >20GB",
-      "hf_upload": {
-        "repo": "jcdavis131/ava-textbook-v6",
-        "status": "HF_TOKEN missing in Hatch VM - saved local hf_ready_20260715_180002.json for Alienware push",
-        "streaming": "load_dataset('jcdavis131/ava-textbook-v6', streaming=True, split='train')",
-        "local_manifest": "data/for_upload/hf_ready_20260715_180002.json"
-      },
-      "daily_expanded_count": 127,
-      "global_manifest_lines": 1068782
-    },
-    "last_expansion_previous": {
-      "timestamp": "2026-07-15T18:00:20.825941+00:00",
-      "tokens": 10000223,
-      "docs": 32055,
-      "shards": [
-        "packed_20260715_175947_00065_7206.jsonl.gz"
-      ],
-      "note": "previous before 19:55 run"
-    },
-    "last_expansion_previous_detailed": {
-      "timestamp": "2026-07-15T07:58:01.844391+00:00",
-      "tokens": 500030,
-      "docs": 5058,
-      "shards": [
-        "packed_20260715_075528_00058_5447.jsonl.gz"
-      ],
-      "manifest": "manifest_20260715_075528.jsonl",
-      "dup_filtered": 9720,
-      "qual_filtered": 8528,
-      "upload_manifest": "data/for_upload/upload_manifest_20260715_075555.json",
-      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-      "mode": "500K_HatchVM_4h_p0-p2_simhash+md5_personal_safe",
+      "mode": "500K_HatchVM_4h_p0-p2_simhash th3+md5 fast+qual alpha>0.6 reward>0.8 reset window",
       "phases": [
         "p0_logic",
         "p1_math",
         "p2_foundation"
       ],
-      "guard": "Personal Drive safe - no work indicators, per AGENTS.md absolute separation, checked 30 files",
+      "phases_joined": "p0_logic p1_math p2_foundation",
+      "guard": "Personal Drive safe - no work indicators, per AGENTS.md absolute separation, checked 30 files - 2026-07-16 03:57 UTC",
       "gdrive_upload": {
         "folder_name": "Ava-Datasets-Expansion",
         "folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
         "uploaded": [
           {
-            "name": "packed_20260715_055942_00057_7321.jsonl_fd364802a4fd.gz",
-            "id": "1aZSKsy-l2cHC3hqM1xxXK5h18179iOu9",
-            "sha12": "fd364802a4fd"
-          },
-          {
-            "name": "packed_20260715_075528_00058_5447.jsonl_328f4002059a.gz",
-            "id": "154lgHKPRWErdU1U45Hpv3ResTtD5OWpB",
-            "sha12": "328f4002059a"
+            "id": "1V-Ajqmbl37UOaA9iiOYE-mJvI4-E3zRb",
+            "sha12": "235272e40c45",
+            "name": "packed_20260716_035527_00075_9169.jsonl_235272e40c45.gz"
           }
         ],
-        "status": "uploaded 2 new from this run (1 previous catch-up + 1 current), 2 total, Personal Drive safe, daily_expanded 59 files",
-        "dry_run_previous": "dry-run showed mostly skipped, 2 new uploaded"
+        "failed": 0,
+        "skipped": 0,
+        "status": "uploaded 1 new shard (dedup by sha12), Personal Drive safe"
       },
-      "disk_usage": "/dev/mapper/rv  100G   12G   88G  12% /",
-      "daily_expanded_count": 59,
-      "global_manifest_lines": 930371,
-      "efficiency_note": "500K HatchVM 27s, 5058 docs, dup 9720 simhash th3 + md5, qual 8528 filtered alpha>0.6 reward>0.8, content-addressable sha12, Drive dedup personal safe",
-      "run_context": "ava-data-gather-4h scheduled Wed 2026-07-15 03:00 CDT, executed 07:55 UTC"
+      "run_context": "dataset_expansion.py --tokens 500K --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local 2026-07-16T03:58:49.999996+00:00 - 5055 docs 9303 dup 8271 qual filtered, 1 shard 165K gz + 1.7M manifest 27s, guard Personal Safe, gdrive upload 1 file to canonical 19tqzjB id 1V-Ajqm",
+      "disk_usage": "100G 14G 87G 14% - PASS",
+      "hf_upload": {
+        "repo": "jcdavis131/ava-textbook-v6",
+        "status": "HF_TOKEN missing in Hatch VM - saved local + gdrive uploaded for Alienware push",
+        "streaming": "load_dataset('jcdavis131/ava-textbook-v6', streaming=True, split='train')",
+        "local_manifest": "data/for_upload/upload_manifest_20260716_035554.json"
+      },
+      "global_manifest_lines": 1238906
+    },
+    "last_expansion_previous": {
+      "timestamp": "2026-07-16T11:58:18.474035+00:00",
+      "scheduled_for_local": "Thu 2026-07-16 07:00:00 CDT (America/Chicago)",
+      "tokens": 500071,
+      "docs": 5050,
+      "shards": [
+        "packed_20260716_115531_00079_8700.jsonl.gz"
+      ],
+      "manifest": "manifest_20260716_115531.jsonl",
+      "dup_filtered": 9469,
+      "qual_filtered": 8088,
+      "upload_manifest": "data/for_upload/upload_manifest_20260716_115557.json",
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "mode": "500K_HatchVM_4h_p0-p2_simhash th3+md5 fast+qual alpha>0.6 reward>0.8 reset window",
+      "phases": [
+        "p0_logic",
+        "p1_math",
+        "p2_foundation"
+      ],
+      "phases_joined": "p0_logic p1_math p2_foundation",
+      "guard": "Personal Drive safe - no work indicators in 30 files, per AGENTS.md absolute separation, checked 2026-07-16T11:56 UTC",
+      "gdrive_upload": {
+        "folder_name": "Ava-Datasets-Expansion",
+        "folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
+        "attempted": "dry-run 154 files (148 skipped dedup), then real upload 1 shard + 1 manifest",
+        "status": "success - 2 files uploaded to personal Drive, content-addressable dedup",
+        "uploaded": [
+          {
+            "name": "packed_20260716_115531_00079_8700.jsonl_53a14b6581b2.gz",
+            "id": "1GoCve4aIyU777LnQlP-hDNAKc2nKroAD",
+            "sha12": "53a14b6581b2",
+            "full_sha": "53a14b6581b241cc6a628eef5770c63310cd2fff0f80c79de3fc76d2a1f1f206"
+          },
+          {
+            "name": "manifest_20260716_115531_9ccc6d9492c2.jsonl",
+            "id": "1D_6X1LSheKYTZxJbOgwgW-0767zHy3Pq",
+            "sha12": "9ccc6d9492c2",
+            "full_sha": "9ccc6d9492c206e0f6ebc5f3b644d8c7cb4cc77c04daaa208c93261d67d46fcf"
+          }
+        ],
+        "failed": 0,
+        "skipped": 148
+      },
+      "run_context": "dataset_expansion.py --tokens 500K --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local 2026-07-16T11:55 UTC - 5050 docs 9469 dup 8088 qual filtered, 1 shard 165K gz sha12 53a14b6581b2 + manifest 1.8M sha12 9ccc6d9492c2 + global manifest 1.2M lines, guard Personal Safe, gdrive dry-run + real upload success 2 files",
+      "disk_usage": "100G 14G 86G 14% - PASS",
+      "hf_upload": {
+        "repo": "jcdavis131/ava-textbook-v6",
+        "status": "HF_TOKEN missing in Hatch VM - saved local for Alienware push, personal Drive used instead",
+        "streaming": "load_dataset('jcdavis131/ava-textbook-v6', streaming=True, split='train')",
+        "local_manifest": "data/for_upload/upload_manifest_20260716_115557.json"
+      },
+      "global_manifest_lines": 1259104,
+      "live_test": "500K tokens 5050 docs 9469 dup 8088 qual filtered 165KB gz + manifest, 29s, guard blocked work Drive correctly, Drive upload 2 files success"
+    },
+    "last_expansion_previous_detailed": {
+      "timestamp": "2026-07-15T23:56:27.954921+00:00",
+      "scheduled_for_local": "Wed 2026-07-15 19:00:00 CDT",
+      "tokens": 500018,
+      "docs": 5059,
+      "shards": [
+        "packed_20260715_235530_00073_9978.jsonl.gz"
+      ],
+      "manifest": "manifest_20260715_235530.jsonl",
+      "dup_filtered": 9662,
+      "qual_filtered": 8698,
+      "upload_manifest": "data/for_upload/upload_manifest_20260715_235600.json",
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "mode": "500K_HatchVM_4h_p0-p2_simhash th3+md5 fast+qual alpha>0.6 reward>0.8 reset window",
+      "phases": [
+        "p0_logic",
+        "p1_math",
+        "p2_foundation"
+      ],
+      "phases_joined": "p0_logic p1_math p2_foundation",
+      "guard": "Personal Drive safe - no work indicators, per AGENTS.md absolute separation, checked 30 files - 2026-07-15 23:55 UTC",
+      "gdrive_upload": {
+        "folder_name": "Ava-Datasets-Expansion",
+        "folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
+        "uploaded": [
+          {
+            "id": "1W29km0iHYoDFiaYyoqE5HohIZQW-kZB1",
+            "sha12": "622d81235a6d",
+            "name": "packed_20260715_235530_00073_9978.jsonl_622d81235a6d.gz"
+          }
+        ],
+        "failed": 0,
+        "skipped": 0
+      },
+      "run_context": "dataset_expansion.py --tokens 500K --phases p0_logic p1_math p2_foundation --out data/daily_expanded --upload-mode local 2026-07-15 23:55 UTC - 5059 docs 9662 dup 8698 qual filtered, 1 shard 165K gz + 1.7M manifest 29s, guard blocked work Drive correctly (personal safe), gdrive upload 1 file to canonical 19tqzjB",
+      "disk_usage": "100G 13G 87G 13% - PASS",
+      "hf_upload": {
+        "repo": "jcdavis131/ava-textbook-v6",
+        "status": "HF_TOKEN missing in Hatch VM - saved local + gdrive uploaded for Alienware push",
+        "streaming": "load_dataset('jcdavis131/ava-textbook-v6', streaming=True, split='train')",
+        "local_manifest": "data/for_upload/upload_manifest_20260715_235600.json"
+      }
     },
     "last_expansion_previous_simple": {
       "timestamp": "2026-07-15T05:59:47.310307+00:00",
@@ -127,6 +254,15 @@
         "packed_20260715_055942_00056_9599.jsonl.gz",
         "packed_20260715_055942_00057_7321.jsonl.gz"
       ]
+    },
+    "last_run_4h": {
+      "timestamp": "2026-07-16T15:56:01.603296+00:00",
+      "tokens": 500034,
+      "docs": 5045,
+      "shard": "packed_20260716_155535_00081_6671.jsonl.gz"
+    },
+    "crons": {
+      "ava-data-gather-4h": true
     }
   },
   "curriculum": {
@@ -142,7 +278,7 @@
     ]
   },
   "lake": {
-    "last_manifest_lines": 607108,
+    "last_manifest_lines": 1238906,
     "sources": [],
     "total_gb": 0.0146
   },
@@ -266,9 +402,9 @@
     "prefect_cmd": "python prefect_flows.py --run train --preset mini --tokens 2500000000"
   },
   "last_run_4h": {
-    "timestamp": "2026-07-15T23:29:11Z",
-    "tokens": 1000038,
-    "docs": 10224,
-    "shard": "packed_20260715_232714_00072_3460.jsonl.gz"
+    "timestamp": "2026-07-16T07:57:40.230625+00:00",
+    "tokens": 500011,
+    "docs": 5044,
+    "shard": "packed_20260716_075531_00077_9772.jsonl.gz"
   }
 }
