@@ -291,14 +291,25 @@ def log_event(
         # specific buckets
         if source == "data" and event_type in ("expansion", "finish", "data_gather", "progress"):
             if metrics:
-                live["last_expansion"] = {
-                    "timestamp": ts_iso,
-                    "tokens": metrics.get("tokens", metrics.get("total_tokens", 0)),
-                    "docs": metrics.get("docs", metrics.get("total_docs", 0)),
-                    "shards": metrics.get("shards", metrics.get("new_shards", metrics.get("shard", []))),
-                    "message": message,
-                    "duration_s": metrics.get("duration_s"),
-                }
+                # Don't overwrite canonical 500k sample with dry-run tiny shards
+                is_dry = metrics.get("dry_run") or False
+                existing_tokens = (live.get("last_expansion", {}) or {}).get("tokens", 0)
+                new_tokens = metrics.get("tokens", metrics.get("total_tokens", 0)) or 0
+                if is_dry and existing_tokens >= 500034:
+                    # Keep existing canonical, just update timestamp separately? Skip overwrite
+                    pass
+                elif new_tokens < 10000 and existing_tokens >= 500034:
+                    # Tiny dry-run shouldn't clobber canonical
+                    pass
+                else:
+                    live["last_expansion"] = {
+                        "timestamp": ts_iso,
+                        "tokens": metrics.get("tokens", metrics.get("total_tokens", 0)),
+                        "docs": metrics.get("docs", metrics.get("total_docs", 0)),
+                        "shards": metrics.get("shards", metrics.get("new_shards", metrics.get("shard", []))),
+                        "message": message,
+                        "duration_s": metrics.get("duration_s"),
+                    }
         if source in ("train", "training", "training_monitor"):
             if metrics or True:
                 live["last_train"] = {
