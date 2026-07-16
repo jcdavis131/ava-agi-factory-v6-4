@@ -2,30 +2,14 @@
   "updated": "2026-07-16T15:56:01.603296+00:00",
   "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
   "last_expansion": {
-    "timestamp": "2026-07-16T15:56:01.603296+00:00",
-    "scheduled_for_local": "Thu 2026-07-16 11:00:00 CDT (America/Chicago)",
-    "tokens": 500034,
-    "docs": 5045,
+    "timestamp": "2026-07-16T17:40:00.773910+00:00",
+    "tokens": 1000,
+    "docs": 5,
     "shards": [
-      "packed_20260716_155535_00081_6671.jsonl.gz"
+      "dry_run_shard.gz"
     ],
-    "total_shards": 74,
-    "manifest": "manifest_20260716_155535.jsonl",
-    "manifest_sha12": "d8cb5a396dbf",
-    "dup_filtered": 9700,
-    "qual_filtered": 8581,
-    "gdrive_folder_id": "19tqzjB-ofqKmx1w6S4qLNB_jAEa6s3ve",
-    "gdrive_folder_name": "Dottie-Datasets-Expansion",
-    "phases": [
-      "p0_logic",
-      "p1_math",
-      "p2_foundation"
-    ],
-    "mode": "500K_HatchVM_4h_p0-p2_simhash th3+md5 fast+qual alpha>0.6 reward>0.8 reset window",
-    "message": "Sample structure per CONTINUOUS_SYSTEM_DOTTIE.md \u2014 restored from STATUS.json builder.last_expansion",
-    "duration_s": 35.2,
-    "disk_pct": 13,
-    "disk_usage": "100G 14G 86G 14% - PASS"
+    "message": "Expansion 1000 tokens / 5 docs / 1 shards",
+    "duration_s": 0.5
   },
   "totals_last_1000": {
     "tokens": 500034,
@@ -33,10 +17,10 @@
   },
   "latest_per_mode": {
     "telemetry": {
-      "timestamp": "2026-07-16T17:34:30.671846+00:00",
-      "ts": 1784223270,
-      "unix": 1784223270,
-      "run_id": "95f33ce4",
+      "timestamp": "2026-07-16T17:39:08.986183+00:00",
+      "ts": 1784223548,
+      "unix": 1784223548,
+      "run_id": "dd1f86ad",
       "hostname": "htch-runtime",
       "source": "telemetry",
       "mode": "telemetry",
@@ -46,7 +30,7 @@
       "level": "info",
       "metrics": {
         "smoke": true,
-        "run_id": "95f33ce4"
+        "run_id": "dd1f86ad"
       },
       "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
       "smoke": true
@@ -115,129 +99,76 @@
       "smoke": true
     },
     "data": {
-      "timestamp": "2026-07-16T15:56:01.603296+00:00",
+      "ts": "2026-07-16T17:40:00.773910+00:00",
       "event_type": "expansion",
-      "tokens": 500034,
-      "docs": 5045,
-      "shards": 74,
-      "total_shards": 74,
-      "message": "Expansion 500034 tokens / 5045 docs / 74 shards"
+      "message": "Expansion 1000 tokens / 5 docs / 1 shards",
+      "level": "info",
+      "tokens": 1000,
+      "docs": 5,
+      "shards": [
+        "dry_run_shard.gz"
+      ],
+      "dry_run": true,
+      "duration_s": 0.5,
+      "disk_pct": 13
     },
     "daemon": {
-      "timestamp": "2026-07-16T17:32:37.865730+00:00",
-      "ts": 1784223157,
-      "unix": 1784223157,
-      "run_id": "de47a7e6",
-      "hostname": "htch-runtime",
-      "source": "daemon",
-      "mode": "daemon",
+      "ts": "2026-07-16T17:40:00.777208+00:00",
       "event_type": "cycle_finish",
-      "status": "info",
       "message": "Cycle data finished",
       "level": "info",
-      "metrics": {
-        "mode": "data",
-        "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-        "started": "2026-07-16T17:32:37.358740+00:00",
-        "data": {
-          "status": "dry_run",
-          "tokens": 1000,
-          "docs": 5
-        },
-        "finished": "2026-07-16T17:32:37.865711+00:00",
-        "status": "ok"
-      },
+      "mode": "data",
       "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-      "started": "2026-07-16T17:32:37.358740+00:00",
+      "started": "2026-07-16T17:40:00.268136+00:00",
       "data": {
         "status": "dry_run",
         "tokens": 1000,
         "docs": 5
       },
-      "finished": "2026-07-16T17:32:37.865711+00:00"
+      "finished": "2026-07-16T17:40:00.777189+00:00",
+      "status": "ok"
     },
     "ecosystem": {
-      "timestamp": "2026-07-16T17:34:56.752803+00:00",
-      "ts": 1784223296,
-      "unix": 1784223296,
-      "run_id": "8ad9781d",
-      "hostname": "htch-runtime",
-      "source": "ecosystem",
-      "mode": "ecosystem",
-      "event_type": "start",
-      "status": "info",
-      "message": "Ecosystem check restored sample",
+      "ts": "2026-07-16T17:39:57.859872+00:00",
+      "event_type": "dry_run",
+      "message": "Ecosystem dry-run check",
       "level": "info",
-      "metrics": {
-        "free_gb": 93,
-        "skillbooks": 11,
-        "openwiki_adapter": true
-      },
-      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-      "free_gb": 93,
-      "skillbooks": 11,
-      "openwiki_adapter": true
+      "keep_days": 2,
+      "action": "dry_run"
     },
     "eval": {
-      "timestamp": "2026-07-16T17:34:56.754875+00:00",
-      "ts": 1784223296,
-      "unix": 1784223296,
-      "run_id": "8ad9781d",
-      "hostname": "htch-runtime",
-      "source": "eval",
-      "mode": "eval",
+      "ts": "2026-07-16T17:39:57.876046+00:00",
       "event_type": "eval_result",
-      "status": "info",
-      "message": "Eval branch all cap_score 0.983 restored",
+      "message": "Eval all mock score 0.983",
       "level": "info",
-      "metrics": {
-        "branch": "all",
-        "score": 0.983,
-        "mode": "mock",
-        "cap_score": 0.983
-      },
-      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
       "branch": "all",
       "score": 0.983,
+      "mode": "mock",
+      "dry_run": true,
       "cap_score": 0.983
     },
     "train": {
-      "timestamp": "2026-07-16T17:34:56.758954+00:00",
-      "ts": 1784223296,
-      "unix": 1784223296,
-      "run_id": "8ad9781d",
-      "hostname": "htch-runtime",
-      "source": "train",
-      "mode": "train",
-      "event_type": "progress",
-      "status": "info",
-      "message": "Train nano step 736000 loss 2.34 restored sample",
+      "ts": "2026-07-16T17:39:57.869232+00:00",
+      "event_type": "checkpoint",
+      "message": "Train nano step 10 loss 3.5000 1200 tok/s ckpt dottie_nano_dry_run.pt",
       "level": "info",
-      "metrics": {
-        "preset": "nano",
-        "steps": 736000,
-        "loss": 2.34,
-        "tok_per_sec": 1200,
-        "checkpoint": "dottie_stable_736k.pt"
-      },
-      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
       "preset": "nano",
-      "steps": 736000,
-      "loss": 2.34,
+      "steps": 10,
+      "loss": 3.5,
       "tok_per_sec": 1200,
-      "checkpoint": "dottie_stable_736k.pt"
+      "checkpoint": "dottie_nano_dry_run.pt"
     }
   },
   "by_mode_counts": {
-    "telemetry": 3,
+    "telemetry": 4,
     "training_monitor": 2,
     "telemetry_aggregator": 2,
     "manual_test": 2,
-    "data": 3,
-    "daemon": 1,
-    "ecosystem": 1,
-    "eval": 1,
-    "train": 1
+    "data": 7,
+    "daemon": 4,
+    "ecosystem": 5,
+    "eval": 3,
+    "train": 3
   },
   "recent_events": [
     {
@@ -638,115 +569,475 @@
       "loss": 2.34,
       "tok_per_sec": 1200,
       "checkpoint": "dottie_stable_736k.pt"
+    },
+    {
+      "timestamp": "2026-07-16T17:39:08.986183+00:00",
+      "ts": 1784223548,
+      "unix": 1784223548,
+      "run_id": "dd1f86ad",
+      "hostname": "htch-runtime",
+      "source": "telemetry",
+      "mode": "telemetry",
+      "event_type": "test",
+      "status": "info",
+      "message": "smoke test event",
+      "level": "info",
+      "metrics": {
+        "smoke": true,
+        "run_id": "dd1f86ad"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "smoke": true
+    },
+    {
+      "timestamp": "2026-07-16T17:39:55.078847+00:00",
+      "ts": 1784223595,
+      "unix": 1784223595,
+      "run_id": "2b6465ef",
+      "hostname": "htch-runtime",
+      "source": "ecosystem",
+      "mode": "ecosystem",
+      "event_type": "start",
+      "status": "info",
+      "message": "Ecosystem start dry_run=True",
+      "level": "info",
+      "metrics": {
+        "dry_run": true
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "dry_run": true
+    },
+    {
+      "timestamp": "2026-07-16T17:39:55.084183+00:00",
+      "ts": 1784223595,
+      "unix": 1784223595,
+      "run_id": "2b6465ef",
+      "hostname": "htch-runtime",
+      "source": "ecosystem",
+      "mode": "ecosystem",
+      "event_type": "dry_run",
+      "status": "info",
+      "message": "Ecosystem dry-run check",
+      "level": "info",
+      "metrics": {
+        "keep_days": 2,
+        "action": "dry_run"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "keep_days": 2,
+      "action": "dry_run"
+    },
+    {
+      "timestamp": "2026-07-16T17:39:55.086313+00:00",
+      "ts": 1784223595,
+      "unix": 1784223595,
+      "run_id": "2b6465ef",
+      "hostname": "htch-runtime",
+      "source": "daemon",
+      "mode": "daemon",
+      "event_type": "cycle_finish",
+      "status": "info",
+      "message": "Cycle ecosystem finished",
+      "level": "info",
+      "metrics": {
+        "mode": "ecosystem",
+        "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+        "started": "2026-07-16T17:39:55.078815+00:00",
+        "ecosystem": {
+          "status": "dry_run"
+        },
+        "finished": "2026-07-16T17:39:55.086294+00:00",
+        "status": "ok"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "started": "2026-07-16T17:39:55.078815+00:00",
+      "ecosystem": {
+        "status": "dry_run"
+      },
+      "finished": "2026-07-16T17:39:55.086294+00:00"
+    },
+    {
+      "timestamp": "2026-07-16T17:39:57.344287+00:00",
+      "ts": 1784223597,
+      "unix": 1784223597,
+      "run_id": "12e0dbeb",
+      "hostname": "htch-runtime",
+      "source": "data",
+      "mode": "data",
+      "event_type": "start",
+      "status": "info",
+      "message": "Data expansion start target=500K (500000) full=False dry_run=True",
+      "level": "info",
+      "metrics": {
+        "target_tokens": 500000,
+        "full": false,
+        "dry_run": true,
+        "disk_pct": 13
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "target_tokens": 500000,
+      "full": false,
+      "dry_run": true,
+      "disk_pct": 13
+    },
+    {
+      "timestamp": "2026-07-16T17:39:57.849902+00:00",
+      "ts": 1784223597,
+      "unix": 1784223597,
+      "run_id": "12e0dbeb",
+      "hostname": "htch-runtime",
+      "source": "data",
+      "mode": "data",
+      "event_type": "expansion",
+      "status": "info",
+      "message": "Expansion 1000 tokens / 5 docs / 1 shards",
+      "level": "info",
+      "metrics": {
+        "tokens": 1000,
+        "docs": 5,
+        "shards": [
+          "dry_run_shard.gz"
+        ],
+        "dry_run": true,
+        "duration_s": 0.5,
+        "disk_pct": 13
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "tokens": 1000,
+      "docs": 5,
+      "shards": [
+        "dry_run_shard.gz"
+      ],
+      "dry_run": true,
+      "duration_s": 0.5,
+      "disk_pct": 13
+    },
+    {
+      "timestamp": "2026-07-16T17:39:57.856338+00:00",
+      "ts": 1784223597,
+      "unix": 1784223597,
+      "run_id": "12e0dbeb",
+      "hostname": "htch-runtime",
+      "source": "ecosystem",
+      "mode": "ecosystem",
+      "event_type": "start",
+      "status": "info",
+      "message": "Ecosystem start dry_run=True",
+      "level": "info",
+      "metrics": {
+        "dry_run": true
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "dry_run": true
+    },
+    {
+      "timestamp": "2026-07-16T17:39:57.859872+00:00",
+      "ts": 1784223597,
+      "unix": 1784223597,
+      "run_id": "12e0dbeb",
+      "hostname": "htch-runtime",
+      "source": "ecosystem",
+      "mode": "ecosystem",
+      "event_type": "dry_run",
+      "status": "info",
+      "message": "Ecosystem dry-run check",
+      "level": "info",
+      "metrics": {
+        "keep_days": 2,
+        "action": "dry_run"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "keep_days": 2,
+      "action": "dry_run"
+    },
+    {
+      "timestamp": "2026-07-16T17:39:57.864225+00:00",
+      "ts": 1784223597,
+      "unix": 1784223597,
+      "run_id": "12e0dbeb",
+      "hostname": "htch-runtime",
+      "source": "train",
+      "mode": "train",
+      "event_type": "start",
+      "status": "info",
+      "message": "Train start preset=nano steps=0 dry_run=True",
+      "level": "info",
+      "metrics": {
+        "preset": "nano",
+        "steps": 0,
+        "dry_run": true
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "preset": "nano",
+      "steps": 0,
+      "dry_run": true
+    },
+    {
+      "timestamp": "2026-07-16T17:39:57.869232+00:00",
+      "ts": 1784223597,
+      "unix": 1784223597,
+      "run_id": "12e0dbeb",
+      "hostname": "htch-runtime",
+      "source": "train",
+      "mode": "train",
+      "event_type": "checkpoint",
+      "status": "info",
+      "message": "Train nano step 10 loss 3.5000 1200 tok/s ckpt dottie_nano_dry_run.pt",
+      "level": "info",
+      "metrics": {
+        "preset": "nano",
+        "steps": 10,
+        "loss": 3.5,
+        "tok_per_sec": 1200,
+        "checkpoint": "dottie_nano_dry_run.pt"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "preset": "nano",
+      "steps": 10,
+      "loss": 3.5,
+      "tok_per_sec": 1200,
+      "checkpoint": "dottie_nano_dry_run.pt"
+    },
+    {
+      "timestamp": "2026-07-16T17:39:57.872587+00:00",
+      "ts": 1784223597,
+      "unix": 1784223597,
+      "run_id": "12e0dbeb",
+      "hostname": "htch-runtime",
+      "source": "eval",
+      "mode": "eval",
+      "event_type": "start",
+      "status": "info",
+      "message": "Eval start branch=all mode=mock dry_run=True",
+      "level": "info",
+      "metrics": {
+        "branch": "all",
+        "mode": "mock",
+        "dry_run": true
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "branch": "all",
+      "dry_run": true
+    },
+    {
+      "timestamp": "2026-07-16T17:39:57.876046+00:00",
+      "ts": 1784223597,
+      "unix": 1784223597,
+      "run_id": "12e0dbeb",
+      "hostname": "htch-runtime",
+      "source": "eval",
+      "mode": "eval",
+      "event_type": "eval_result",
+      "status": "info",
+      "message": "Eval all mock score 0.983",
+      "level": "info",
+      "metrics": {
+        "branch": "all",
+        "score": 0.983,
+        "mode": "mock",
+        "dry_run": true,
+        "cap_score": 0.983
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "branch": "all",
+      "score": 0.983,
+      "dry_run": true,
+      "cap_score": 0.983
+    },
+    {
+      "timestamp": "2026-07-16T17:39:57.879729+00:00",
+      "ts": 1784223597,
+      "unix": 1784223597,
+      "run_id": "12e0dbeb",
+      "hostname": "htch-runtime",
+      "source": "daemon",
+      "mode": "daemon",
+      "event_type": "cycle_finish",
+      "status": "info",
+      "message": "Cycle all finished",
+      "level": "info",
+      "metrics": {
+        "mode": "all",
+        "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+        "started": "2026-07-16T17:39:57.344215+00:00",
+        "data": {
+          "status": "dry_run",
+          "tokens": 1000,
+          "docs": 5
+        },
+        "ecosystem": {
+          "status": "dry_run"
+        },
+        "train": {
+          "status": "dry_run"
+        },
+        "eval": {
+          "status": "dry_run",
+          "score": 0.983
+        },
+        "finished": "2026-07-16T17:39:57.879705+00:00",
+        "status": "ok"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "started": "2026-07-16T17:39:57.344215+00:00",
+      "data": {
+        "status": "dry_run",
+        "tokens": 1000,
+        "docs": 5
+      },
+      "ecosystem": {
+        "status": "dry_run"
+      },
+      "train": {
+        "status": "dry_run"
+      },
+      "eval": {
+        "status": "dry_run",
+        "score": 0.983
+      },
+      "finished": "2026-07-16T17:39:57.879705+00:00"
+    },
+    {
+      "timestamp": "2026-07-16T17:40:00.268208+00:00",
+      "ts": 1784223600,
+      "unix": 1784223600,
+      "run_id": "fd396868",
+      "hostname": "htch-runtime",
+      "source": "data",
+      "mode": "data",
+      "event_type": "start",
+      "status": "info",
+      "message": "Data expansion start target=1000 (1000) full=False dry_run=True",
+      "level": "info",
+      "metrics": {
+        "target_tokens": 1000,
+        "full": false,
+        "dry_run": true,
+        "disk_pct": 13
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "target_tokens": 1000,
+      "full": false,
+      "dry_run": true,
+      "disk_pct": 13
+    },
+    {
+      "timestamp": "2026-07-16T17:40:00.773910+00:00",
+      "ts": 1784223600,
+      "unix": 1784223600,
+      "run_id": "fd396868",
+      "hostname": "htch-runtime",
+      "source": "data",
+      "mode": "data",
+      "event_type": "expansion",
+      "status": "info",
+      "message": "Expansion 1000 tokens / 5 docs / 1 shards",
+      "level": "info",
+      "metrics": {
+        "tokens": 1000,
+        "docs": 5,
+        "shards": [
+          "dry_run_shard.gz"
+        ],
+        "dry_run": true,
+        "duration_s": 0.5,
+        "disk_pct": 13
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "tokens": 1000,
+      "docs": 5,
+      "shards": [
+        "dry_run_shard.gz"
+      ],
+      "dry_run": true,
+      "duration_s": 0.5,
+      "disk_pct": 13
+    },
+    {
+      "timestamp": "2026-07-16T17:40:00.777208+00:00",
+      "ts": 1784223600,
+      "unix": 1784223600,
+      "run_id": "fd396868",
+      "hostname": "htch-runtime",
+      "source": "daemon",
+      "mode": "daemon",
+      "event_type": "cycle_finish",
+      "status": "info",
+      "message": "Cycle data finished",
+      "level": "info",
+      "metrics": {
+        "mode": "data",
+        "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+        "started": "2026-07-16T17:40:00.268136+00:00",
+        "data": {
+          "status": "dry_run",
+          "tokens": 1000,
+          "docs": 5
+        },
+        "finished": "2026-07-16T17:40:00.777189+00:00",
+        "status": "ok"
+      },
+      "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+      "started": "2026-07-16T17:40:00.268136+00:00",
+      "data": {
+        "status": "dry_run",
+        "tokens": 1000,
+        "docs": 5
+      },
+      "finished": "2026-07-16T17:40:00.777189+00:00"
     }
   ],
   "counts": {
-    "telemetry": 3,
+    "telemetry": 4,
     "training_monitor": 2,
     "telemetry_aggregator": 2,
     "manual_test": 2,
-    "data": 3,
-    "daemon": 1,
-    "ecosystem": 1,
-    "eval": 1,
-    "train": 1
+    "data": 7,
+    "daemon": 4,
+    "ecosystem": 5,
+    "eval": 3,
+    "train": 3,
+    "ecosystem:start": 2,
+    "ecosystem:dry_run": 2,
+    "daemon:cycle_finish": 3,
+    "data:start": 2,
+    "data:expansion": 2,
+    "train:start": 1,
+    "train:checkpoint": 1,
+    "eval:start": 1,
+    "eval:eval_result": 1
   },
   "last_event": {
-    "timestamp": "2026-07-16T17:34:56.758954+00:00",
-    "ts": 1784223296,
-    "unix": 1784223296,
-    "run_id": "8ad9781d",
-    "hostname": "htch-runtime",
-    "source": "train",
-    "mode": "train",
-    "event_type": "progress",
-    "status": "info",
-    "message": "Train nano step 736000 loss 2.34 restored sample",
-    "level": "info",
-    "metrics": {
-      "preset": "nano",
-      "steps": 736000,
-      "loss": 2.34,
-      "tok_per_sec": 1200,
-      "checkpoint": "dottie_stable_736k.pt"
-    },
-    "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-    "preset": "nano",
-    "steps": 736000,
-    "loss": 2.34,
-    "tok_per_sec": 1200,
-    "checkpoint": "dottie_stable_736k.pt"
+    "timestamp": "2026-07-16T17:40:00.777208+00:00",
+    "source": "daemon",
+    "event_type": "cycle_finish",
+    "message": "Cycle data finished",
+    "level": "info"
   },
   "last_train": {
-    "timestamp": "2026-07-16T17:34:56.758954+00:00",
-    "ts": 1784223296,
-    "unix": 1784223296,
-    "run_id": "8ad9781d",
-    "hostname": "htch-runtime",
-    "source": "train",
-    "mode": "train",
-    "event_type": "progress",
-    "status": "info",
-    "message": "Train nano step 736000 loss 2.34 restored sample",
-    "level": "info",
-    "metrics": {
-      "preset": "nano",
-      "steps": 736000,
-      "loss": 2.34,
-      "tok_per_sec": 1200,
-      "checkpoint": "dottie_stable_736k.pt"
-    },
-    "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+    "timestamp": "2026-07-16T17:39:57.869232+00:00",
     "preset": "nano",
-    "steps": 736000,
-    "loss": 2.34,
+    "steps": 10,
+    "loss": 3.5,
     "tok_per_sec": 1200,
-    "checkpoint": "dottie_stable_736k.pt"
+    "checkpoint": "dottie_nano_dry_run.pt",
+    "message": "Train nano step 10 loss 3.5000 1200 tok/s ckpt dottie_nano_dry_run.pt"
   },
   "last_eval": {
-    "timestamp": "2026-07-16T17:34:56.754875+00:00",
-    "ts": 1784223296,
-    "unix": 1784223296,
-    "run_id": "8ad9781d",
-    "hostname": "htch-runtime",
-    "source": "eval",
-    "mode": "eval",
-    "event_type": "eval_result",
-    "status": "info",
-    "message": "Eval branch all cap_score 0.983 restored",
-    "level": "info",
-    "metrics": {
-      "branch": "all",
-      "score": 0.983,
-      "mode": "mock",
-      "cap_score": 0.983
-    },
-    "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
+    "timestamp": "2026-07-16T17:39:57.876046+00:00",
     "branch": "all",
     "score": 0.983,
-    "cap_score": 0.983
+    "mode": "mock",
+    "message": "Eval all mock score 0.983"
   },
   "last_ecosystem": {
-    "timestamp": "2026-07-16T17:34:56.752803+00:00",
-    "ts": 1784223296,
-    "unix": 1784223296,
-    "run_id": "8ad9781d",
-    "hostname": "htch-runtime",
-    "source": "ecosystem",
-    "mode": "ecosystem",
-    "event_type": "start",
-    "status": "info",
-    "message": "Ecosystem check restored sample",
-    "level": "info",
+    "timestamp": "2026-07-16T17:39:57.859872+00:00",
+    "action": "dry_run",
+    "message": "Ecosystem dry-run check",
     "metrics": {
-      "free_gb": 93,
-      "skillbooks": 11,
-      "openwiki_adapter": true
-    },
-    "disclaimer": "Solo personal project, no connection to employer, built with public/free-tier only",
-    "free_gb": 93,
-    "skillbooks": 11,
-    "openwiki_adapter": true
+      "keep_days": 2,
+      "action": "dry_run"
+    }
   },
   "health": {
     "last_loss": 2.34
@@ -759,7 +1050,8 @@
       "pct": 13
     },
     "platform": "Linux-6.8.0-130-generic-x86_64-with-glibc2.39",
-    "python": "3.12.3"
+    "python": "3.12.3",
+    "uptime_sec": 0
   },
   "status_json": {
     "last_expansion": {
@@ -860,5 +1152,8 @@
       "live_test": "500K tokens 5045 docs 9700 dup 8581 qual filtered 165KB gz + manifest 1.7M, 26s, guard blocked work Drive correctly, Drive upload 10 files (148 dedup) success"
     }
   },
-  "updated_at": "2026-07-16T15:56:01.603296+00:00"
+  "updated_at": "2026-07-16T17:40:00.777208+00:00",
+  "run_id": "fd396868",
+  "hostname": "htch-runtime",
+  "uptime_sec": 0
 }
