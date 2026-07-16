@@ -61,6 +61,32 @@ def _load_distilled_docs(distilled_jsonl: str | Path) -> list[dict]:
     return docs
 
 
+def _etcot_chat_docs(seed: int, target_mb: float) -> list[dict]:
+    """ET-CoT systems curriculum (spec 02 B6) re-rendered as R1-style chat SFT
+    samples: the task statement becomes the user turn, the <think> trace +
+    <answer> block the assistant turn (trace_common.to_chat -- bytes of the
+    verified trace are untouched). Same phase="p5" convention as
+    _load_distilled_docs: chat-branch SFT data, not curriculum-phased."""
+    from ava.datagen.compress_trace import CompressTraceGenerator
+    from ava.datagen.db_trace import DBTraceGenerator
+    from ava.datagen.trace_common import to_chat
+
+    docs = []
+    # derived seeds keep this stream independent of the chat/react generators
+    for offset, gen_cls in ((7, DBTraceGenerator), (8, CompressTraceGenerator)):
+        gen = gen_cls(seed=seed + offset)
+        for d in gen.generate(int(target_mb * (1024 ** 2))):
+            docs.append({
+                "doc_id": f"etcot_chat:{d['doc_id']}",
+                "text": to_chat(d["text"]),
+                "task_type": d["task_type"],
+                "concept": d["concept"],
+                "phase": "p5",
+                "source": d["source"],
+            })
+    return docs
+
+
 def prepare_branch_data(
     out_dir: str,
     db_path: str,
@@ -68,6 +94,7 @@ def prepare_branch_data(
     target_mb_per_generator: float = 2.0,
     seed: int = 1234,
     distilled_jsonl: str | Path | None = None,
+    etcot_mb: float = 2.0,
 ) -> dict:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -84,6 +111,11 @@ def prepare_branch_data(
         distilled = _load_distilled_docs(distilled_jsonl)
         all_docs.extend(distilled)
         print(f"  distilled: {len(distilled)} docs")
+
+    if etcot_mb > 0:
+        etcot = _etcot_chat_docs(seed, etcot_mb)
+        all_docs.extend(etcot)
+        print(f"  etcot_chat: {len(etcot)} docs")
 
     arr, idx = pack_docs(all_docs, lt)
     bin_path = out / "chat_branch_0000.bin"
@@ -139,12 +171,17 @@ def main() -> int:
         "--distilled", default=None,
         help="path to agent-eval's exported distilled_react.jsonl, if any real successes exist yet",
     )
+    ap.add_argument(
+        "--etcot-mb", type=float, default=2.0,
+        help="MB per ET-CoT generator (db_trace + compress_trace) re-rendered as "
+             "<|user|>/<|assistant|> chat samples with <think>/<answer> turns; 0 disables",
+    )
     args = ap.parse_args()
 
     stats = prepare_branch_data(
         args.out, args.db, tokenizer_path=args.tokenizer,
         target_mb_per_generator=args.target_mb, seed=args.seed,
-        distilled_jsonl=args.distilled,
+        distilled_jsonl=args.distilled, etcot_mb=args.etcot_mb,
     )
     print()
     print(f"Data prep done: {stats['tokens']} tokens, {stats['docs']} docs.")

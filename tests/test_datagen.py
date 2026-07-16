@@ -61,6 +61,9 @@ from ava.datagen.db_trace import (
     _ts_agg_doc,
     _vector_knn_doc,
     _hnsw_doc,
+    _lsm_doc,
+    _wal_doc,
+    _vector_cosine_doc,
 )
 from ava.datagen.compress_trace import (
     CompressTraceGenerator,
@@ -70,6 +73,8 @@ from ava.datagen.compress_trace import (
     _delta_varint_doc,
     _quant_int8_doc,
     _arith_eiw_doc,
+    _deflate_doc,
+    _prune_doc,
 )
 
 ALL_GENERATORS = [
@@ -1270,3 +1275,152 @@ def test_arith_eiw_windows_decode_independently():
         # by at most one symbol's information (<= 9 bits, >= 8 bits)
         for syms, bits, code in meta["windows"][:-1]:
             assert 8 <= bits <= 9
+
+
+# ---------------------------------------------------------------------------
+# round-2 families: LSM / WAL / cosine / DEFLATE / pruning -- each replayed
+# independently from the builder's meta inputs.
+# ---------------------------------------------------------------------------
+
+def test_lsm_matches_last_write_wins_dict():
+    rng = _rng(61)
+    for _ in range(25):
+        text, tt, concept, meta = _lsm_doc(rng, rng.randint(4, 30), _NO_ELIDE)
+        expect = {}
+        for op, k, v in meta["ops"]:
+            if op == "PUT":
+                expect[k] = v
+            else:
+                expect.pop(k, None)
+        assert meta["visible"] == expect
+        for k, got in meta["gets"]:
+            assert got == expect.get(k)
+            shown = "NOT FOUND" if got is None else str(got)
+            assert f"{k} -> {shown}" in text
+
+
+def test_wal_recovery_applies_only_committed_txns():
+    rng = _rng(67)
+    for _ in range(25):
+        text, tt, concept, meta = _wal_doc(rng, rng.randint(3, 14), _NO_ELIDE)
+        assert tt == "temporal"
+        surviving = meta["log"][: meta["crash_at"]]
+        committed = {r[1] for r in surviving if r[0] == "COMMIT"}
+        assert sorted(committed) == meta["committed"]
+        expect = dict(meta["init"])
+        for rec in surviving:
+            if rec[0] == "SET" and rec[1] in committed:
+                expect[rec[2]] = rec[4]
+        assert meta["recovered"] == expect
+        assert str(dict(sorted(expect.items()))) in text
+        # before-images are honest: each SET's old value equals the state a
+        # sequential executor would see at that record
+        state, pending = dict(meta["init"]), {}
+        for rec in meta["log"]:
+            if rec[0] == "BEGIN":
+                pending = {}
+            elif rec[0] == "SET":
+                _, t, a, old, new = rec
+                assert old == pending.get(a, state[a])
+                pending[a] = new
+            elif rec[0] == "COMMIT":
+                state.update(pending)
+
+
+def test_vector_cosine_best_matches_math_recompute():
+    import math
+
+    rng = _rng(71)
+    for _ in range(25):
+        text, tt, concept, meta = _vector_cosine_doc(rng, rng.randint(4, 20), _NO_ELIDE)
+        q = meta["q"]
+        nq = math.sqrt(sum(a * a for a in q))
+        sims = []
+        for v in meta["vecs"]:
+            dot = sum(a * b for a, b in zip(q, v))
+            sims.append(dot / (nq * math.sqrt(sum(b * b for b in v))))
+        assert sims == meta["sims"]
+        best = max(range(len(sims)), key=lambda i: (sims[i], -i))
+        assert meta["best"] == best
+        assert f"best match: v{best} with cosine similarity {sims[best]:.4f}" in text
+
+
+def test_deflate_two_stage_independent_decode():
+    rng = _rng(73)
+    for _ in range(25):
+        text, tt, concept, meta = _deflate_doc(rng, rng.randint(8, 60), _NO_ELIDE)
+        codes, bits = meta["codes"], meta["bitstream"]
+        # independent bit reader: 5-bit offset | 4-bit length | prefix-walk literal
+        inv = {v: k for k, v in codes.items()}
+        triples, i = [], 0
+        while i < len(bits):
+            off = int(bits[i: i + 5], 2)
+            length = int(bits[i + 5: i + 9], 2)
+            i += 9
+            cur = ""
+            while cur not in inv:
+                cur += bits[i]
+                i += 1
+            triples.append((off, length, inv[cur]))
+        assert triples == meta["triples"]
+        buf = []
+        for off, length, lit in triples:
+            for _j in range(length):
+                buf.append(buf[-off])
+            buf.append(lit)
+        assert "".join(buf) == meta["data"]
+        # literal codes are prefix-free
+        for a in codes.values():
+            for b in codes.values():
+                assert a == b or not b.startswith(a)
+
+
+def test_prune_zeroes_exactly_the_k_smallest_magnitudes():
+    rng = _rng(79)
+    for _ in range(25):
+        text, tt, concept, meta = _prune_doc(rng, rng.randint(4, 30), _NO_ELIDE)
+        vals, k = meta["vals"], meta["k"]
+        order = sorted(range(len(vals)), key=lambda i: (abs(vals[i]), i))
+        assert meta["pruned"] == sorted(order[:k])
+        assert meta["threshold"] == abs(vals[order[k - 1]])
+        for i, v in enumerate(meta["out"]):
+            assert v == (0.0 if i in set(order[:k]) else vals[i])
+        assert f"sparsity: {k}/{len(vals)}" in text
+
+
+# ---------------------------------------------------------------------------
+# SFT rendering: trace_common.to_chat + sft_sota_2025's ET-CoT chat component
+# ---------------------------------------------------------------------------
+
+def test_to_chat_rendering_structure():
+    from ava.datagen.trace_common import CHAT_ASSISTANT, CHAT_USER, to_chat
+
+    for gen_cls in (DBTraceGenerator, CompressTraceGenerator):
+        for d in _collect(gen_cls, target=150_000):
+            chat = to_chat(d["text"])
+            assert chat.count(CHAT_USER) == 1 and chat.count(CHAT_ASSISTANT) == 1
+            assert chat.startswith(f"{CHAT_USER}\n### Task:")
+            u, a = chat.index(CHAT_USER), chat.index(CHAT_ASSISTANT)
+            assert u < a < chat.index("<think>") < chat.index("</think>") < chat.index("<answer>")
+            # the user turn holds the task only; trace + answer live in the
+            # assistant turn, byte-identical to the pretraining rendering
+            assert "<think>" not in chat[:a]
+            task, trace = d["text"].split("\n\n<think>\n", 1)
+            assert chat == f"{CHAT_USER}\n{task}\n{CHAT_ASSISTANT}\n<think>\n{trace}"
+
+
+def test_sft_etcot_chat_docs_shape_and_determinism():
+    pytest.importorskip("numpy")  # sft_sota_2025 imports ava.pipeline.pack
+    from sft_sota_2025 import _etcot_chat_docs
+
+    docs = _etcot_chat_docs(seed=1234, target_mb=0.1)
+    assert docs and docs == _etcot_chat_docs(seed=1234, target_mb=0.1)
+    from ava.datagen.base import DOC_KEYS
+
+    for d in docs:
+        assert set(d.keys()) == DOC_KEYS
+        assert d["phase"] == "p5" and d["doc_id"].startswith("etcot_chat:")
+        assert d["text"].startswith("<|user|>\n### Task:")
+        assert "<|assistant|>\n<think>\n" in d["text"]
+    sources = {d["source"].split("/")[0] for d in docs}
+    assert sources == {"dbtrace", "compress"}

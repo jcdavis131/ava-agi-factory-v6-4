@@ -473,6 +473,151 @@ def _arith_eiw_doc(rng, n: int, elide_over: int):
 
 
 # ---------------------------------------------------------------------------
+# DEFLATE-style composition: LZ77 stage feeding a Huffman stage
+# ---------------------------------------------------------------------------
+
+_DEFLATE_OFF_BITS = 5   # offsets 0..16 (window 16)
+_DEFLATE_LEN_BITS = 4   # lengths 0..8 (lookahead 8)
+
+
+def _deflate_pack(triples: list[tuple[int, int, str]], codes: dict[str, str]) -> str:
+    bits = []
+    for off, length, lit in triples:
+        bits.append(format(off, f"0{_DEFLATE_OFF_BITS}b"))
+        bits.append(format(length, f"0{_DEFLATE_LEN_BITS}b"))
+        bits.append(codes[lit])
+    return "".join(bits)
+
+
+def _deflate_unpack(bitstream: str, codes: dict[str, str]) -> list[tuple[int, int, str]]:
+    inv = {v: k for k, v in codes.items()}
+    triples, i = [], 0
+    while i < len(bitstream):
+        off = int(bitstream[i: i + _DEFLATE_OFF_BITS], 2)
+        i += _DEFLATE_OFF_BITS
+        length = int(bitstream[i: i + _DEFLATE_LEN_BITS], 2)
+        i += _DEFLATE_LEN_BITS
+        cur = ""
+        while cur not in inv:
+            cur += bitstream[i]
+            i += 1
+        triples.append((off, length, inv[cur]))
+    return triples
+
+
+def _deflate_doc(rng, n: int, elide_over: int):
+    phrases = ["".join(rng.choice("abcd") for _ in range(rng.randint(2, 4))) for _ in range(3)]
+    parts: list[str] = []
+    while sum(len(p) for p in parts) < n:
+        parts.append(rng.choice(phrases) if rng.random() < 0.7 else rng.choice("abcd"))
+    data = "".join(parts)[:n]
+
+    triples = _lz77_encode(data)
+    lit_freqs: dict[str, int] = {}
+    for _, _, lit in triples:
+        lit_freqs[lit] = lit_freqs.get(lit, 0) + 1
+    codes, merges = _huffman_codes(lit_freqs)
+    bitstream = _deflate_pack(triples, codes)
+    # full two-stage round trip before the doc is yielded
+    assert _lz77_decode(_deflate_unpack(bitstream, codes)) == data
+
+    raw_steps, states = [], []
+    for idx, (off, length, lit) in enumerate(triples):
+        raw_steps.append(
+            f"stage 1 (LZ77): emit triple ({off},{length},'{lit}')"
+            + (f" -- back-reference offset {off}, copy {length}" if length else " -- literal")
+        )
+        states.append(f"triples emitted={idx + 1}/{len(triples)}")
+    raw_steps.append(f"stage 1 done: {len(data)} bytes -> {len(triples)} triples; "
+                     f"literal frequencies {dict(sorted(lit_freqs.items()))}")
+    states.append("stage 1 done")
+    for a, b, m in merges:
+        raw_steps.append(f"stage 2 (Huffman over literals): merge {a} + {b} -> {m}")
+        states.append("building literal tree")
+    raw_steps.append("stage 2 code table: " + ", ".join(f"'{s}'={codes[s]}" for s in sorted(codes)))
+    states.append("code table done")
+    for off, length, lit in triples:
+        raw_steps.append(
+            f"pack ({off},{length},'{lit}') -> offset {format(off, f'0{_DEFLATE_OFF_BITS}b')} | "
+            f"length {format(length, f'0{_DEFLATE_LEN_BITS}b')} | literal {codes[lit]} "
+            f"({_DEFLATE_OFF_BITS + _DEFLATE_LEN_BITS + len(codes[lit])} bits)"
+        )
+        states.append(f"bits so far<= {len(bitstream)}")
+
+    fixed_bits = len(data) * 8
+    task = (
+        "### Task: simulate DEFLATE-style two-stage compression (LZ77 -> Huffman)\n"
+        f"Input ({len(data)} bytes): {data}\n"
+        f"Stage 1: LZ77 with window {_LZ_WINDOW}, lookahead {_LZ_LOOKAHEAD}, minimum match "
+        f"{_LZ_MIN_MATCH} emits (offset, length, next-literal) triples.\n"
+        f"Stage 2: Huffman-code the literals (ties broken by node creation order); pack each "
+        f"triple as {_DEFLATE_OFF_BITS}-bit offset | {_DEFLATE_LEN_BITS}-bit length | literal code."
+    )
+    answer = [
+        f"triples ({len(triples)}): {triples}",
+        f"literal code table: {codes}",
+        f"bitstream ({len(bitstream)} bits): {bitstream}",
+        f"size: {fixed_bits} bits fixed-width -> {len(bitstream)} bits "
+        f"(ratio {fixed_bits / len(bitstream):.2f}x; both stages verified by decoding)",
+    ]
+    text = render_etcot(task, elide(step_lines(raw_steps), states, elide_over), answer)
+    meta = {"data": data, "triples": triples, "codes": codes, "bitstream": bitstream}
+    return text, "deliberate", "deflate_trace", meta
+
+
+# ---------------------------------------------------------------------------
+# Magnitude pruning (neural compression)
+# ---------------------------------------------------------------------------
+
+
+def _prune_doc(rng, n: int, elide_over: int):
+    vals = [rng.randint(-4999, 4999) / 1000.0 for _ in range(n)]
+    while not any(vals):
+        vals = [rng.randint(-4999, 4999) / 1000.0 for _ in range(n)]
+    frac = rng.choice([0.25, 0.5, 0.75])
+    k = min(n - 1, max(1, round(n * frac)))
+    order = sorted(range(n), key=lambda i: (abs(vals[i]), i))
+    pruned = set(order[:k])
+    threshold = abs(vals[order[k - 1]])
+    out = [0.0 if i in pruned else v for i, v in enumerate(vals)]
+    assert sum(1 for v in out if v == 0.0) >= k  # ties/zeros can only add sparsity
+
+    rank = {i: r for r, i in enumerate(order)}
+    raw_steps = [
+        f"sort by |x| (ties by index): magnitude order = "
+        f"[{', '.join(f'x[{i}]={abs(vals[i]):.3f}' for i in order)}]; prune the k = {k} "
+        f"smallest -> threshold |x| = {threshold:.3f}"
+    ]
+    states = [f"k={k}, threshold={threshold:.3f}"]
+    for i, v in enumerate(vals):
+        if i in pruned:
+            raw_steps.append(
+                f"x[{i}] = {v:.3f}: magnitude rank {rank[i]} < k={k} -> ZERO"
+            )
+        else:
+            raw_steps.append(
+                f"x[{i}] = {v:.3f}: magnitude rank {rank[i]} >= k={k} -> keep"
+            )
+        states.append(f"processed {i + 1}/{n}, zeros so far={sum(1 for j in range(i + 1) if j in pruned)}")
+
+    task = (
+        "### Task: simulate magnitude pruning of a tensor (neural compression)\n"
+        f"Input tensor ({n} float32 values):\n  [{', '.join(f'{v:.3f}' for v in vals)}]\n"
+        f"Prune the k = {k} elements of smallest absolute magnitude (ties broken by lower "
+        "index) by setting them to zero; report the sparse tensor and sparsity."
+    )
+    answer = [
+        f"pruned tensor: [{', '.join(f'{v:.3f}' for v in out)}]",
+        f"zeroed indices: {sorted(pruned)}",
+        f"sparsity: {k}/{n} = {100 * k / n:.1f}% (kept {n - k} weights, "
+        f"prune threshold |x| = {threshold:.3f})",
+    ]
+    text = render_etcot(task, elide(step_lines(raw_steps), states, elide_over), answer)
+    meta = {"vals": vals, "k": k, "pruned": sorted(pruned), "out": out, "threshold": threshold}
+    return text, "deliberate", "prune_magnitude", meta
+
+
+# ---------------------------------------------------------------------------
 # Generator
 # ---------------------------------------------------------------------------
 
@@ -489,12 +634,14 @@ class CompressTraceGenerator(Generator):
     # (weight, builder, source, p2 n-range, p3 n-range,
     #  p4 growth (start_n, step, target_chars, max_n))
     _FAMILIES = [
-        (0.15, _rle_doc, "compress/rle", (5, 9), (18, 36), (45, 8, 6200, 160)),
-        (0.20, _lz77_doc, "compress/lz77", (10, 16), (36, 64), (60, 10, 6200, 220)),
-        (0.20, _huffman_doc, "compress/huffman", (12, 20), (30, 48), (90, 16, 6200, 900)),
-        (0.15, _delta_varint_doc, "compress/delta_varint", (5, 8), (16, 34), (36, 6, 6200, 140)),
-        (0.15, _quant_int8_doc, "compress/quant_int8", (5, 8), (16, 34), (34, 6, 6200, 140)),
-        (0.15, _arith_eiw_doc, "compress/arith_eiw", (8, 14), (24, 44), (48, 8, 6200, 200)),
+        (0.11, _rle_doc, "compress/rle", (5, 9), (18, 36), (45, 8, 6200, 160)),
+        (0.15, _lz77_doc, "compress/lz77", (10, 16), (36, 64), (60, 10, 6200, 220)),
+        (0.15, _huffman_doc, "compress/huffman", (12, 20), (30, 48), (90, 16, 6200, 900)),
+        (0.12, _delta_varint_doc, "compress/delta_varint", (5, 8), (16, 34), (36, 6, 6200, 140)),
+        (0.13, _quant_int8_doc, "compress/quant_int8", (5, 8), (16, 34), (34, 6, 6200, 140)),
+        (0.12, _arith_eiw_doc, "compress/arith_eiw", (8, 14), (24, 44), (48, 8, 6200, 200)),
+        (0.12, _deflate_doc, "compress/deflate", (10, 16), (24, 40), (44, 8, 6200, 200)),
+        (0.10, _prune_doc, "compress/prune", (6, 10), (14, 28), (30, 6, 6200, 160)),
     ]
 
     _PHASE_MIX = [(0.35, 2), (0.45, 3), (0.20, 4)]
