@@ -125,6 +125,13 @@ honest-failure record (never a fabricated success rate). Feeds `test_no_mock.py`
 constant; two seeds differ in mock mode; a deliberately-broken tool binding drops the score
 measurably (the eval must be *sensitive*, not decorative).
 
+**✅ Landed 2026-07-17 (scoring engine + honest real path)** — `evals/codeact_eval.py` +
+`tests/test_codeact_eval.py`. `score_emission()` runs emitted blocks through the real T13C.1
+Sandbox and checks the final value == gold answer (the live engine). `simulate_policy_eval()` is a
+clearly-labeled synthetic-policy plumbing check (seed-varying, sensitive to a broken tool binding —
+verified). `run_codeact_eval()` (real model) **fails honestly** until the CodeAct decode loop
+(T13C.5) exists — never fabricates a rate. run_harness wiring lands with T13C.5's real path.
+
 ## T13C.4 — CodeAct return terms (extends spec 12 T12R.1/T12R.2)
 
 CodeAct is a rollout mode of the spec-12 GRPO loop, reusing its discipline system unchanged
@@ -150,6 +157,15 @@ below a terse correct solution (guard against reward-hacking by emitting many ti
 the disciplined run holds median code length within band; a policy that emits non-executing code
 is measurably penalized vs one that runs; redundant-call rate does not rise across the climb;
 `R_exec`-hacking (many trivial statements, wrong answer) scores below a correct terse solution.
+
+**◑ Reward functions landed 2026-07-17; GRPO wiring gated.** `ava/rl/codeact_rewards.py`
+(`r_exec`, `r_codeuse` incl. `redundant_calls`, `r_len`, `codeact_return`) + `tests/
+test_codeact_rewards.py` — pure, GPU-free, tested against real sandbox execution logs (a clean
+trajectory scores `r_exec`=1.0; the recover family < 1.0; consecutive-duplicate tool calls lower
+`r_codeuse`; `r_len` is difficulty-scaled; the blend keeps `w_task` dominant so R_exec-hacking
+scores below a correct terse solution). The **GRPO loop that consumes these** (`ava/rl/grpo.py`,
+extending spec 12 T12R.2) stays **blocked on branch fine-tunes T9.3/T9.5** — these are the verified
+building blocks it will call, not the climb itself.
 
 ## T13C.5 — Consolidation & serving
 

@@ -22,10 +22,11 @@ ReAct text that never runs.
 2. **Datagen (T13C.2) — ✅ DONE (2026-07-17)** — `ava/datagen/codeact.py`, 4 executable families,
    grounding-share floor, answers computed by running code; every trajectory re-executes through the
    T13C.1 Sandbox to the labeled answer. `tests/test_codeact_datagen.py` 10/10.
-3. **Eval (T13C.3, GPU-free plumbing)** — harness CodeAct eval, exec-verified success rate,
-   anti-mock; feeds `test_no_mock.py`.
-4. **RL terms (T13C.4, gated on T9.3/T9.5)** — add `R_exec`/`R_codeuse` to spec 12's `rl_return`;
-   reuse the discipline system + difficulty-scaled length penalty unchanged.
+3. **Eval (T13C.3) — ◑ scoring engine DONE** — `evals/codeact_eval.py`: real sandbox `score_emission`
+   + seed-sensitive `simulate_policy_eval` + honest-fail real path (run_harness wiring with T13C.5).
+4. **RL terms (T13C.4) — ◑ reward functions DONE, GRPO wiring gated** — `ava/rl/codeact_rewards.py`
+   (`r_exec`/`r_codeuse`/`r_len`/`codeact_return`), pure + tested; the GRPO loop consuming them is
+   blocked on T9.3/T9.5.
 5. **Consolidate + serve (T13C.5)** — CodeAct traces into MOPD; `ServeEngine` code-act loop with
    FINAL-only user output + trace capture for memory-mint.
 6. **EG gate (T13C.6)** — promote only on a 2-rung EG win vs the non-CodeAct agentic baseline.
