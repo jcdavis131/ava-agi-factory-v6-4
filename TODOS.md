@@ -155,6 +155,17 @@ Full contract: `specs/11_arch_hillclimb.md`.
   scaling curve + 2-rung ladder promote/hold verdicts, `tests/test_efficiency_gain.py` 15/15) — use it
   to gate this recipe (and every other lever) across nano→mini before base1b. Implementation of
   T12R.1 (returns provider, GPU-free) may start any time; T12R.2+ stays blocked on T9.3/T9.5.
+- [ ] **T11.9** 🟪 CodeAct / LLM-VM — code as the model's action substrate (spec 13, 2026-07-17).
+  Turns narrated ReAct (`ava/datagen/react_tools.py`, nothing executes) into an executable action
+  space: the model *thinks in code*, running Python in a persistent sandboxed LLM-VM with tools bound
+  as callables and real stdout/return values as observations. Contract **`specs/13_codeact.md`**
+  (T13C.1–T13C.6); plan `tasks/plan-codeact.md`. An **agentic mode of the spec-12 GRPO loop** (reuses
+  the discipline system + difficulty-scaled length penalty), adding `R_exec` (penalize non-executing
+  code) and `R_codeuse` (reward independent tool calls, penalize redundant ones — the MAI tool-use
+  finding). Builds on existing hooks: `ava/datagen/code_gen.py` `run_sandboxed`, `ava/serve_engine.py`.
+  **Sandbox + datagen + eval halves (T13C.1–T13C.3) are GPU-free and may start now**; RL halves inherit
+  the T9.3/T9.5 block. Answers the "leverage tools to execute workflows we care about" goal as a
+  trainable, verifiable objective.
 - [ ] **T11.8** 🟦 Zero-init attention output for router health at init (MAI-Thinking-1 finding, 2026-07-17) —
   uniform attention softmax at init ≈ average pooling → homogenized token representations → softmax *routing*
   (their MoE gate; our J-Space Router) can't differentiate tokens → persistent imbalance from step 0. Fix:
