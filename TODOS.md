@@ -147,6 +147,14 @@ Full contract: `specs/11_arch_hillclimb.md`.
 - [ ] **T11.7** 🟦 VibeThinker-style 2-stage SFT + MaxEnt RL + self-distill recipe for the Math branch —
   training-recipe candidate for T9.5, not a `model_1b.py` change. `sft_sota_2025.py` is currently a 2-line
   stub; blocked on T9.3/T9.5 same as the rest of branch fine-tuning.
+  *2026-07-17 — contract written, still blocked:* MAI-Thinking-1 hill-climbing review integrated
+  (`docs/RL_INTEGRATION.md`); buildable GRPO-lite contract with the three-mechanism discipline system
+  (entropy thermostat, outer ratio clip, trace-bank recovery), verifiable `rl_return` provider, and
+  difficulty-scaled length penalty is now **`specs/12_rl_training.md`** (T12R.1–T12R.4); plan in
+  `tasks/plan-rl.md`. GPU-free piece landed now: `efficiency_gain.py` (EG_FLOPs/EG_Time vs baseline
+  scaling curve + 2-rung ladder promote/hold verdicts, `tests/test_efficiency_gain.py` 15/15) — use it
+  to gate this recipe (and every other lever) across nano→mini before base1b. Implementation of
+  T12R.1 (returns provider, GPU-free) may start any time; T12R.2+ stays blocked on T9.3/T9.5.
 - Per-layer phone embeddings and discrete-diffusion decoding are recorded as **out of scope** in the spec —
   they target problems (phone deploy, non-causal decoding) this project doesn't have.
 
