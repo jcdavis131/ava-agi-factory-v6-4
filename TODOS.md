@@ -147,6 +147,41 @@ Full contract: `specs/11_arch_hillclimb.md`.
 - [ ] **T11.7** 🟦 VibeThinker-style 2-stage SFT + MaxEnt RL + self-distill recipe for the Math branch —
   training-recipe candidate for T9.5, not a `model_1b.py` change. `sft_sota_2025.py` is currently a 2-line
   stub; blocked on T9.3/T9.5 same as the rest of branch fine-tuning.
+  *2026-07-17 — contract written, still blocked:* MAI-Thinking-1 hill-climbing review integrated
+  (`docs/RL_INTEGRATION.md`); buildable GRPO-lite contract with the three-mechanism discipline system
+  (entropy thermostat, outer ratio clip, trace-bank recovery), verifiable `rl_return` provider, and
+  difficulty-scaled length penalty is now **`specs/12_rl_training.md`** (T12R.1–T12R.4); plan in
+  `tasks/plan-rl.md`. GPU-free piece landed now: `efficiency_gain.py` (EG_FLOPs/EG_Time vs baseline
+  scaling curve + 2-rung ladder promote/hold verdicts, `tests/test_efficiency_gain.py` 15/15) — use it
+  to gate this recipe (and every other lever) across nano→mini before base1b. Implementation of
+  T12R.1 (returns provider, GPU-free) may start any time; T12R.2+ stays blocked on T9.3/T9.5.
+- [ ] **T11.9** 🟪 CodeAct / LLM-VM — code as the model's action substrate (spec 13, 2026-07-17).
+  Turns narrated ReAct (`ava/datagen/react_tools.py`, nothing executes) into an executable action
+  space: the model *thinks in code*, running Python in a persistent sandboxed LLM-VM with tools bound
+  as callables and real stdout/return values as observations. Contract **`specs/13_codeact.md`**
+  (T13C.1–T13C.6); plan `tasks/plan-codeact.md`. An **agentic mode of the spec-12 GRPO loop** (reuses
+  the discipline system + difficulty-scaled length penalty), adding `R_exec` (penalize non-executing
+  code) and `R_codeuse` (reward independent tool calls, penalize redundant ones — the MAI tool-use
+  finding). Builds on existing hooks: `ava/datagen/code_gen.py` `run_sandboxed`, `ava/serve_engine.py`.
+  **Sandbox + datagen + eval halves (T13C.1–T13C.3) are GPU-free and may start now**; RL halves inherit
+  the T9.3/T9.5 block. Answers the "leverage tools to execute workflows we care about" goal as a
+  trainable, verifiable objective.
+  *2026-07-17 — T13C.1 landed:* `ava/rl/codeact_sandbox.py` (`Sandbox`/`Observation`) — persistent-
+  namespace LLM-VM via a long-lived worker subprocess, per-step wall cap (setsid + killpg), POSIX
+  resource caps, guarded `open`/blocked `socket`/`os.fork`, importable-or-source tool binding with
+  call accounting, frozen clock + fixed PYTHONHASHSEED for byte-identical replay. `tests/
+  test_codeact_sandbox.py` 14/14 (all five accept criteria: namespace persistence, infinite-loop/
+  fork-bomb containment, socket/out-of-scratch-write blocked, deterministic replay, no fabrication).
+  *T13C.2 landed:* `ava/datagen/codeact.py` (`CodeActGenerator`) — 4 executable families (compute/tool/multistep/recover) with a grounding-share floor; answers computed by running code (no randomness/wall-clock in emitted code ⇒ in-process answer == subprocess-sandbox answer, proven by re-executing every trajectory through the T13C.1 Sandbox). `tests/test_codeact_datagen.py` 10/10. *T13C.3 + T13C.4-rewards landed:* `evals/codeact_eval.py` (real sandbox scoring engine `score_emission` + seed-sensitive `simulate_policy_eval` plumbing check + honest-fail real path, gated on T13C.5) and `ava/rl/codeact_rewards.py` (`r_exec`/`r_codeuse`/`r_len`/`codeact_return`, pure + tested against real sandbox logs). Full spec-13 suite 45/45 (sandbox 14 + datagen 10 + eval + rewards). Remaining is HARD-GATED on branch fine-tunes (T9.3/T9.5): T13C.4 GRPO wiring, T13C.5 consolidation+serve loop, T13C.6 EG rollout — not built (no checkpoint to train).
+- [ ] **T11.8** 🟦 Zero-init attention output for router health at init (MAI-Thinking-1 finding, 2026-07-17) —
+  uniform attention softmax at init ≈ average pooling → homogenized token representations → softmax *routing*
+  (their MoE gate; our J-Space Router) can't differentiate tokens → persistent imbalance from step 0. Fix:
+  init attention-output RMSNorm gains to **0** so the net starts as per-token dense layers and cross-token
+  interaction fades in. `network_init_sota.py` currently fills all norm gains with 1.0 — candidate change is
+  ~3 lines gated behind a flag. Falsify on nano: routing-KL health + `spider_ant`/`france_china` measured
+  early-step, zero-init vs ones-init, same seed; keep only if router imbalance at init measurably improves
+  without hurting nano PPL at convergence. Do not disturb the live mini run. Context: `docs/RL_INTEGRATION.md`
+  "Second-pass findings".
 - Per-layer phone embeddings and discrete-diffusion decoding are recorded as **out of scope** in the spec —
   they target problems (phone deploy, non-causal decoding) this project doesn't have.
 
