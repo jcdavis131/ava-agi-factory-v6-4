@@ -217,6 +217,18 @@ Like every lever (spec 12 T12R.4): CodeAct is judged against the non-CodeAct age
 `efficiency_gain.py` on the frozen eval snapshot at two ladder rungs (nano, mini) before any base1b
 CodeAct is considered. EG trend across both rungs > 1 or the mode does not advance (rank-invariance).
 
+**◑ Adapter landed 2026-07-17; the verdict waits on real runs.** `ava/rl/codeact_eg_gate.py`
+(+ `tests/test_codeact_eg_gate.py`, 8/8) — a thin composition over `efficiency_gain.eg_trend`. The
+only adaptation: CodeAct's quality metric is the T13C.3 exec-verified success rate (higher better),
+mapped to an error rate `1 − success_rate` (lower better, with an irreducible floor) so it behaves
+like a loss with a well-defined EG; the power-law fit, compute-equivalence, and rank-invariance
+verdict are the existing tested machinery unchanged. `codeact_eg_gate(ladders)` is pure and tested
+on synthetic ladders (promote / hold / single-rung-win-is-hold / insufficient). `codeact_eg_gate_
+from_eval` **refuses** the honest-fail eval records (`measured=None`, BLOCKED_NO_GPU) rather than
+inventing a rate — and even non-None CodeAct rates are insufficient without the baseline agentic
+scaling curve (its own gated runs), so no promote/hold verdict can be emitted off fabricated
+capability. The gate is built; the real climb feeds it.
+
 ## Non-goals (recorded so they aren't re-litigated)
 
 - **No arbitrary network or host access in the sandbox** — it is not a general shell; spec 02's

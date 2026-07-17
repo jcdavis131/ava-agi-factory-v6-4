@@ -8,6 +8,7 @@ GPU-free, tested building blocks landed:
                               entropy-thermostat controller, outer ratio clip, trace-bank recovery.
   * `codeact_loop`          — pluggable-policy decode/serving loop (T13C.5): emit→sandbox→observe→FINAL.
   * `codeact_consolidation` — MOPD trace-pool prep (T13C.5): verified-only, stratified.
+  * `codeact_eg_gate`       — EG-gated rollout (T13C.6): success→error transform + eg_trend verdict.
 
 Gated on branch fine-tunes (T9.3/T9.5) + GPU (BLOCKED_NO_GPU): the torch GRPO optimizer step
 (`grpo.GRPOOptimizerStep`), the real-model policy (`codeact_loop.ModelPolicy`), and the MOPD
