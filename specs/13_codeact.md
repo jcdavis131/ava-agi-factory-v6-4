@@ -158,14 +158,25 @@ the disciplined run holds median code length within band; a policy that emits no
 is measurably penalized vs one that runs; redundant-call rate does not rise across the climb;
 `R_exec`-hacking (many trivial statements, wrong answer) scores below a correct terse solution.
 
-**◑ Reward functions landed 2026-07-17; GRPO wiring gated.** `ava/rl/codeact_rewards.py`
-(`r_exec`, `r_codeuse` incl. `redundant_calls`, `r_len`, `codeact_return`) + `tests/
-test_codeact_rewards.py` — pure, GPU-free, tested against real sandbox execution logs (a clean
-trajectory scores `r_exec`=1.0; the recover family < 1.0; consecutive-duplicate tool calls lower
-`r_codeuse`; `r_len` is difficulty-scaled; the blend keeps `w_task` dominant so R_exec-hacking
-scores below a correct terse solution). The **GRPO loop that consumes these** (`ava/rl/grpo.py`,
-extending spec 12 T12R.2) stays **blocked on branch fine-tunes T9.3/T9.5** — these are the verified
-building blocks it will call, not the climb itself.
+**◑ Reward functions + GRPO discipline mechanics landed 2026-07-17; the torch climb stays gated.**
+`ava/rl/codeact_rewards.py` (`r_exec`, `r_codeuse` incl. `redundant_calls`, `r_len`,
+`codeact_return`) + `tests/test_codeact_rewards.py` — pure, GPU-free, tested against real sandbox
+execution logs (a clean trajectory scores `r_exec`=1.0; the recover family < 1.0;
+consecutive-duplicate tool calls lower `r_codeuse`; `r_len` is difficulty-scaled; the blend keeps
+`w_task` dominant so R_exec-hacking scores below a correct terse solution).
+
+The **spec-12 T12R.2 discipline system** it plugs into now exists GPU-free in `ava/rl/grpo.py`
+(+ `tests/test_grpo.py`, 29/29): group-relative advantages `(R−mean)/std`; the entropy thermostat
+as an integral controller `k ← clamp(k+κ·(H_target−H),0,k_max)` relaxing only the upper clip bound
+`(1+ε)·(1+k)` (bounds are symmetric log-ratio inverses at k=0); the outer ratio-clip circuit
+breaker `|r−1|≤r_outer` applied before/regardless of the standard clip's unclipped zones; and the
+trace bank with prompt-deduped, per-prompt-capped, **uniform** recovery sampling (the source's
+ablation winner). A synthetic control-systems plant (`simulate_entropy_control`, clearly labeled
+NOT a training measurement) demonstrates accept-criterion (a): the disciplined run holds the entropy
+band ≥10× longer than the κ=0 ablation, which collapses to the floor. The **torch optimizer step
+itself** (`GRPOOptimizerStep.step`) *refuses* to run — it needs a branch fine-tune checkpoint
+(T9.3/T9.5, absent) and a GPU (BLOCKED_NO_GPU) — the honest boundary between built math and the
+gated climb.
 
 ## T13C.5 — Consolidation & serving
 
