@@ -105,6 +105,40 @@ class TestIsolation:
             assert obs.ok
             assert (Path(vm.scratch_dir) / "note.txt").read_text() == "ok"
 
+    def test_write_outside_scratch_blocked_via_all_open_paths(self):
+        # builtins.open, io.open, os.open, and pathlib must ALL be guarded (not just builtins.open).
+        probes = {
+            "builtins": "open('/tmp/codeact_escape_b.txt','w').write('x')",
+            "io": "import io\nio.open('/tmp/codeact_escape_io.txt','w').write('x')",
+            "os": "import os\nfd=os.open('/tmp/codeact_escape_os.txt', os.O_WRONLY|os.O_CREAT, 0o644)",
+            "pathlib": "import pathlib\npathlib.Path('/tmp/codeact_escape_pl.txt').write_text('x')",
+        }
+        with Sandbox() as vm:
+            for name, code in probes.items():
+                obs = vm.step(code)
+                assert not obs.ok and ("blocked" in obs.error or "PermissionError" in obs.error), \
+                    f"{name} path not blocked: {obs.error}"
+        for suffix in ("b", "io", "os", "pl"):
+            assert not os.path.exists(f"/tmp/codeact_escape_{suffix}.txt")
+
+    def test_raw_fd1_write_cannot_corrupt_protocol(self):
+        # A step that writes a huge newline-less chunk to raw fd 1 must NOT desync the protocol or
+        # hang the wall cap: fd 1 is repointed at /dev/null, so the VM stays usable.
+        with Sandbox(timeout_s=2.0) as vm:
+            obs = vm.step("import os\nos.write(1, b'x' * 200000)\n123")
+            assert obs.ok and obs.value == "123"   # protocol intact, value still returned
+            assert vm.step("7 * 6").value == "42"
+
+    def test_wall_cap_enforced_on_slow_line(self):
+        # Regression for the select()+readline() bug: a busy-loop after a big fd-1 write must still
+        # be killed at the wall cap (previously readline() could block unbounded).
+        import time as _t
+        with Sandbox(timeout_s=1.0) as vm:
+            t0 = _t.monotonic()
+            obs = vm.step("import os\nos.write(1, b'y'*100000)\nwhile True:\n    pass")
+            assert not obs.ok and "timed out" in obs.error
+            assert _t.monotonic() - t0 < 5.0
+
 
 class TestDeterminism:
     def _run(self):

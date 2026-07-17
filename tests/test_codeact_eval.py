@@ -24,16 +24,33 @@ class TestScoringEngine:
         traj = held_out(1)[0]
         assert score_emission(["0"], traj.answer, traj.tool_sources) is False
 
+    def test_trailing_error_is_failure_not_stale_success(self):
+        # final-block-outcome semantics: a correct value followed by an erroring block = failure
+        assert score_emission(["x = 20 + 8", "x", "undefined_name_xyz"], "28") is False
+
+    def test_final_block_success_required(self):
+        assert score_emission(["x = 20 + 8", "x"], "28") is True
+
+    def test_empty_trajectory_is_failure(self):
+        assert score_emission([], "28") is False
+
 
 class TestSimulation:
     def test_perfect_policy_scores_one(self):
         r = simulate_policy_eval(n=15, accuracy=1.0)
         assert r["measured"]["success_rate"] == 1.0 and r["pass"] is True
-        assert r["mode"] == "simulation"
+        # unmistakably a plumbing check, not a capability measurement
+        assert r["test"] == "codeact_simulation" and r["capability"] is False
 
     def test_zero_accuracy_scores_zero(self):
         r = simulate_policy_eval(n=15, accuracy=0.0)
         assert r["measured"]["success_rate"] == 0.0 and r["pass"] is False
+
+    def test_corruption_never_scores_gold(self):
+        # structural (not coincidental): the sentinel can't equal any family's gold answer
+        from evals.codeact_eval import _corrupt
+        for traj in held_out(20):
+            assert score_emission(_corrupt(traj.blocks), traj.answer, traj.tool_sources) is False
 
     def test_success_rate_from_real_execution_varies_by_seed(self):
         a = simulate_policy_eval(n=30, accuracy=0.5, seed=1)["measured"]["success_rate"]
@@ -42,7 +59,9 @@ class TestSimulation:
 
     def test_broken_tool_binding_drops_score(self):
         # With tool_binding_ok=False the lookup-family trajectories can't resolve their tool → fail,
-        # so a perfect-accuracy policy no longer scores 1.0. Proves the eval is sensitive.
+        # so a perfect-accuracy policy no longer scores 1.0. Guard: the frozen draw must actually
+        # contain tool-family trajectories, else the sensitivity check is vacuous.
+        assert any(t.tool_sources for t in held_out(40)), "draw has no tool-family trajectories"
         full = simulate_policy_eval(n=40, accuracy=1.0, tool_binding_ok=True)["measured"]["success_rate"]
         broken = simulate_policy_eval(n=40, accuracy=1.0, tool_binding_ok=False)["measured"]["success_rate"]
         assert broken < full

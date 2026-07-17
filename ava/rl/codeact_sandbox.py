@@ -39,6 +39,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 _POSIX = os.name == "posix"
+if _POSIX:
+    import resource  # top-level: never run import machinery inside a post-fork preexec_fn
 STDOUT_CAP = 8192   # keep protocol lines under the POSIX pipe atomic-write limit
 VALUE_CAP = 2048
 DEFAULT_FREEZE_EPOCH = 1_700_000_000.0  # fixed clock so trajectories replay byte-identically
@@ -67,8 +69,15 @@ class Observation:
 _WORKER_SRC = r'''
 import ast, io, json, os, sys, time, random
 
-# Private protocol channel: dup fd 1 BEFORE user code can touch sys.stdout.
+# Private protocol channel: dup fd 1 BEFORE user code can touch it, then repoint raw fd 1 at
+# /dev/null so user `os.write(1, ...)` can't inject bytes into the protocol pipe (which would
+# desync framing / defeat the wall cap). All protocol writes go through the dup'd _PROTO fd.
 _PROTO = os.fdopen(os.dup(1), "w", buffering=1)
+try:
+    _devnull = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(_devnull, 1)
+except OSError:
+    pass
 
 def _send(obj):
     _PROTO.write(json.dumps(obj) + "\n"); _PROTO.flush()
@@ -90,17 +99,30 @@ def _safe_repr(x, cap=VALUE_CAP):
     return r if len(r) <= cap else r[:cap] + "...<truncated>"
 
 def _install_guards(scratch):
-    import builtins, socket
+    import builtins, io, socket
     scratch = os.path.realpath(scratch)
-    _real_open = builtins.open
+    def _under_scratch(path):
+        rp = os.path.realpath(path)
+        return rp == scratch or rp.startswith(scratch + os.sep)
+    # Guard EVERY write entry point, not just builtins.open: io.open is a distinct binding, and
+    # pathlib routes through io.open — rebinding only builtins.open left both open. os.open is the
+    # low-level path.
+    _real_bopen, _real_ioopen, _real_osopen = builtins.open, io.open, os.open
     def _guarded_open(file, mode="r", *a, **k):
-        # reads allowed anywhere (tools may cite files); writes only under scratch
-        if any(w in mode for w in ("w", "a", "x", "+")):
-            rp = os.path.realpath(file)
-            if not (rp == scratch or rp.startswith(scratch + os.sep)):
-                raise PermissionError("write outside sandbox scratch dir is blocked: %%s" %% file)
-        return _real_open(file, mode, *a, **k)
+        if any(w in mode for w in ("w", "a", "x", "+")) and not _under_scratch(file):
+            raise PermissionError("write outside sandbox scratch dir is blocked: %%s" %% file)
+        return _real_bopen(file, mode, *a, **k)
+    def _guarded_ioopen(file, mode="r", *a, **k):
+        if any(w in mode for w in ("w", "a", "x", "+")) and not _under_scratch(file):
+            raise PermissionError("write outside sandbox scratch dir is blocked: %%s" %% file)
+        return _real_ioopen(file, mode, *a, **k)
+    def _guarded_osopen(path, flags, *a, **k):
+        if (flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT)) and not _under_scratch(path):
+            raise PermissionError("write outside sandbox scratch dir is blocked: %%s" %% path)
+        return _real_osopen(path, flags, *a, **k)
     builtins.open = _guarded_open
+    io.open = _guarded_ioopen
+    os.open = _guarded_osopen
     def _blocked(*a, **k):
         raise PermissionError("network/process access is blocked in the CodeAct sandbox")
     socket.socket = _blocked
@@ -109,10 +131,12 @@ def _install_guards(scratch):
             setattr(os, name, _blocked)
 
 _TOOL_CALLS = []
+MAX_TOOL_CALLS = 256  # bound the result line so a call-spamming step can't produce a huge frame
 def _wrap_tool(name, fn):
     def w(*a, **k):
-        _TOOL_CALLS.append({"tool": name, "args": [_safe_repr(x, 200) for x in a],
-                            "kwargs": {kk: _safe_repr(vv, 200) for kk, vv in k.items()}})
+        if len(_TOOL_CALLS) < MAX_TOOL_CALLS:
+            _TOOL_CALLS.append({"tool": name, "args": [_safe_repr(x, 200) for x in a],
+                                "kwargs": {kk: _safe_repr(vv, 200) for kk, vv in k.items()}})
         return fn(*a, **k)
     return w
 
@@ -204,9 +228,9 @@ main()
 
 
 def _preexec(mem_mb: int, cpu_s: int):  # pragma: no cover - POSIX child setup, exercised via subprocess
-    """Runs in the child before exec: new process group + hard resource caps."""
+    """Runs in the child between fork and exec: ONLY async-signal-safe calls (no import, no alloc —
+    `resource` is imported at module top). New process group + hard resource caps."""
     os.setsid()  # own process group → parent can kill the whole tree on timeout
-    import resource
     mem = mem_mb * 1024 * 1024
     for res, lim in (
         (resource.RLIMIT_AS, mem),
@@ -283,6 +307,7 @@ class Sandbox:
         return specs
 
     def _start(self) -> None:
+        self._rbuf = b""  # raw-fd read buffer for _read_line
         env = {
             "PYTHONHASHSEED": str(self.seed),   # stable set/hash-repr ordering across replays
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
@@ -318,20 +343,37 @@ class Sandbox:
             self._alive = False
 
     def _read_line(self, timeout: float) -> Optional[Dict[str, Any]]:
+        """Read one JSON protocol line, enforcing `timeout` across the WHOLE read.
+
+        Reads the raw fd in a deadline loop (not select()+buffered-readline, which only gated the
+        first byte — a slow or oversized line could then block past the wall cap). Returns None on
+        deadline, EOF, or a malformed line; the caller kills the VM on None during a step.
+        """
         assert self._proc and self._proc.stdout
-        if _POSIX:
-            r, _, _ = select.select([self._proc.stdout], [], [], timeout)
-            if not r:
-                return None  # timed out — caller decides to kill
-            line = self._proc.stdout.readline()
-        else:  # pragma: no cover - non-POSIX dev fallback: blocking read, no hard wall cap
-            line = self._proc.stdout.readline()
-        if not line:
-            return None
-        try:
-            return json.loads(line)
-        except json.JSONDecodeError:
-            return None
+        fd = self._proc.stdout.fileno()
+        deadline = time.monotonic() + timeout
+        while True:
+            nl = self._rbuf.find(b"\n")
+            if nl != -1:
+                line, self._rbuf = self._rbuf[:nl], self._rbuf[nl + 1:]
+                try:
+                    return json.loads(line.decode("utf-8"))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    return None
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None  # deadline reached mid-line — the step overran its wall cap
+            if _POSIX:
+                r, _, _ = select.select([fd], [], [], remaining)
+                if not r:
+                    return None
+            try:
+                chunk = os.read(fd, 65536)
+            except OSError:
+                return None
+            if not chunk:
+                return None  # worker died / EOF
+            self._rbuf += chunk
 
     # -- public API ---------------------------------------------------------------
     def step(self, code: str) -> Observation:
@@ -374,6 +416,30 @@ class Sandbox:
     def scratch_dir(self) -> str:
         return str(self._scratch)
 
+    def _close_pipes(self) -> None:
+        # Release the two parent-side pipe fds immediately, not at Popen finalization — a
+        # pooled/retained Sandbox would otherwise leak 2 fds each until GC.
+        if self._proc:
+            for f in (self._proc.stdin, self._proc.stdout):
+                try:
+                    if f:
+                        f.close()
+                except Exception:
+                    pass
+
+    def _reap_zombies(self) -> None:
+        # killpg SIGKILLs grandchildren but only the direct child is auto-reaped; if the trainer is
+        # a subreaper (PID 1 in a container), reparented grandchildren become zombies. Drain them.
+        if not _POSIX:
+            return
+        while True:
+            try:
+                pid, _ = os.waitpid(-1, os.WNOHANG)
+            except (ChildProcessError, OSError):
+                break
+            if pid == 0:
+                break
+
     def _kill(self, reason: str) -> None:
         self._alive = False
         self._dead_reason = reason
@@ -390,6 +456,8 @@ class Sandbox:
             self._proc.wait(timeout=2)
         except Exception:
             pass
+        self._reap_zombies()
+        self._close_pipes()
 
     def close(self) -> None:
         if self._proc and self._proc.poll() is None:
@@ -401,6 +469,7 @@ class Sandbox:
                     pass
             self._kill("closed")
         self._alive = False
+        self._close_pipes()
         if self._owns_scratch:
             import shutil
             shutil.rmtree(self._scratch, ignore_errors=True)

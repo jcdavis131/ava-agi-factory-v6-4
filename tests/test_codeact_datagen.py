@@ -84,6 +84,23 @@ class TestGroundingFloor:
         share = sum(t.grounding for t in trajs) / len(trajs)
         assert share >= 0.6
 
+    def test_floor_holds_at_small_and_odd_n(self):
+        # regression: the pre-item-share check undershot the floor at the tail (n=3 gave 0.333)
+        for n in (3, 5, 6, 9, 11):
+            for seed in (1, 2, 7, 42):
+                trajs = list(iter_trajectories(seed=seed, n=n))
+                share = sum(t.grounding for t in trajs) / n
+                assert share >= GROUNDING_FLOOR_DEFAULT, f"n={n} seed={seed} share={share:.3f}"
+
+
+class TestConstantSync:
+    def test_freeze_epoch_matches_sandbox(self):
+        # equivalence relies on the frozen clock being identical in both executors
+        from ava.datagen.codeact import FREEZE_EPOCH, STDOUT_CAP, VALUE_CAP
+        from ava.rl import codeact_sandbox as sb
+        assert FREEZE_EPOCH == sb.DEFAULT_FREEZE_EPOCH
+        assert STDOUT_CAP == sb.STDOUT_CAP and VALUE_CAP == sb.VALUE_CAP
+
 
 class TestDeterminism:
     def test_trajectories_byte_identical_per_seed(self):

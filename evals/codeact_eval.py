@@ -37,28 +37,37 @@ def held_out(n: int) -> List[Trajectory]:
     return list(iter_trajectories(seed=CODEACT_EVAL_SEED, n=n))
 
 
-def score_emission(blocks: Sequence[str], gold_answer: str,
-                   tool_sources: Optional[Dict[str, str]] = None, *, max_steps: int = 8) -> bool:
-    """Run emitted code through the REAL sandbox; True iff the final value == the gold answer.
+_CORRUPT_SENTINEL = "'__codeact_corrupted__'"
 
-    A block may error mid-trajectory (the recover family's first block does); success is judged on
-    the last value the trajectory produces. This is the load-bearing scoring primitive."""
+
+def score_emission(blocks: Sequence[str], gold_answer: str,
+                   tool_sources: Optional[Dict[str, str]] = None, *, max_steps: int = 32) -> bool:
+    """Run emitted code through the REAL sandbox; True iff the FINAL block succeeds with the gold
+    answer.
+
+    Judged on the final block's *outcome*, not the last non-None value seen: a trailing block that
+    errors (or hits the step cap) is a failure even if an earlier block produced the gold value,
+    and a trajectory that never yields a final value fails. Intermediate blocks may error (the
+    recover family's first block does) — only the last block decides success. Load-bearing primitive."""
     with Sandbox(tool_sources=tool_sources or {}, max_steps=max_steps) as vm:
-        last_value = None
+        final = None
         for block in blocks:
-            obs = vm.step(block)
-            if obs.value is not None:
-                last_value = obs.value
-    return last_value == gold_answer
+            final = vm.step(block)
+    if final is None or not final.ok:      # empty trajectory, trailing error, or step-cap hit
+        return False
+    return final.value == gold_answer
 
 
 def _corrupt(blocks: List[str]) -> List[str]:
-    """Deterministically break a trajectory so it no longer reaches the gold answer (drop the final
-    computation, emit a wrong constant). Used only by the synthetic-policy plumbing check."""
-    return list(blocks[:-1]) + ["0  # corrupted emission"]
+    """Deterministically break a trajectory so its final value can NEVER equal any gold answer.
+
+    Emits a fixed sentinel STRING (repr `'__codeact_corrupted__'`) rather than the literal 0 — the
+    old `0` collided with any future family whose gold answer is 0, which would silently inflate
+    the plumbing success rate. Used only by the synthetic-policy plumbing check."""
+    return list(blocks[:-1]) + [f"{_CORRUPT_SENTINEL}  # corrupted emission"]
 
 
-def simulate_policy_eval(n: int = 20, accuracy: float = 0.75, seed: int = CODEACT_EVAL_SEED,
+def simulate_policy_eval(n: int = 20, accuracy: float = 0.8, seed: int = CODEACT_EVAL_SEED,
                          tool_binding_ok: bool = True) -> Dict[str, Any]:
     """Plumbing check: a seeded synthetic 'policy' emits correct-or-corrupted code per trajectory;
     every score comes from REAL sandbox execution. NOT a model-capability measurement — it exists to
@@ -72,8 +81,10 @@ def simulate_policy_eval(n: int = 20, accuracy: float = 0.75, seed: int = CODEAC
         tool_sources = traj.tool_sources if tool_binding_ok else {}
         successes += int(score_emission(blocks, traj.answer, tool_sources))
     rate = successes / max(1, len(trajs))
+    # Distinct test name + capability:false so a consumer keying on test-name+pass can never mistake
+    # this plumbing check for a real capability measurement.
     return {
-        "test": "codeact", "mode": "simulation",
+        "test": "codeact_simulation", "mode": "simulation", "capability": False,
         "measured": {"success_rate": round(rate, 4), "n": len(trajs),
                      "tool_binding_ok": tool_binding_ok},
         "pass": rate >= CODEACT_BAR,

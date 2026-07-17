@@ -32,13 +32,13 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterator, List, Optional, Tuple
 
 from ava.datagen.base import Generator, run_cli
+# Import the sandbox's constants so the in-process executor stays in lockstep by construction
+# (not by a hand-maintained comment): frozen clock, value cap, and stdout cap must all match.
+from ava.rl.codeact_sandbox import DEFAULT_FREEZE_EPOCH as FREEZE_EPOCH, STDOUT_CAP, VALUE_CAP
 
 USER = "<|user|>"
 ASSISTANT = "<|assistant|>"
 
-# Match the sandbox so in-process observations equal subprocess observations.
-FREEZE_EPOCH = 1_700_000_000.0   # ava.rl.codeact_sandbox.DEFAULT_FREEZE_EPOCH
-VALUE_CAP = 2048
 GROUNDING_FLOOR_DEFAULT = 0.35
 
 
@@ -77,7 +77,10 @@ def _run_block(ns: dict, code: str) -> Tuple[str, Optional[str], Optional[str]]:
                     value = _safe_repr(v)
     except BaseException as e:  # noqa: BLE001 - mirror the sandbox: report, don't raise
         error = "".join(traceback.format_exception_only(type(e), e)).strip()
-    return buf.getvalue(), value, error
+    out = buf.getvalue()
+    if len(out) > STDOUT_CAP:                    # mirror the sandbox's stdout truncation exactly
+        out = out[:STDOUT_CAP] + "...<truncated>"
+    return out, value, error
 
 
 def _fresh_ns() -> dict:
@@ -275,8 +278,9 @@ def _build(rng, want_grounding: bool) -> Trajectory:
             return fn(rng)
         except _Leakage:
             continue
-    # extremely unlikely; fall back to the non-leaking compute family with fresh params
-    return _compute(rng)
+    # extremely unlikely (8 consecutive answer-leak coincidences). Honor want_grounding so a
+    # forced-grounding slot can't silently emit a non-grounding trajectory and undercut the floor.
+    return _recover(rng) if want_grounding else _compute(rng)
 
 
 def iter_trajectories(seed: int, n: int, grounding_floor: float = GROUNDING_FLOOR_DEFAULT
@@ -288,8 +292,9 @@ def iter_trajectories(seed: int, n: int, grounding_floor: float = GROUNDING_FLOO
     produced = 0
     grounded = 0
     for _ in range(n):
-        # force a grounding trajectory whenever the running share would fall below the floor
-        want_grounding = (grounded / produced < grounding_floor) if produced else True
+        # Force grounding whenever the PROJECTED post-emission share would fall below the floor
+        # (checking the pre-item share let the tail undershoot: n=3 gave 1/3 < 0.35).
+        want_grounding = grounded / (produced + 1) < grounding_floor
         traj = _build(rng, want_grounding)
         produced += 1
         grounded += int(traj.grounding)
@@ -312,7 +317,7 @@ class CodeActGenerator(Generator):
         grounded = 0
         produced_bytes = 0
         while produced_bytes < target_bytes:
-            want_grounding = (grounded / produced < self.grounding_floor) if produced else True
+            want_grounding = grounded / (produced + 1) < self.grounding_floor
             traj = _build(self.rng, want_grounding)
             produced += 1
             grounded += int(traj.grounding)
