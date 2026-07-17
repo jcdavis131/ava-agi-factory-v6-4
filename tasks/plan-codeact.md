@@ -15,8 +15,10 @@ ReAct text that never runs.
 
 ## Phase order (do not skip)
 
-1. **Sandbox (T13C.1, GPU-free, start now)** — `ava/rl/codeact_sandbox.py`, multi-turn persistent
-   namespace, subprocess isolation, resource caps, deterministic replay. Extends `code_gen.run_sandboxed`.
+1. **Sandbox (T13C.1) — ✅ DONE (2026-07-17)** — `ava/rl/codeact_sandbox.py`, multi-turn persistent
+   namespace via a long-lived worker subprocess, per-step wall cap (setsid+killpg), POSIX resource
+   caps, guarded open/blocked socket+fork, importable-or-source tools with call accounting,
+   deterministic replay. `tests/test_codeact_sandbox.py` 14/14. Extends `code_gen.run_sandboxed`.
 2. **Datagen (T13C.2, GPU-free)** — `ava/datagen/codeact.py`, executable trajectories with
    Python-computed answers, grounding-over-syntax bias from `react_tools.py`.
 3. **Eval (T13C.3, GPU-free plumbing)** — harness CodeAct eval, exec-verified success rate,

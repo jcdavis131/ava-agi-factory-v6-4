@@ -166,6 +166,13 @@ Full contract: `specs/11_arch_hillclimb.md`.
   **Sandbox + datagen + eval halves (T13C.1–T13C.3) are GPU-free and may start now**; RL halves inherit
   the T9.3/T9.5 block. Answers the "leverage tools to execute workflows we care about" goal as a
   trainable, verifiable objective.
+  *2026-07-17 — T13C.1 landed:* `ava/rl/codeact_sandbox.py` (`Sandbox`/`Observation`) — persistent-
+  namespace LLM-VM via a long-lived worker subprocess, per-step wall cap (setsid + killpg), POSIX
+  resource caps, guarded `open`/blocked `socket`/`os.fork`, importable-or-source tool binding with
+  call accounting, frozen clock + fixed PYTHONHASHSEED for byte-identical replay. `tests/
+  test_codeact_sandbox.py` 14/14 (all five accept criteria: namespace persistence, infinite-loop/
+  fork-bomb containment, socket/out-of-scratch-write blocked, deterministic replay, no fabrication).
+  Next GPU-free: T13C.2 datagen (`ava/datagen/codeact.py`), T13C.3 harness eval.
 - [ ] **T11.8** 🟦 Zero-init attention output for router health at init (MAI-Thinking-1 finding, 2026-07-17) —
   uniform attention softmax at init ≈ average pooling → homogenized token representations → softmax *routing*
   (their MoE gate; our J-Space Router) can't differentiate tokens → persistent imbalance from step 0. Fix:

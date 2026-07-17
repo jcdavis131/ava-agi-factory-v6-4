@@ -17,9 +17,10 @@
 - **Consumers:** the Agentic branch specialist (spec 12 T12R.2, agentic climb), `ServeEngine`
   (code-act serving loop), `docs/DISTILLATION_INTEGRATION.md` MOPD (CodeAct traces join the
   consolidation trace pool), `ava-skills` memory-mint (CodeAct episodes are high-value memory shards).
-- **Status:** contract only. The **sandbox + datagen halves (T13C.1–T13C.3) are GPU-free and may
-  start now**; the RL halves (T13C.4–T13C.5) inherit spec 12's block on branch fine-tunes (T9.3/T9.5).
-  Findings source: `docs/RL_INTEGRATION.md` (MAI-Thinking-1 agentic SWE + tool-use findings).
+- **Status:** **T13C.1 landed** (`ava/rl/codeact_sandbox.py` + `tests/test_codeact_sandbox.py`,
+  14/14 — all five accept criteria); T13C.2–T13C.3 GPU-free and next; the RL halves
+  (T13C.4–T13C.5) inherit spec 12's block on branch fine-tunes (T9.3/T9.5). Findings source:
+  `docs/RL_INTEGRATION.md` (MAI-Thinking-1 agentic SWE + tool-use findings).
 
 ## What this is (the LLM-VM concept)
 
@@ -75,6 +76,17 @@ episode continues with an error Observation (no hang, no host impact); (c) an at
 socket or write outside scratch fails and is reported, not silently allowed — verified by test;
 (d) the same (seed, tool set, program) replays byte-identical Observations; (e) anti-mock guard
 passes (no hardcoded Observations).
+
+**✅ Landed 2026-07-17** — `ava/rl/codeact_sandbox.py` (`Sandbox` / `Observation`) +
+`tests/test_codeact_sandbox.py` (14/14). Design note: the "persistent namespace" + "subprocess
+isolation" tension is resolved by a **single long-lived worker subprocess** holding the namespace
+(the VM), driven over a one-line-JSON pipe; the parent enforces the per-step wall cap by killing
+the worker's process group (`setsid` + `killpg`) on overrun. POSIX resource caps
+(`RLIMIT_AS`/`CPU`/`NPROC`/`FSIZE`) + a guarded `open` (writes only under scratch) + blocked
+`socket`/`os.fork`/`os.system` give reasonable training-time isolation (documented as *not* a
+hostile-code jail — true jailing needs containers/seccomp, tracked as a follow-up). Tools bindable
+by importable `module:qualname` or by `tool_sources`; an injected frozen `get_clock()` + fixed
+`PYTHONHASHSEED` make replays byte-identical. Every Observation field is measured — no fabrication.
 
 ## T13C.2 — CodeAct datagen (GPU-free)
 
