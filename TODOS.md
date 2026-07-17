@@ -172,7 +172,7 @@ Full contract: `specs/11_arch_hillclimb.md`.
   call accounting, frozen clock + fixed PYTHONHASHSEED for byte-identical replay. `tests/
   test_codeact_sandbox.py` 14/14 (all five accept criteria: namespace persistence, infinite-loop/
   fork-bomb containment, socket/out-of-scratch-write blocked, deterministic replay, no fabrication).
-  Next GPU-free: T13C.2 datagen (`ava/datagen/codeact.py`), T13C.3 harness eval.
+  *T13C.2 landed:* `ava/datagen/codeact.py` (`CodeActGenerator`) — 4 executable families (compute/tool/multistep/recover) with a grounding-share floor; answers computed by running code (no randomness/wall-clock in emitted code ⇒ in-process answer == subprocess-sandbox answer, proven by re-executing every trajectory through the T13C.1 Sandbox). `tests/test_codeact_datagen.py` 10/10. Next GPU-free: T13C.3 harness eval + T13C.4 reward functions (R_exec/R_codeuse).
 - [ ] **T11.8** 🟦 Zero-init attention output for router health at init (MAI-Thinking-1 finding, 2026-07-17) —
   uniform attention softmax at init ≈ average pooling → homogenized token representations → softmax *routing*
   (their MoE gate; our J-Space Router) can't differentiate tokens → persistent imbalance from step 0. Fix:

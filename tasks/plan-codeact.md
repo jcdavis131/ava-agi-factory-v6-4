@@ -19,8 +19,9 @@ ReAct text that never runs.
    namespace via a long-lived worker subprocess, per-step wall cap (setsid+killpg), POSIX resource
    caps, guarded open/blocked socket+fork, importable-or-source tools with call accounting,
    deterministic replay. `tests/test_codeact_sandbox.py` 14/14. Extends `code_gen.run_sandboxed`.
-2. **Datagen (T13C.2, GPU-free)** — `ava/datagen/codeact.py`, executable trajectories with
-   Python-computed answers, grounding-over-syntax bias from `react_tools.py`.
+2. **Datagen (T13C.2) — ✅ DONE (2026-07-17)** — `ava/datagen/codeact.py`, 4 executable families,
+   grounding-share floor, answers computed by running code; every trajectory re-executes through the
+   T13C.1 Sandbox to the labeled answer. `tests/test_codeact_datagen.py` 10/10.
 3. **Eval (T13C.3, GPU-free plumbing)** — harness CodeAct eval, exec-verified success rate,
    anti-mock; feeds `test_no_mock.py`.
 4. **RL terms (T13C.4, gated on T9.3/T9.5)** — add `R_exec`/`R_codeuse` to spec 12's `rl_return`;

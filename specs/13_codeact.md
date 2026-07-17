@@ -105,6 +105,15 @@ and re-plan*, not *I wrote code, therefore I succeeded*. `task_type` ∈ existin
 leakage (prompt never contains the answer string — automated check); grounding-family share ≥ a
 configured floor; deterministic byte-identical regeneration per seed; `validate_doc` passes.
 
+**✅ Landed 2026-07-17** — `ava/datagen/codeact.py` (`CodeActGenerator`, `iter_trajectories`) +
+`tests/test_codeact_datagen.py` (10/10). Four families (compute / tool / multistep / recover),
+grounding-share scheduler enforcing the floor. Equivalence is airtight because emitted code carries
+**no randomness and no wall-clock** (the private `rng` only picks parameters; time is the sandbox's
+frozen `get_clock()`), so the in-process answer equals the subprocess sandbox's — the test proves it
+by re-running every trajectory through the real T13C.1 `Sandbox`. Answers are computed by running
+the code (never templated); the recover family's first block genuinely raises (KeyError) and the
+Observation shows the failure. `codeact_recover`/`codeact_tool_grounding` are the grounding families.
+
 ## T13C.3 — CodeAct eval in the harness (GPU-free plumbing, real at eval time)
 
 A `@register_eval` in `evals/` (spec 06): run the model in CodeAct mode over a frozen held-out set
