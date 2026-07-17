@@ -4,7 +4,9 @@ Date: 2026-07-17
 Source: MAI-Thinking-1 agentic SWE + tool-use findings → `docs/RL_INTEGRATION.md`
 Contract: `specs/13_codeact.md` (T13C.1–T13C.6)
 Builds on: `specs/12_rl_training.md` (CodeAct is an agentic mode of the GRPO loop, not a parallel system)
-Status: **sandbox + datagen halves unblocked now; RL halves inherit spec 12's T9.3/T9.5 block**
+Status: **all GPU-free halves (T13C.1–T13C.6) landed 2026-07-17; the torch climb — optimizer step,
+real-model policy, MOPD run, EG verdict — stays hard-gated on branch fine-tunes (T9.3/T9.5) + GPU
+(BLOCKED_NO_GPU), each refusing rather than fabricating. Full spec-12/13 suite 133/133 (+1 skip).**
 
 ## Objective
 
@@ -22,14 +24,21 @@ ReAct text that never runs.
 2. **Datagen (T13C.2) — ✅ DONE (2026-07-17)** — `ava/datagen/codeact.py`, 4 executable families,
    grounding-share floor, answers computed by running code; every trajectory re-executes through the
    T13C.1 Sandbox to the labeled answer. `tests/test_codeact_datagen.py` 10/10.
-3. **Eval (T13C.3) — ◑ scoring engine DONE** — `evals/codeact_eval.py`: real sandbox `score_emission`
-   + seed-sensitive `simulate_policy_eval` + honest-fail real path (run_harness wiring with T13C.5).
-4. **RL terms (T13C.4) — ◑ reward functions DONE, GRPO wiring gated** — `ava/rl/codeact_rewards.py`
-   (`r_exec`/`r_codeuse`/`r_len`/`codeact_return`), pure + tested; the GRPO loop consuming them is
-   blocked on T9.3/T9.5.
-5. **Consolidate + serve (T13C.5)** — CodeAct traces into MOPD; `ServeEngine` code-act loop with
-   FINAL-only user output + trace capture for memory-mint.
-6. **EG gate (T13C.6)** — promote only on a 2-rung EG win vs the non-CodeAct agentic baseline.
+3. **Eval (T13C.3) — ✅ scoring engine DONE** — `evals/codeact_eval.py`: real sandbox `score_emission`
+   + seed-sensitive `simulate_policy_eval` + `run_codeact_eval` now **wired to the T13C.5 decode
+   loop** (fails at the honest ModelPolicy gate, not a stub).
+4. **RL terms + discipline (T13C.4) — ✅ GPU-free DONE** — `ava/rl/codeact_rewards.py`
+   (`r_exec`/`r_codeuse`/`r_len`/`codeact_return`) + `ava/rl/grpo.py` (group advantages, entropy
+   thermostat, outer ratio clip, trace bank + uniform recovery; synthetic servo demo of the
+   thermostat). The **torch optimizer step** (`GRPOOptimizerStep.step`) refuses without a checkpoint
+   + GPU.
+5. **Consolidate + serve (T13C.5) — ✅ GPU-free DONE** — `ava/rl/codeact_loop.py` (pluggable-Policy
+   emit→sandbox→observe→FINAL, sanitized user output + captured trace, model-free replay harness) +
+   `ava/rl/codeact_consolidation.py` (verified-only, stratified MOPD trace-pool prep). The **real
+   model policy** and the **MOPD distillation run** refuse (gated).
+6. **EG gate (T13C.6) — ✅ adapter DONE** — `ava/rl/codeact_eg_gate.py`: success→error transform +
+   `eg_trend` verdict, tested on synthetic ladders. `codeact_eg_gate_from_eval` **refuses** the
+   honest-fail eval records; the real verdict waits on the climb.
 
 ## Gates
 

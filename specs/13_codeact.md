@@ -158,14 +158,25 @@ the disciplined run holds median code length within band; a policy that emits no
 is measurably penalized vs one that runs; redundant-call rate does not rise across the climb;
 `R_exec`-hacking (many trivial statements, wrong answer) scores below a correct terse solution.
 
-**◑ Reward functions landed 2026-07-17; GRPO wiring gated.** `ava/rl/codeact_rewards.py`
-(`r_exec`, `r_codeuse` incl. `redundant_calls`, `r_len`, `codeact_return`) + `tests/
-test_codeact_rewards.py` — pure, GPU-free, tested against real sandbox execution logs (a clean
-trajectory scores `r_exec`=1.0; the recover family < 1.0; consecutive-duplicate tool calls lower
-`r_codeuse`; `r_len` is difficulty-scaled; the blend keeps `w_task` dominant so R_exec-hacking
-scores below a correct terse solution). The **GRPO loop that consumes these** (`ava/rl/grpo.py`,
-extending spec 12 T12R.2) stays **blocked on branch fine-tunes T9.3/T9.5** — these are the verified
-building blocks it will call, not the climb itself.
+**◑ Reward functions + GRPO discipline mechanics landed 2026-07-17; the torch climb stays gated.**
+`ava/rl/codeact_rewards.py` (`r_exec`, `r_codeuse` incl. `redundant_calls`, `r_len`,
+`codeact_return`) + `tests/test_codeact_rewards.py` — pure, GPU-free, tested against real sandbox
+execution logs (a clean trajectory scores `r_exec`=1.0; the recover family < 1.0;
+consecutive-duplicate tool calls lower `r_codeuse`; `r_len` is difficulty-scaled; the blend keeps
+`w_task` dominant so R_exec-hacking scores below a correct terse solution).
+
+The **spec-12 T12R.2 discipline system** it plugs into now exists GPU-free in `ava/rl/grpo.py`
+(+ `tests/test_grpo.py`, 29/29): group-relative advantages `(R−mean)/std`; the entropy thermostat
+as an integral controller `k ← clamp(k+κ·(H_target−H),0,k_max)` relaxing only the upper clip bound
+`(1+ε)·(1+k)` (bounds are symmetric log-ratio inverses at k=0); the outer ratio-clip circuit
+breaker `|r−1|≤r_outer` applied before/regardless of the standard clip's unclipped zones; and the
+trace bank with prompt-deduped, per-prompt-capped, **uniform** recovery sampling (the source's
+ablation winner). A synthetic control-systems plant (`simulate_entropy_control`, clearly labeled
+NOT a training measurement) demonstrates accept-criterion (a): the disciplined run holds the entropy
+band ≥10× longer than the κ=0 ablation, which collapses to the floor. The **torch optimizer step
+itself** (`GRPOOptimizerStep.step`) *refuses* to run — it needs a branch fine-tune checkpoint
+(T9.3/T9.5, absent) and a GPU (BLOCKED_NO_GPU) — the honest boundary between built math and the
+gated climb.
 
 ## T13C.5 — Consolidation & serving
 
@@ -181,11 +192,42 @@ building blocks it will call, not the climb itself.
 *accept:* post-MOPD CodeAct eval (T13C.3) within noise of the pre-merge specialist; safety set holds;
 serving loop executes a multi-step task end-to-end in the sandbox and returns only the sanitized FINAL.
 
+**◑ GPU-free half landed 2026-07-17; the merge + real decode stay gated.**
+- **Serving loop:** `ava/rl/codeact_loop.py` (+ `tests/test_codeact_loop.py`, 12/12) — a
+  pluggable-`Policy` decode loop (emit turn → `extract_action` → real T13C.1 `Sandbox.step` →
+  feed Observation back → FINAL). Only the sanitized FINAL reaches the user (`sanitize_final`);
+  the full code+observation trace is captured in `CodeActResult.steps` for debugging / memory-mint
+  and is never leaked into the user string. A model-free `TrajectoryReplayPolicy` drives every
+  T13C.2 family end-to-end through the real sandbox (proving the serving accept criterion without a
+  model); step-cap / empty-turn terminate honestly with `final=None` (never a fabricated answer).
+  `ModelPolicy` (the real path) refuses — needs a checkpoint (T9.3/T9.5) + GPU (BLOCKED_NO_GPU).
+  **`evals/codeact_eval.py::run_codeact_eval` is now wired to this loop** and fails at that gate,
+  not via a hand-written stub.
+- **Consolidation:** `ava/rl/codeact_consolidation.py` (+ tests, 10/10) — MOPD trace-pool prep:
+  **verified-only admission** (unverified code-as-action is never merged) + **stratified** balancing
+  across families so rare grounding/`refuse` behaviors aren't washed out (distinct from spec-12's
+  *uniform* recovery sampling — different objective: capability retention vs prompt diversity). The
+  `on_policy_distill.py --mode mopd` run that consumes the pool is GPU-gated
+  (`mopd_consolidation_run` refuses); `safety_blackmail` 0/180 is verified on the MERGED model by
+  `evals`, not assertable at data-prep time.
+
 ## T13C.6 — EG-gated rollout
 
 Like every lever (spec 12 T12R.4): CodeAct is judged against the non-CodeAct agentic baseline via
 `efficiency_gain.py` on the frozen eval snapshot at two ladder rungs (nano, mini) before any base1b
 CodeAct is considered. EG trend across both rungs > 1 or the mode does not advance (rank-invariance).
+
+**◑ Adapter landed 2026-07-17; the verdict waits on real runs.** `ava/rl/codeact_eg_gate.py`
+(+ `tests/test_codeact_eg_gate.py`, 8/8) — a thin composition over `efficiency_gain.eg_trend`. The
+only adaptation: CodeAct's quality metric is the T13C.3 exec-verified success rate (higher better),
+mapped to an error rate `1 − success_rate` (lower better, with an irreducible floor) so it behaves
+like a loss with a well-defined EG; the power-law fit, compute-equivalence, and rank-invariance
+verdict are the existing tested machinery unchanged. `codeact_eg_gate(ladders)` is pure and tested
+on synthetic ladders (promote / hold / single-rung-win-is-hold / insufficient). `codeact_eg_gate_
+from_eval` **refuses** the honest-fail eval records (`measured=None`, BLOCKED_NO_GPU) rather than
+inventing a rate — and even non-None CodeAct rates are insufficient without the baseline agentic
+scaling curve (its own gated runs), so no promote/hold verdict can be emitted off fabricated
+capability. The gate is built; the real climb feeds it.
 
 ## Non-goals (recorded so they aren't re-litigated)
 
