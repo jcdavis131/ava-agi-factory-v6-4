@@ -192,6 +192,25 @@ gated climb.
 *accept:* post-MOPD CodeAct eval (T13C.3) within noise of the pre-merge specialist; safety set holds;
 serving loop executes a multi-step task end-to-end in the sandbox and returns only the sanitized FINAL.
 
+**◑ GPU-free half landed 2026-07-17; the merge + real decode stay gated.**
+- **Serving loop:** `ava/rl/codeact_loop.py` (+ `tests/test_codeact_loop.py`, 12/12) — a
+  pluggable-`Policy` decode loop (emit turn → `extract_action` → real T13C.1 `Sandbox.step` →
+  feed Observation back → FINAL). Only the sanitized FINAL reaches the user (`sanitize_final`);
+  the full code+observation trace is captured in `CodeActResult.steps` for debugging / memory-mint
+  and is never leaked into the user string. A model-free `TrajectoryReplayPolicy` drives every
+  T13C.2 family end-to-end through the real sandbox (proving the serving accept criterion without a
+  model); step-cap / empty-turn terminate honestly with `final=None` (never a fabricated answer).
+  `ModelPolicy` (the real path) refuses — needs a checkpoint (T9.3/T9.5) + GPU (BLOCKED_NO_GPU).
+  **`evals/codeact_eval.py::run_codeact_eval` is now wired to this loop** and fails at that gate,
+  not via a hand-written stub.
+- **Consolidation:** `ava/rl/codeact_consolidation.py` (+ tests, 10/10) — MOPD trace-pool prep:
+  **verified-only admission** (unverified code-as-action is never merged) + **stratified** balancing
+  across families so rare grounding/`refuse` behaviors aren't washed out (distinct from spec-12's
+  *uniform* recovery sampling — different objective: capability retention vs prompt diversity). The
+  `on_policy_distill.py --mode mopd` run that consumes the pool is GPU-gated
+  (`mopd_consolidation_run` refuses); `safety_blackmail` 0/180 is verified on the MERGED model by
+  `evals`, not assertable at data-prep time.
+
 ## T13C.6 — EG-gated rollout
 
 Like every lever (spec 12 T12R.4): CodeAct is judged against the non-CodeAct agentic baseline via

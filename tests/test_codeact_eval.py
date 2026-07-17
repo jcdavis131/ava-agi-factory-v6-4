@@ -69,6 +69,8 @@ class TestSimulation:
 
 class TestRealModeHonesty:
     def test_real_mode_fails_honestly_not_fabricated(self):
+        # now wired to the T13C.5 decode loop: it fails at the honest gate (no real policy/GPU),
+        # not via a hand-written 'not implemented' string.
         out = run_codeact_eval(model=object(), tokenizer=object())
         assert out["pass"] is False and out["measured"] is None
-        assert "not implemented" in out["error"]
+        assert "BLOCKED_NO_GPU" in out["error"]
