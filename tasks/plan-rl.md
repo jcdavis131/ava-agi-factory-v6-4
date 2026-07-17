@@ -48,3 +48,8 @@ and is judged by EG trend across ≥2 ladder rungs — never a single-point win.
 - G=8 rollout group: enough advantage signal at nano? If variance too high, try G=16 nano-only.
 - Trace-bank size threshold before bank-recovery beats `--mode earlier` weight-recovery.
 - Semantic dedup (3rd funnel stage): defer until base1b corpus; revisit when T4.x reopens.
+- Agentic branch (post-math): reuse-the-container/synthesize-the-task pattern (BugPilot-style)
+  for verifiable envs from our own repos + reward parallel tool calls / penalize duplicates —
+  second-pass findings, `docs/RL_INTEGRATION.md`.
+- Anti-slop (AI-content) classifier on the *collector* path before base1b-scale web ingestion
+  (datagen is exempt — deliberately synthetic, self-generated, provenance known).

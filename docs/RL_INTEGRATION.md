@@ -120,6 +120,49 @@ this doc and spec 12 uses `rl_return` / `R_task`/`R_lang`/`R_len` naming to avoi
   drift can't emerge from an English-only corpus; w_lang=0 placeholder in spec 12.
 - **Frontier-Tuning-style customer RL environments; 8,000-node anything.**
 
+## Second-pass findings (deeper companion analysis, reviewed same day)
+
+A second, longer analysis of the same report adds detail that changes a few calls above:
+
+- **Recovery sampling: random beats clever.** Empirically, *uniform random sampling* of banked
+  successful traces recovered better than biased selection, and **prompt diversity matters more
+  than trace volume per prompt**. Spec 12's recovery procedure updated accordingly: dedupe by
+  prompt, cap traces-per-prompt, then sample uniformly — no stratification cleverness.
+- **Thermostat mechanics pinned down:** k initializes to 0 (bounds start symmetric as
+  multiplicative inverses in log-ratio space); per-token policy entropy is estimated with an
+  importance-weighted estimator; only the *upper* bound relaxes. Folded into spec 12.
+- **Zero-init attention output is a router-stability finding, not just an MoE trick.** Uniform
+  attention softmax at init ≈ average pooling → homogenized token representations → downstream
+  softmax *routing* can't differentiate tokens → persistent expert/workspace imbalance. The fix
+  (attention-output RMSNorm gains = 0, so the net starts as per-token dense layers and
+  cross-token interaction fades in) is scale-free and directly relevant to Ava's J-Space Router
+  (`routing_kl` health at init). Recorded as hill-climb candidate **T11.8** — nano-falsifiable;
+  `network_init_sota.py` currently fills all norm gains with 1.0.
+- **SWE funnel had a hidden stage:** compile (2.08M) → *reference grading vs baseline solutions*
+  (745,452; 15.3%) → F2P/P2P verified (265,617). Also: failed environments were recycled to
+  *generate* synthetic problems/tests (BugPilot/SWE-Smith/SWE-Mirror-style) — the
+  "reuse-the-container, synthesize-the-task" pattern fits our deterministic datagen convention
+  and is noted in plan-rl open questions for the eventual agentic branch.
+- **Tool-use reward shaping:** trained with 50+ tools in context; graders explicitly reward
+  *parallel* tool calls and penalize redundant/duplicated calls. Cheap to adopt whenever an
+  agentic climb exists; also a grading idea for scout-cli's `agent bus` automations today.
+- **Anti-slop classifiers:** their pipeline ran AI-content detectors over collected web data
+  and purged flagged domains. Ava's collector (not datagen — ours is deliberately synthetic
+  and self-generated) should gain this check before base1b-scale web ingestion.
+- **Memory layer pattern (Mem0-style):** the model stays stateless; an external memory layer
+  retrieves context pre-prompt, and *internal* thought/tool traces are captured post-hoc to
+  mint new long-term memories while only the sanitized answer reaches the user. Ava analog:
+  `ava-skills` memory-router (ShardMemo Tier A/B/C) is the retrieval half; the trace-capture →
+  memory-mint half doesn't exist yet — noted in the ecosystem brief, no task filed.
+- **RFT framing worth keeping:** their Frontier Tuning rewards *optimal action sequences*
+  (shortest institutional path), not just correct answers — inference-time context injection
+  traded for post-trained behavior. Ecosystem analog: scout-cli `audit.jsonl` execution traces
+  are exactly the workflow-trace substrate this would tune against, someday.
+- **Benchmark humility:** all headline numbers are self-reported; the same model trails badly
+  on Terminal-Bench 2.0 (46.0 vs 59.1/75.1 for competitors), and SWE-Bench Pro has known
+  FP/FN issues. Reinforces the frozen-snapshot + falsification-gate posture here: no vendor
+  number is adopted as a target; every gate is a number this repo measures itself.
+
 ## Sequencing (matches existing gates; nothing jumps the queue)
 
 1. **Now (no GPU):** `efficiency_gain.py` + tests; EG columns in hillclimb-log; scout-rtx
