@@ -33,6 +33,7 @@ from ava.datagen.encyclopedia import EncyclopediaGenerator
 from ava.datagen.code_gen import CodeGenGenerator, SAFE_BUILTINS, run_sandboxed
 from ava.datagen.chat_safety import ChatSafetyGenerator, _SCENARIO_TEMPLATES
 from ava.datagen.react_tools import ASSISTANT, USER, ReactToolsGenerator
+from ava.datagen.think_in_code import ThinkInCodeGenerator
 from ava.datagen.workflow_jobbench import (
     WorkflowJobBenchGenerator,
     _duplicate_doc,
@@ -42,6 +43,7 @@ from ava.datagen.workflow_jobbench import (
     _fmt_val,
     _OCCUPATIONS,
 )
+from ava.datagen.tool_curriculum import ToolUseGenerator
 from ava.datagen.workflow_gaia2 import (
     WorkflowGaia2Generator,
     _adaptability_doc,
@@ -57,8 +59,10 @@ ALL_GENERATORS = [
     CodeGenGenerator,
     ChatSafetyGenerator,
     ReactToolsGenerator,
+    ThinkInCodeGenerator,
     WorkflowJobBenchGenerator,
     WorkflowGaia2Generator,
+    ToolUseGenerator,
 ]
 
 # A small byte target keeps tests fast while still exercising every family.
@@ -150,6 +154,13 @@ def test_task_types_are_accurate_per_generator():
 
     gaia2_tt = {d["task_type"] for d in _collect(WorkflowGaia2Generator)}
     assert gaia2_tt == {"temporal"}, f"gaia2 must be all temporal, got {gaia2_tt}"
+
+    tool_tt = {d["task_type"] for d in _collect(ToolUseGenerator)}
+    # deliberate (compute/select/recover), temporal (date/order), safety (refuse
+    # a destructive tool) must all appear; nothing outside that set.
+    assert tool_tt == {"deliberate", "temporal", "safety"}, (
+        f"tool_use task_types drifted: {tool_tt}"
+    )
 
 
 # ---------------------------------------------------------------------------

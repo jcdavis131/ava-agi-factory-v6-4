@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -135,6 +135,13 @@ class ChatReq(BaseModel):
     temperature: float = 0.8
 
 
+class AssistantReq(BaseModel):
+    messages: list[ChatMessage]
+    max_steps: int = 4
+    max_tokens: int = 160
+    temperature: float = 0.7
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Boot-time load: broken checkpoint fails here, not on first request.
@@ -146,14 +153,45 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Ava J-Space Viewer v6.4", lifespan=lifespan)
 
+# Opt-in CORS for the arxiviq.com assistant surface (spec 15 §5). Default OFF:
+# when AVA_ASSISTANT_CORS is unset no middleware is added, so existing routes
+# and the running dashboard are unaffected. Set it to a comma-separated origin
+# allowlist (e.g. "https://arxiviq.com") only when exposing /assistant to a
+# browser frontend through a tunnel.
+_ASSISTANT_CORS = [o.strip() for o in os.environ.get("AVA_ASSISTANT_CORS", "").split(",") if o.strip()]
+if _ASSISTANT_CORS:
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_ASSISTANT_CORS,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
+
+# Opt-in bearer auth for POST /assistant only (spec 15 §2.2 "Trust"). Default
+# OFF (open locally); when AVA_ASSISTANT_TOKEN is set, /assistant requires
+# `Authorization: Bearer <token>`. Never applied to the read-only status/HTML
+# routes or any pre-existing endpoint.
+def _require_assistant_token(authorization: Optional[str] = Header(None)) -> None:
+    expected = os.environ.get("AVA_ASSISTANT_TOKEN", "")
+    if not expected:
+        return  # auth disabled
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="assistant requires a bearer token")
+    if authorization.split(" ", 1)[1].strip() != expected:
+        raise HTTPException(status_code=403, detail="invalid assistant token")
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return (
         "<a href='/dashboard'>/dashboard</a> (training run) · "
+        "<a href='/network'>/network</a> (live architecture) · "
         "<a href='/ecosystem'>/ecosystem</a> (harness/skills/agent-eval) · "
         "<a href='/evals'>/evals</a> · "
         "<a href='/chat'>/chat</a> · "
+        "<a href='/assistant'>/assistant</a> (Dottie tool-use assistant) · "
         "<a href='/jspace/viewer'>/jspace/viewer</a> · "
         "<a href='/health'>/health</a> · "
         "<a href='/report'>/report</a>"
@@ -263,6 +301,53 @@ async def chat(req: ChatReq):
     return {"content": content, "tokens": result["tokens"], "latency_ms": result["latency_ms"]}
 
 
+@app.get("/assistant", response_class=HTMLResponse)
+async def assistant_page():
+    """Dottie assistant UI. Coexists with POST /assistant (same method-dispatch
+    pattern as /chat). Self-contained; safe with AVA_SKIP_ENGINE_BOOT=1."""
+    from ava.assistant_html import ASSISTANT_HTML
+
+    return HTMLResponse(ASSISTANT_HTML)
+
+
+@app.get("/assistant/status")
+async def assistant_status():
+    """Read-only capability/telemetry snapshot the arxiviq.com surface polls.
+    Never 500s (collector swallows its own errors)."""
+    from ava.assistant_status import collect_assistant_status
+
+    return collect_assistant_status()
+
+
+@app.post("/assistant", dependencies=[Depends(_require_assistant_token)])
+async def assistant(req: AssistantReq):
+    """Dottie — the server-side ReAct tool loop (spec 15 §5). Grounded,
+    trust-gated, telemetered. Degrades to a structured 503 when the engine is
+    absent (AVA_SKIP_ENGINE_BOOT=1) rather than crashing."""
+    from ava.assistant import engine_generate_fn, run_assistant
+
+    if not req.messages:
+        raise HTTPException(status_code=422, detail="messages must be non-empty")
+    try:
+        engine = get_engine()
+    except Exception as exc:  # broken/absent checkpoint -> graceful 503
+        raise HTTPException(
+            status_code=503,
+            detail=f"assistant engine unavailable ({type(exc).__name__}); "
+                   "the trainer likely owns the GPU (AVA_SKIP_ENGINE_BOOT=1)",
+        )
+    messages = [{"role": m.role, "content": m.content} for m in req.messages]
+    result = run_assistant(
+        messages,
+        engine_generate_fn(engine),
+        sandbox_root=_REPO,
+        max_steps=min(req.max_steps, 6),
+        max_tokens=min(req.max_tokens, 200),
+        temperature=req.temperature,
+    )
+    return result.as_dict()
+
+
 @app.get("/report", response_class=HTMLResponse)
 async def report():
     """Live, screenshot-optimized training report. Packs the full pipeline
@@ -271,6 +356,30 @@ async def report():
 
     return HTMLResponse(REPORT_HTML)
 
+
+@app.get("/network", response_class=HTMLResponse)
+async def network_page():
+    """Live neural-network visualizer: config architecture + trainer peel +
+    CPU checkpoint weight-group norms. Safe with AVA_SKIP_ENGINE_BOOT=1."""
+    from ava.network_html import NETWORK_HTML
+
+    return HTMLResponse(NETWORK_HTML)
+
+
+@app.get("/network/status")
+async def network_status(norms: int = 0):
+    """JSON for the network visualizer (architecture + live + optional norms).
+
+    Pass ``?norms=1`` to peek CPU weight-group RMS from the latest checkpoint
+    (cached by mtime). Heavy I/O runs in a worker thread so live polls stay snappy.
+    """
+    import asyncio
+
+    from ava.network_viz import collect_network_status
+
+    return await asyncio.to_thread(
+        collect_network_status, include_ckpt_norms=bool(norms)
+    )
 
 @app.get("/report/offline")
 async def report_offline():
