@@ -1,0 +1,260 @@
+{
+  "nodes": 542,
+  "edges": 8967,
+  "by_type": {
+    "Topic": 8,
+    "Paper": 78,
+    "Method": 26,
+    "Person": 415,
+    "Architecture": 10,
+    "Org": 5
+  },
+  "by_edge_kind": {
+    "RELATED_TO": 78,
+    "CATEGORIZED_AS": 187,
+    "AUTHORED": 435,
+    "USES_ARCHITECTURE": 43,
+    "AFFILIATED_WITH": 39,
+    "COAUTHORED": 8185
+  },
+  "god_nodes": [
+    {
+      "id": "person:Gemini Robotics Team",
+      "degree": 141,
+      "label": "Gemini Robotics Team"
+    },
+    {
+      "id": "person:Krzysztof Choromanski",
+      "degree": 141,
+      "label": "Krzysztof Choromanski"
+    },
+    {
+      "id": "person:Coline Devin",
+      "degree": 141,
+      "label": "Coline Devin"
+    },
+    {
+      "id": "person:Yilun Du",
+      "degree": 141,
+      "label": "Yilun Du"
+    },
+    {
+      "id": "person:Debidatta Dwibedi",
+      "degree": 141,
+      "label": "Debidatta Dwibedi"
+    },
+    {
+      "id": "person:Sean Kirmani",
+      "degree": 141,
+      "label": "Sean Kirmani"
+    },
+    {
+      "id": "person:Isabel Leal",
+      "degree": 141,
+      "label": "Isabel Leal"
+    },
+    {
+      "id": "person:Anirudha Majumdar",
+      "degree": 141,
+      "label": "Anirudha Majumdar"
+    },
+    {
+      "id": "person:Carolina Parada",
+      "degree": 141,
+      "label": "Carolina Parada"
+    },
+    {
+      "id": "person:Dhruv Shah",
+      "degree": 141,
+      "label": "Dhruv Shah"
+    }
+  ],
+  "communities": {
+    "by_tag": {
+      "world_models": {
+        "papers": 3,
+        "persons": 6,
+        "paper_ids": [
+          "paper:synth-world_models-01",
+          "paper:synth-world_models-02",
+          "paper:synth-world_models-03"
+        ]
+      },
+      "jepa": {
+        "papers": 3,
+        "persons": 6,
+        "paper_ids": [
+          "paper:synth-jepa-01",
+          "paper:synth-jepa-02",
+          "paper:synth-jepa-03"
+        ]
+      },
+      "imagebind": {
+        "papers": 3,
+        "persons": 6,
+        "paper_ids": [
+          "paper:synth-imagebind-01",
+          "paper:synth-imagebind-03",
+          "paper:synth-imagebind-02"
+        ]
+      },
+      "v_jepa": {
+        "papers": 3,
+        "persons": 6,
+        "paper_ids": [
+          "paper:synth-v_jepa-03",
+          "paper:synth-v_jepa-01",
+          "paper:synth-v_jepa-02"
+        ]
+      },
+      "pred_coding": {
+        "papers": 3,
+        "persons": 6,
+        "paper_ids": [
+          "paper:synth-pred_coding-01",
+          "paper:synth-pred_coding-03",
+          "paper:synth-pred_coding-02"
+        ]
+      },
+      "hamiltonian": {
+        "papers": 30,
+        "persons": 92,
+        "paper_ids": [
+          "paper:2504.19176",
+          "paper:2307.12306",
+          "paper:2307.05639",
+          "paper:2306.14753",
+          "paper:2212.06370",
+          "paper:2211.12792",
+          "paper:2205.13273",
+          "paper:2204.03935",
+          "paper:2103.07492",
+          "paper:2006.03243"
+        ]
+      },
+      "train_dynamics": {
+        "papers": 3,
+        "persons": 6,
+        "paper_ids": [
+          "paper:synth-train_dynamics-02",
+          "paper:synth-train_dynamics-01",
+          "paper:synth-train_dynamics-03"
+        ]
+      },
+      "foundation_wm": {
+        "papers": 30,
+        "persons": 288,
+        "paper_ids": [
+          "paper:2607.15330",
+          "paper:2607.06501",
+          "paper:2602.02454",
+          "paper:2601.05336",
+          "paper:2512.10675",
+          "paper:2512.03307",
+          "paper:2506.13817",
+          "paper:2505.20503",
+          "paper:2504.18471",
+          "paper:2504.05291"
+        ]
+      }
+    },
+    "by_org_top": {
+      "org:MIT": {
+        "label": "MIT",
+        "persons": 19,
+        "persons_sample": [
+          "person:Mathilde Caron",
+          "person:Karl Friston",
+          "person:Emilien Biré",
+          "person:Aviad Rubinstein",
+          "person:Edward Lee"
+        ]
+      },
+      "org:DeepMind": {
+        "label": "DeepMind",
+        "persons": 13,
+        "persons_sample": [
+          "person:Alireza Zareian",
+          "person:Pierre Beckmann",
+          "person:Armand Joulin",
+          "person:Randy Evans",
+          "person:Amir Nazemi"
+        ]
+      },
+      "org:Institute of Optical Neural Technologies Russian Academy of Sciences": {
+        "label": "Institute of Optical Neural Technologies Russian Academy of Sciences",
+        "persons": 3,
+        "persons_sample": [
+          "person:L. B. Litinskii",
+          "person:B. V. Kryzhanovsky",
+          "person:A. L. Mikaelyan"
+        ]
+      },
+      "org:FAIR, Meta": {
+        "label": "FAIR, Meta",
+        "persons": 2,
+        "persons_sample": [
+          "person:Yann LeCun",
+          "person:Kaiming He"
+        ]
+      },
+      "org:Stanford University": {
+        "label": "Stanford University",
+        "persons": 1,
+        "persons_sample": [
+          "person:Fei-Fei Li"
+        ]
+      }
+    }
+  },
+  "architectures_found": {
+    "Foundation Model": 9,
+    "World Model": 10,
+    "Transformers": 2,
+    "Diffusion": 3,
+    "JEPA": 8,
+    "V-JEPA": 3,
+    "Predictive Coding": 3,
+    "I-JEPA": 1,
+    "ImageBind": 3,
+    "RSSM": 1
+  },
+  "methods_found": {
+    "cs.RO": 28,
+    "cs.CV": 19,
+    "cs.AI": 33,
+    "cs.LG": 49,
+    "q-bio.GN": 1,
+    "cs.SE": 1,
+    "q-bio.QM": 1,
+    "cs.CL": 4,
+    "stat.ML": 14,
+    "cs.HC": 2,
+    "math.DS": 1,
+    "math.NA": 1,
+    "cs.NE": 12,
+    "eess.IV": 1,
+    "eess.SY": 1,
+    "eess.SP": 1,
+    "cs.IT": 2,
+    "q-bio.NC": 5,
+    "cs.CR": 1,
+    "cs.DS": 1,
+    "cs.ET": 1,
+    "cs.MA": 1,
+    "cond-mat.dis-nn": 4,
+    "physics.bio-ph": 1,
+    "physics.soc-ph": 1,
+    "q-bio": 1
+  },
+  "tags_count": {
+    "foundation_wm": 30,
+    "hamiltonian": 30,
+    "world_models": 3,
+    "v_jepa": 3,
+    "train_dynamics": 3,
+    "pred_coding": 3,
+    "jepa": 3,
+    "imagebind": 3
+  }
+}
