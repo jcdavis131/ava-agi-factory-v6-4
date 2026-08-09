@@ -1,0 +1,69 @@
+{
+  "total_fetched": 78,
+  "total_raw_before_dedup": 60,
+  "by_tag": {
+    "world_models": 3,
+    "jepa": 3,
+    "imagebind": 3,
+    "v_jepa": 3,
+    "pred_coding": 3,
+    "hamiltonian": 30,
+    "train_dynamics": 3,
+    "foundation_wm": 30
+  },
+  "by_tag_inclusive": {
+    "world_models": 3,
+    "jepa": 3,
+    "imagebind": 3,
+    "v_jepa": 3,
+    "pred_coding": 3,
+    "hamiltonian": 30,
+    "train_dynamics": 3,
+    "foundation_wm": 30
+  },
+  "synthetic_used": {
+    "world_models": 3,
+    "jepa": 3,
+    "imagebind": 3,
+    "v_jepa": 3,
+    "pred_coding": 3,
+    "hamiltonian": 0,
+    "train_dynamics": 3,
+    "foundation_wm": 0
+  },
+  "any_synthetic": true,
+  "queries": [
+    {
+      "q": "world models neural networks",
+      "tag": "world_models"
+    },
+    {
+      "q": "joint embedding predictive architecture",
+      "tag": "jepa"
+    },
+    {
+      "q": "ImageBind multimodal",
+      "tag": "imagebind"
+    },
+    {
+      "q": "V-JEPA video prediction",
+      "tag": "v_jepa"
+    },
+    {
+      "q": "predictive coding neuroscience",
+      "tag": "pred_coding"
+    },
+    {
+      "q": "Hamiltonian neural networks",
+      "tag": "hamiltonian"
+    },
+    {
+      "q": "training dynamics neural networks loss landscape",
+      "tag": "train_dynamics"
+    },
+    {
+      "q": "foundation world models robotics",
+      "tag": "foundation_wm"
+    }
+  ]
+}

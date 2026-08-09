@@ -1,0 +1,77 @@
+{
+  "nodes": 676,
+  "graph_nodes": 676,
+  "edges": 758,
+  "docs": 132,
+  "papers": 132,
+  "people": 521,
+  "orgs": 6,
+  "architectures": 9,
+  "topics": 8,
+  "by_class": {
+    "Paper": 132,
+    "Topic": 8,
+    "Architecture": 9,
+    "Person": 521,
+    "Organization": 6
+  },
+  "by_topic": {
+    "v_jepa": 30,
+    "imagebind": 30,
+    "pred_coding": 30,
+    "world_models": 30,
+    "train_dynamics": 3,
+    "foundation_wm": 3,
+    "hamiltonian": 3,
+    "jepa": 3
+  },
+  "by_arch": {
+    "JEPA": 11,
+    "V-JEPA": 7,
+    "STORM": 1,
+    "I-JEPA": 2,
+    "World Model": 9,
+    "PredCoding": 6,
+    "CLIP": 2,
+    "ImageBind": 4,
+    "Hamiltonian NN": 3
+  },
+  "cache": "acne-lmdb::mmap 84% hit | ContactsHub",
+  "checksum": "a3f9c1e2b4d6e8f0c2a1",
+  "timestamp": "2026-08-05T11:56:01.353262Z",
+  "token_saving": "71.5× via Graphify struct",
+  "god_nodes": [
+    {
+      "id": "paper:2506.09985",
+      "degree": 34
+    },
+    {
+      "id": "topic:v_jepa",
+      "degree": 30
+    },
+    {
+      "id": "topic:imagebind",
+      "degree": 30
+    },
+    {
+      "id": "topic:pred_coding",
+      "degree": 30
+    },
+    {
+      "id": "topic:world_models",
+      "degree": 30
+    },
+    {
+      "id": "paper:2412.02527",
+      "degree": 30
+    },
+    {
+      "id": "paper:2309.03905",
+      "degree": 19
+    },
+    {
+      "id": "paper:2605.10840",
+      "degree": 17
+    }
+  ]
+}

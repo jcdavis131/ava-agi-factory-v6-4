@@ -1,0 +1,3117 @@
+[
+  {
+    "id": "2607.15330",
+    "title": "Xiaomi-Robotics-1: Scaling Vision-Language-Action Models with over 100K Hours of Real-World Trajectories",
+    "summary": "We present Xiaomi-Robotics-1, a foundational vision-language-action (VLA) model capable of (1) following diverse language instructions to perform a wide range of mobile manipulation tasks in unseen environments out-of-the-box, and (2) efficiently adapting to novel downstream tasks with minimal fine-tuning data. We propose a two-stage training recipe consisting of pre-training and post-training. During pre-training, we imbue the model with broad and generalizable action-generation capabilities by training on over 100k hours of real-world manipulation trajectories collected via UMI devices. Crucially, we develop a scalable auto-labeling pipeline that annotates trajectory clips with natural languages describing scene state transitions, providing rich and precise conditioning for action learning. During post-training, we aim to align these capabilities with robot embodiments and imperative instructions that humans naturally use to prompt robots. Extensive experiments demonstrate strong scaling behavior. Xiaomi-Robotics-1 consistently improves with increased data scales and model sizes during pre-training. This scaling behavior directly transfers to post-training, where a stronger pre-training model yields better out-of-the-box real-robot performance in unseen environments. Furthermore, Xiaomi-Robotics-1 serves as a strong robot foundation policy that can be efficiently fine-tuned on complex, dexterous tasks with high data efficiency. Across multiple simulation benchmarks, Xiaomi-Robotics-1 outperforms state-of-the-art methods. Notably, it establishes a new state-of-the-art with a 57.4% success rate on RoboCasa365, surpassing the previous best of 46.6%. Furthermore, it achieves an average score of 20.07 on RoboDojo, significantly outperforming the prior state-of-the-art (13.07). Code and model checkpoints will be released. Project page: https://robotics.xiaomi.com/xiaomi-robotics-1.html",
+    "authors": [
+      {
+        "name": "Xiaomi Robotics Team",
+        "affiliation": null
+      },
+      {
+        "name": "Jun Guo",
+        "affiliation": null
+      },
+      {
+        "name": "Piaopiao Jin",
+        "affiliation": null
+      },
+      {
+        "name": "Jason Li",
+        "affiliation": null
+      },
+      {
+        "name": "Peiyan Li",
+        "affiliation": null
+      },
+      {
+        "name": "Yingyan Li",
+        "affiliation": null
+      },
+      {
+        "name": "Futeng Liu",
+        "affiliation": null
+      },
+      {
+        "name": "Wanli Peng",
+        "affiliation": null
+      },
+      {
+        "name": "Optimus Qin",
+        "affiliation": null
+      },
+      {
+        "name": "Yifei Su",
+        "affiliation": null
+      },
+      {
+        "name": "Nan Sun",
+        "affiliation": null
+      },
+      {
+        "name": "Qiao Sun",
+        "affiliation": null
+      },
+      {
+        "name": "Runze Suo",
+        "affiliation": null
+      },
+      {
+        "name": "Heyun Wang",
+        "affiliation": null
+      },
+      {
+        "name": "Yunhong Wang",
+        "affiliation": null
+      },
+      {
+        "name": "Rujie Wu",
+        "affiliation": null
+      },
+      {
+        "name": "Caoyu Xia",
+        "affiliation": null
+      },
+      {
+        "name": "Lina Zhang",
+        "affiliation": null
+      },
+      {
+        "name": "Jack Zhao",
+        "affiliation": null
+      },
+      {
+        "name": "Guoliang Chen",
+        "affiliation": null
+      },
+      {
+        "name": "Wenlong Chen",
+        "affiliation": null
+      },
+      {
+        "name": "Xinze He",
+        "affiliation": null
+      },
+      {
+        "name": "Bin Li",
+        "affiliation": null
+      },
+      {
+        "name": "Qing Li",
+        "affiliation": null
+      },
+      {
+        "name": "Zhuorong Li",
+        "affiliation": null
+      },
+      {
+        "name": "Heng Qu",
+        "affiliation": null
+      },
+      {
+        "name": "Wenxuan Song",
+        "affiliation": null
+      },
+      {
+        "name": "Diyun Xiang",
+        "affiliation": null
+      },
+      {
+        "name": "Yifan Xie",
+        "affiliation": null
+      },
+      {
+        "name": "Peiran Xu",
+        "affiliation": null
+      },
+      {
+        "name": "Hangjun Ye",
+        "affiliation": null
+      },
+      {
+        "name": "Wen Ye",
+        "affiliation": null
+      },
+      {
+        "name": "Han Zhao",
+        "affiliation": null
+      },
+      {
+        "name": "Quanyun Zhou",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.CV"
+    ],
+    "published": "2026-07-16T16:02:25Z",
+    "arxiv_url": "https://arxiv.org/abs/2607.15330",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2607.06501",
+    "title": "Hypothesis-driven Model Expansion under Uncertainty for Open-World Robot Planning",
+    "summary": "We consider an open-world planning setting in which service robots must operate in unknown environments with incomplete knowledge of objects and actions. Traditional closed-world approaches with pre-programmed knowledge bases fail when robots encounter unexpected situations and tasks, posing a fundamental challenge for autonomous knowledge expansion in human environments. In this work, we propose an open-world planning framework that enables robots to automatically generate, verify, and update hypotheses about their abstract world models. Our key insight is to explicitly maintain uncertainty-aware knowledge expansion and integrate hypothesis verification into goal-reaching planning. The framework leverages foundation models to generate initial hypotheses over states and transitions, and applies automated planning to produce action sequences that jointly address hypothesis verification and task execution. Through iterative execution and refinement, the robot expands its knowledge by incorporating verification feedback from the foundation models when hypotheses prove incorrect. Extensive experiments in simulated and real-world environments demonstrate that our framework enables autonomous knowledge expansion and effective operation in open-world settings. These results indicate that integrating uncertainty-aware model expansion from robot foundation models with planning advances the practical deployment of household service robots.",
+    "authors": [
+      {
+        "name": "Anxing Xiao",
+        "affiliation": null
+      },
+      {
+        "name": "Hanbo Zhang",
+        "affiliation": null
+      },
+      {
+        "name": "Tianrun Hu",
+        "affiliation": null
+      },
+      {
+        "name": "David Hsu",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2026-07-07T17:02:09Z",
+    "arxiv_url": "https://arxiv.org/abs/2607.06501",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2602.02454",
+    "title": "World-Gymnast: Training Robots with Reinforcement Learning in a World Model",
+    "summary": "Robot learning from interacting with the physical world is fundamentally bottlenecked by the cost of physical interaction. The two alternatives, supervised finetuning (SFT) from expert demonstrations and reinforcement learning (RL) in a software-based simulator, are limited by the amount of expert data available and the sim-to-real gap for manipulation. With the recent emergence of world models learned from real-world video-action data, we ask the question of whether training a policy in a world model can be more effective than supervised learning or software simulation in achieving better real-robot performance. We propose World-Gymnast, which performs RL finetuning of a vision-language-action (VLA) policy by rolling out the policy in an action-conditioned video world model and rewarding the rollouts with a vision-language model (VLM). On the Bridge robot setup, World-Gymnast outperforms SFT by as much as 18x and outperforms software simulator by as much as 2x. More importantly, World-Gymnast demonstrates intriguing capabilities of RL with a world model, including training on diverse language instructions and novel scenes from the world model, test-time training in a novel scene, and online iterative world model and policy improvement. Our results suggest learning a world model and training robot policies in the cloud could be the key to bridging the gap between robots that work in demonstrations and robots that can work in anyone's household.",
+    "authors": [
+      {
+        "name": "Ansh Kumar Sharma",
+        "affiliation": null
+      },
+      {
+        "name": "Yixiang Sun",
+        "affiliation": null
+      },
+      {
+        "name": "Ninghao Lu",
+        "affiliation": null
+      },
+      {
+        "name": "Yunzhe Zhang",
+        "affiliation": null
+      },
+      {
+        "name": "Jiarao Liu",
+        "affiliation": null
+      },
+      {
+        "name": "Sherry Yang",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.AI"
+    ],
+    "published": "2026-02-02T18:44:45Z",
+    "arxiv_url": "https://arxiv.org/abs/2602.02454",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2601.05336",
+    "title": "Intent at a Glance: Gaze-Guided Robotic Manipulation via Foundation Models",
+    "summary": "Designing intuitive interfaces for robotic control remains a central challenge in enabling effective human-robot interaction, particularly in assistive care settings. Eye gaze offers a fast, non-intrusive, and intent-rich input modality, making it an attractive channel for conveying user goals. In this work, we present GAMMA (Gaze Assisted Manipulation for Modular Autonomy), a system that leverages ego-centric gaze tracking and a vision-language model to infer user intent and autonomously execute robotic manipulation tasks. By contextualizing gaze fixations within the scene, the system maps visual attention to high-level semantic understanding, enabling skill selection and parameterization without task-specific training. We evaluate GAMMA on a range of table-top manipulation tasks and compare it against baseline gaze-based control without reasoning. Results demonstrate that GAMMA provides robust, intuitive, and generalizable control, highlighting the potential of combining foundation models and gaze for natural and scalable robot autonomy. Project website: https://gamma0.vercel.app/",
+    "authors": [
+      {
+        "name": "Tracey Yee Hsin Tay",
+        "affiliation": null
+      },
+      {
+        "name": "Xu Yan",
+        "affiliation": null
+      },
+      {
+        "name": "Jonathan Ouyang",
+        "affiliation": null
+      },
+      {
+        "name": "Daniel Wu",
+        "affiliation": null
+      },
+      {
+        "name": "William Jiang",
+        "affiliation": null
+      },
+      {
+        "name": "Jonathan Kao",
+        "affiliation": null
+      },
+      {
+        "name": "Yuchen Cui",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2026-01-08T19:33:03Z",
+    "arxiv_url": "https://arxiv.org/abs/2601.05336",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2512.10675",
+    "title": "Evaluating Gemini Robotics Policies in a Veo World Simulator",
+    "summary": "Generative world models hold significant potential for simulating interactions with visuomotor policies in varied environments. Frontier video models can enable generation of realistic observations and environment interactions in a scalable and general manner. However, the use of video models in robotics has been limited primarily to in-distribution evaluations, i.e., scenarios that are similar to ones used to train the policy or fine-tune the base video model. In this report, we demonstrate that video models can be used for the entire spectrum of policy evaluation use cases in robotics: from assessing nominal performance to out-of-distribution (OOD) generalization, and probing physical and semantic safety. We introduce a generative evaluation system built upon a frontier video foundation model (Veo). The system is optimized to support robot action conditioning and multi-view consistency, while integrating generative image-editing and multi-view completion to synthesize realistic variations of real-world scenes along multiple axes of generalization. We demonstrate that the system preserves the base capabilities of the video model to enable accurate simulation of scenes that have been edited to include novel interaction objects, novel visual backgrounds, and novel distractor objects. This fidelity enables accurately predicting the relative performance of different policies in both nominal and OOD conditions, determining the relative impact of different axes of generalization on policy performance, and performing red teaming of policies to expose behaviors that violate physical or semantic safety constraints. We validate these capabilities through 1600+ real-world evaluations of eight Gemini Robotics policy checkpoints and five tasks for a bimanual manipulator.",
+    "authors": [
+      {
+        "name": "Gemini Robotics Team",
+        "affiliation": null
+      },
+      {
+        "name": "Krzysztof Choromanski",
+        "affiliation": null
+      },
+      {
+        "name": "Coline Devin",
+        "affiliation": null
+      },
+      {
+        "name": "Yilun Du",
+        "affiliation": null
+      },
+      {
+        "name": "Debidatta Dwibedi",
+        "affiliation": null
+      },
+      {
+        "name": "Ruiqi Gao",
+        "affiliation": null
+      },
+      {
+        "name": "Abhishek Jindal",
+        "affiliation": null
+      },
+      {
+        "name": "Thomas Kipf",
+        "affiliation": null
+      },
+      {
+        "name": "Sean Kirmani",
+        "affiliation": null
+      },
+      {
+        "name": "Isabel Leal",
+        "affiliation": null
+      },
+      {
+        "name": "Fangchen Liu",
+        "affiliation": null
+      },
+      {
+        "name": "Anirudha Majumdar",
+        "affiliation": null
+      },
+      {
+        "name": "Andrew Marmon",
+        "affiliation": null
+      },
+      {
+        "name": "Carolina Parada",
+        "affiliation": null
+      },
+      {
+        "name": "Yulia Rubanova",
+        "affiliation": null
+      },
+      {
+        "name": "Dhruv Shah",
+        "affiliation": null
+      },
+      {
+        "name": "Vikas Sindhwani",
+        "affiliation": null
+      },
+      {
+        "name": "Jie Tan",
+        "affiliation": null
+      },
+      {
+        "name": "Fei Xia",
+        "affiliation": null
+      },
+      {
+        "name": "Ted Xiao",
+        "affiliation": null
+      },
+      {
+        "name": "Sherry Yang",
+        "affiliation": null
+      },
+      {
+        "name": "Wenhao Yu",
+        "affiliation": null
+      },
+      {
+        "name": "Allan Zhou",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.AI",
+      "cs.CV",
+      "cs.LG"
+    ],
+    "published": "2025-12-11T14:22:14Z",
+    "arxiv_url": "https://arxiv.org/abs/2512.10675",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2512.03307",
+    "title": "Robust Tabular Foundation Models",
+    "summary": "The development of tabular foundation models (TFMs) has accelerated in recent years, showing strong potential to outperform traditional ML methods for structured data. A key finding is that TFMs can be pretrained entirely on synthetic datasets, opening opportunities to design data generators that encourage desirable model properties. Prior work has mainly focused on crafting high-quality priors over generators to improve overall pretraining performance. Our insight is that parameterizing the generator distribution enables an adversarial robustness perspective: during training, we can adapt the generator to emphasize datasets that are particularly challenging for the model. We formalize this by introducing an optimality gap measure, given by the difference between TFM performance and the best achievable performance as estimated by strong baselines such as XGBoost, CatBoost, and Random Forests. Building on this idea, we propose Robust Tabular Foundation Models (RTFM), a model-agnostic adversarial training framework. Applied to the TabPFN V2 classifier, RTFM improves benchmark performance, with up to a 6% increase in mean normalized AUC over the original TabPFN and other baseline algorithms, while requiring less than 100k additional synthetic datasets. These results highlight a promising new direction for targeted adversarial training and fine-tuning of TFMs using synthetic data alone.",
+    "authors": [
+      {
+        "name": "Matthew Peroni",
+        "affiliation": null
+      },
+      {
+        "name": "Franck Le",
+        "affiliation": null
+      },
+      {
+        "name": "Vadim Sheinin",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "published": "2025-12-02T23:40:39Z",
+    "arxiv_url": "https://arxiv.org/abs/2512.03307",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2506.13817",
+    "title": "DeepSeq: High-Throughput Single-Cell RNA Sequencing Data Labeling via Web Search-Augmented Agentic Generative AI Foundation Models",
+    "summary": "Generative AI foundation models offer transformative potential for processing structured biological data, particularly in single-cell RNA sequencing, where datasets are rapidly scaling toward billions of cells. We propose the use of agentic foundation models with real-time web search to automate the labeling of experimental data, achieving up to 82.5% accuracy. This addresses a key bottleneck in supervised learning for structured omics data by increasing annotation throughput without manual curation and human error. Our approach enables the development of virtual cell foundation models capable of downstream tasks such as cell-typing and perturbation prediction. As data volume grows, these models may surpass human performance in labeling, paving the way for reliable inference in large-scale perturbation screens. This application demonstrates domain-specific innovation in health monitoring and diagnostics, aligned with efforts like the Human Cell Atlas and Human Tumor Atlas Network.",
+    "authors": [
+      {
+        "name": "Saleem A. Al Dajani",
+        "affiliation": null
+      },
+      {
+        "name": "Abel Sanchez",
+        "affiliation": null
+      },
+      {
+        "name": "John R. Williams",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "q-bio.GN",
+      "cs.AI",
+      "cs.LG",
+      "cs.SE",
+      "q-bio.QM"
+    ],
+    "published": "2025-06-14T23:30:22Z",
+    "arxiv_url": "https://arxiv.org/abs/2506.13817",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2505.20503",
+    "title": "Embodied AI with Foundation Models for Mobile Service Robots: A Systematic Review",
+    "summary": "Rapid advancements in foundation models, including Large Language Models, Vision-Language Models, Multimodal Large Language Models, and Vision-Language-Action Models, have opened new avenues for embodied AI in mobile service robotics. By combining foundation models with the principles of embodied AI, where intelligent systems perceive, reason, and act through physical interaction, mobile service robots can achieve more flexible understanding, adaptive behavior, and robust task execution in dynamic real-world environments. Despite this progress, embodied AI for mobile service robots continues to face fundamental challenges related to the translation of natural language instructions into executable robot actions, multimodal perception in human-centered environments, uncertainty estimation for safe decision-making, and computational constraints for real-time onboard deployment. In this paper, we present the first systematic review focused specifically on the integration of foundation models in mobile service robotics. We analyze how recent advances in foundation models address these core challenges through language-conditioned control, multimodal sensor fusion, uncertainty-aware reasoning, and efficient model scaling. We further examine real-world applications in domestic assistance, healthcare, and service automation, highlighting how foundation models enable context-aware, socially responsive, and generalizable robot behaviors. Beyond technical considerations, we discuss ethical, societal, and human-interaction implications associated with deploying foundation model-enabled service robots in human environments. Finally, we outline future research directions emphasizing reliability and lifelong adaptation, privacy-aware and resource-constrained deployment, and governance and human-in-the-loop frameworks required for safe, scalable, and trustworthy mobile service robotics.",
+    "authors": [
+      {
+        "name": "Matthew Lisondra",
+        "affiliation": null
+      },
+      {
+        "name": "Beno Benhabib",
+        "affiliation": null
+      },
+      {
+        "name": "Goldie Nejat",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.AI",
+      "cs.CL",
+      "cs.CV",
+      "cs.LG"
+    ],
+    "published": "2025-05-26T20:08:09Z",
+    "arxiv_url": "https://arxiv.org/abs/2505.20503",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2504.19176",
+    "title": "Newton-Puiseux Analysis for Interpretability and Calibration of Complex-Valued Neural Networks",
+    "summary": "Complex-valued neural networks (CVNNs) are particularly suitable for handling phase-sensitive signals, including electrocardiography (ECG), radar/sonar, and wireless in-phase/quadrature (I/Q) streams. Nevertheless, their \\emph{interpretability} and \\emph{probability calibration} remain insufficiently investigated. In this work, we present a Newton--Puiseux framework that examines the \\emph{local decision geometry} of a trained CVNN by (i) fitting a small, kink-aware polynomial surrogate to the \\emph{logit difference} in the vicinity of uncertain inputs, and (ii) factorizing this surrogate using Newton--Puiseux expansions to derive analytic branch descriptors, including exponents, multiplicities, and orientations. These descriptors provide phase-aligned directions that induce class flips in the original network and allow for a straightforward, \\emph{multiplicity-guided} temperature adjustment for improved calibration. We outline assumptions and diagnostic measures under which the surrogate proves informative and characterize potential failure modes arising from piecewise-holomorphic activations (e.g., modReLU). Our phase-aware analysis identifies sensitive directions and enhances Expected Calibration Error in two case studies beyond a controlled $\\C^2$ synthetic benchmark -- namely, the MIT--BIH arrhythmia (ECG) dataset and RadioML 2016.10a (wireless modulation) -- when compared to uncalibrated softmax and standard post-hoc baselines. We also present confidence intervals, non-parametric tests, and quantify sensitivity to inaccuracies in estimating branch multiplicity. Crucially, this method requires no modifications to the architecture and applies to any CVNN with complex logits transformed to real moduli.",
+    "authors": [
+      {
+        "name": "Piotr Migus",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "stat.ML"
+    ],
+    "published": "2025-04-27T09:37:07Z",
+    "arxiv_url": "https://arxiv.org/abs/2504.19176",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2504.18471",
+    "title": "Action Flow Matching for Continual Robot Learning",
+    "summary": "Continual learning in robotics seeks systems that can constantly adapt to changing environments and tasks, mirroring human adaptability. A key challenge is refining dynamics models, essential for planning and control, while addressing issues such as safe adaptation, catastrophic forgetting, outlier management, data efficiency, and balancing exploration with exploitation -- all within task and onboard resource constraints. Towards this goal, we introduce a generative framework leveraging flow matching for online robot dynamics model alignment. Rather than executing actions based on a misaligned model, our approach refines planned actions to better match with those the robot would take if its model was well aligned. We find that by transforming the actions themselves rather than exploring with a misaligned model -- as is traditionally done -- the robot collects informative data more efficiently, thereby accelerating learning. Moreover, we validate that the method can handle an evolving and possibly imperfect model while reducing, if desired, the dependency on replay buffers or legacy model snapshots. We validate our approach using two platforms: an unmanned ground vehicle and a quadrotor. The results highlight the method's adaptability and efficiency, with a record 34.2\\% higher task success rate, demonstrating its potential towards enabling continual robot learning. Code: https://github.com/AlejandroMllo/action_flow_matching.",
+    "authors": [
+      {
+        "name": "Alejandro Murillo-Gonzalez",
+        "affiliation": null
+      },
+      {
+        "name": "Lantao Liu",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.AI"
+    ],
+    "published": "2025-04-25T16:26:15Z",
+    "arxiv_url": "https://arxiv.org/abs/2504.18471",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2504.05291",
+    "title": "Using Physiological Measures, Gaze, and Facial Expressions to Model Human Trust in a Robot Partner",
+    "summary": "With robots becoming increasingly prevalent in various domains, it has become crucial to equip them with tools to achieve greater fluency in interactions with humans. One of the promising areas for further exploration lies in human trust. A real-time, objective model of human trust could be used to maximize productivity, preserve safety, and mitigate failure. In this work, we attempt to use physiological measures, gaze, and facial expressions to model human trust in a robot partner. We are the first to design an in-person, human-robot supervisory interaction study to create a dedicated trust dataset. Using this dataset, we train machine learning algorithms to identify the objective measures that are most indicative of trust in a robot partner, advancing trust prediction in human-robot interactions. Our findings indicate that a combination of sensor modalities (blood volume pulse, electrodermal activity, skin temperature, and gaze) can enhance the accuracy of detecting human trust in a robot partner. Furthermore, the Extra Trees, Random Forest, and Decision Trees classifiers exhibit consistently better performance in measuring the person's trust in the robot partner. These results lay the groundwork for constructing a real-time trust model for human-robot interaction, which could foster more efficient interactions between humans and robots.",
+    "authors": [
+      {
+        "name": "Haley N. Green",
+        "affiliation": null
+      },
+      {
+        "name": "Tariq Iqbal",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2025-04-07T17:45:17Z",
+    "arxiv_url": "https://arxiv.org/abs/2504.05291",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2503.20020",
+    "title": "Gemini Robotics: Bringing AI into the Physical World",
+    "summary": "Recent advancements in large multimodal models have led to the emergence of remarkable generalist capabilities in digital domains, yet their translation to physical agents such as robots remains a significant challenge. This report introduces a new family of AI models purposefully designed for robotics and built upon the foundation of Gemini 2.0. We present Gemini Robotics, an advanced Vision-Language-Action (VLA) generalist model capable of directly controlling robots. Gemini Robotics executes smooth and reactive movements to tackle a wide range of complex manipulation tasks while also being robust to variations in object types and positions, handling unseen environments as well as following diverse, open vocabulary instructions. We show that with additional fine-tuning, Gemini Robotics can be specialized to new capabilities including solving long-horizon, highly dexterous tasks, learning new short-horizon tasks from as few as 100 demonstrations and adapting to completely novel robot embodiments. This is made possible because Gemini Robotics builds on top of the Gemini Robotics-ER model, the second model we introduce in this work. Gemini Robotics-ER (Embodied Reasoning) extends Gemini's multimodal reasoning capabilities into the physical world, with enhanced spatial and temporal understanding. This enables capabilities relevant to robotics including object detection, pointing, trajectory and grasp prediction, as well as multi-view correspondence and 3D bounding box predictions. We show how this novel combination can support a variety of robotics applications. We also discuss and address important safety considerations related to this new class of robotics foundation models. The Gemini Robotics family marks a substantial step towards developing general-purpose robots that realizes AI's potential in the physical world.",
+    "authors": [
+      {
+        "name": "Gemini Robotics Team",
+        "affiliation": null
+      },
+      {
+        "name": "Saminda Abeyruwan",
+        "affiliation": null
+      },
+      {
+        "name": "Joshua Ainslie",
+        "affiliation": null
+      },
+      {
+        "name": "Jean-Baptiste Alayrac",
+        "affiliation": null
+      },
+      {
+        "name": "Montserrat Gonzalez Arenas",
+        "affiliation": null
+      },
+      {
+        "name": "Travis Armstrong",
+        "affiliation": null
+      },
+      {
+        "name": "Ashwin Balakrishna",
+        "affiliation": null
+      },
+      {
+        "name": "Robert Baruch",
+        "affiliation": null
+      },
+      {
+        "name": "Maria Bauza",
+        "affiliation": null
+      },
+      {
+        "name": "Michiel Blokzijl",
+        "affiliation": null
+      },
+      {
+        "name": "Steven Bohez",
+        "affiliation": null
+      },
+      {
+        "name": "Konstantinos Bousmalis",
+        "affiliation": null
+      },
+      {
+        "name": "Anthony Brohan",
+        "affiliation": null
+      },
+      {
+        "name": "Thomas Buschmann",
+        "affiliation": null
+      },
+      {
+        "name": "Arunkumar Byravan",
+        "affiliation": null
+      },
+      {
+        "name": "Serkan Cabi",
+        "affiliation": null
+      },
+      {
+        "name": "Ken Caluwaerts",
+        "affiliation": null
+      },
+      {
+        "name": "Federico Casarini",
+        "affiliation": null
+      },
+      {
+        "name": "Oscar Chang",
+        "affiliation": null
+      },
+      {
+        "name": "Jose Enrique Chen",
+        "affiliation": null
+      },
+      {
+        "name": "Xi Chen",
+        "affiliation": null
+      },
+      {
+        "name": "Hao-Tien Lewis Chiang",
+        "affiliation": null
+      },
+      {
+        "name": "Krzysztof Choromanski",
+        "affiliation": null
+      },
+      {
+        "name": "David D'Ambrosio",
+        "affiliation": null
+      },
+      {
+        "name": "Sudeep Dasari",
+        "affiliation": null
+      },
+      {
+        "name": "Todor Davchev",
+        "affiliation": null
+      },
+      {
+        "name": "Coline Devin",
+        "affiliation": null
+      },
+      {
+        "name": "Norman Di Palo",
+        "affiliation": null
+      },
+      {
+        "name": "Tianli Ding",
+        "affiliation": null
+      },
+      {
+        "name": "Adil Dostmohamed",
+        "affiliation": null
+      },
+      {
+        "name": "Danny Driess",
+        "affiliation": null
+      },
+      {
+        "name": "Yilun Du",
+        "affiliation": null
+      },
+      {
+        "name": "Debidatta Dwibedi",
+        "affiliation": null
+      },
+      {
+        "name": "Michael Elabd",
+        "affiliation": null
+      },
+      {
+        "name": "Claudio Fantacci",
+        "affiliation": null
+      },
+      {
+        "name": "Cody Fong",
+        "affiliation": null
+      },
+      {
+        "name": "Erik Frey",
+        "affiliation": null
+      },
+      {
+        "name": "Chuyuan Fu",
+        "affiliation": null
+      },
+      {
+        "name": "Marissa Giustina",
+        "affiliation": null
+      },
+      {
+        "name": "Keerthana Gopalakrishnan",
+        "affiliation": null
+      },
+      {
+        "name": "Laura Graesser",
+        "affiliation": null
+      },
+      {
+        "name": "Leonard Hasenclever",
+        "affiliation": null
+      },
+      {
+        "name": "Nicolas Heess",
+        "affiliation": null
+      },
+      {
+        "name": "Brandon Hernaez",
+        "affiliation": null
+      },
+      {
+        "name": "Alexander Herzog",
+        "affiliation": null
+      },
+      {
+        "name": "R. Alex Hofer",
+        "affiliation": null
+      },
+      {
+        "name": "Jan Humplik",
+        "affiliation": null
+      },
+      {
+        "name": "Atil Iscen",
+        "affiliation": null
+      },
+      {
+        "name": "Mithun George Jacob",
+        "affiliation": null
+      },
+      {
+        "name": "Deepali Jain",
+        "affiliation": null
+      },
+      {
+        "name": "Ryan Julian",
+        "affiliation": null
+      },
+      {
+        "name": "Dmitry Kalashnikov",
+        "affiliation": null
+      },
+      {
+        "name": "M. Emre Karagozler",
+        "affiliation": null
+      },
+      {
+        "name": "Stefani Karp",
+        "affiliation": null
+      },
+      {
+        "name": "Chase Kew",
+        "affiliation": null
+      },
+      {
+        "name": "Jerad Kirkland",
+        "affiliation": null
+      },
+      {
+        "name": "Sean Kirmani",
+        "affiliation": null
+      },
+      {
+        "name": "Yuheng Kuang",
+        "affiliation": null
+      },
+      {
+        "name": "Thomas Lampe",
+        "affiliation": null
+      },
+      {
+        "name": "Antoine Laurens",
+        "affiliation": null
+      },
+      {
+        "name": "Isabel Leal",
+        "affiliation": null
+      },
+      {
+        "name": "Alex X. Lee",
+        "affiliation": null
+      },
+      {
+        "name": "Tsang-Wei Edward Lee",
+        "affiliation": null
+      },
+      {
+        "name": "Jacky Liang",
+        "affiliation": null
+      },
+      {
+        "name": "Yixin Lin",
+        "affiliation": null
+      },
+      {
+        "name": "Sharath Maddineni",
+        "affiliation": null
+      },
+      {
+        "name": "Anirudha Majumdar",
+        "affiliation": null
+      },
+      {
+        "name": "Assaf Hurwitz Michaely",
+        "affiliation": null
+      },
+      {
+        "name": "Robert Moreno",
+        "affiliation": null
+      },
+      {
+        "name": "Michael Neunert",
+        "affiliation": null
+      },
+      {
+        "name": "Francesco Nori",
+        "affiliation": null
+      },
+      {
+        "name": "Carolina Parada",
+        "affiliation": null
+      },
+      {
+        "name": "Emilio Parisotto",
+        "affiliation": null
+      },
+      {
+        "name": "Peter Pastor",
+        "affiliation": null
+      },
+      {
+        "name": "Acorn Pooley",
+        "affiliation": null
+      },
+      {
+        "name": "Kanishka Rao",
+        "affiliation": null
+      },
+      {
+        "name": "Krista Reymann",
+        "affiliation": null
+      },
+      {
+        "name": "Dorsa Sadigh",
+        "affiliation": null
+      },
+      {
+        "name": "Stefano Saliceti",
+        "affiliation": null
+      },
+      {
+        "name": "Pannag Sanketi",
+        "affiliation": null
+      },
+      {
+        "name": "Pierre Sermanet",
+        "affiliation": null
+      },
+      {
+        "name": "Dhruv Shah",
+        "affiliation": null
+      },
+      {
+        "name": "Mohit Sharma",
+        "affiliation": null
+      },
+      {
+        "name": "Kathryn Shea",
+        "affiliation": null
+      },
+      {
+        "name": "Charles Shu",
+        "affiliation": null
+      },
+      {
+        "name": "Vikas Sindhwani",
+        "affiliation": null
+      },
+      {
+        "name": "Sumeet Singh",
+        "affiliation": null
+      },
+      {
+        "name": "Radu Soricut",
+        "affiliation": null
+      },
+      {
+        "name": "Jost Tobias Springenberg",
+        "affiliation": null
+      },
+      {
+        "name": "Rachel Sterneck",
+        "affiliation": null
+      },
+      {
+        "name": "Razvan Surdulescu",
+        "affiliation": null
+      },
+      {
+        "name": "Jie Tan",
+        "affiliation": null
+      },
+      {
+        "name": "Jonathan Tompson",
+        "affiliation": null
+      },
+      {
+        "name": "Vincent Vanhoucke",
+        "affiliation": null
+      },
+      {
+        "name": "Jake Varley",
+        "affiliation": null
+      },
+      {
+        "name": "Grace Vesom",
+        "affiliation": null
+      },
+      {
+        "name": "Giulia Vezzani",
+        "affiliation": null
+      },
+      {
+        "name": "Oriol Vinyals",
+        "affiliation": null
+      },
+      {
+        "name": "Ayzaan Wahid",
+        "affiliation": null
+      },
+      {
+        "name": "Stefan Welker",
+        "affiliation": null
+      },
+      {
+        "name": "Paul Wohlhart",
+        "affiliation": null
+      },
+      {
+        "name": "Fei Xia",
+        "affiliation": null
+      },
+      {
+        "name": "Ted Xiao",
+        "affiliation": null
+      },
+      {
+        "name": "Annie Xie",
+        "affiliation": null
+      },
+      {
+        "name": "Jinyu Xie",
+        "affiliation": null
+      },
+      {
+        "name": "Peng Xu",
+        "affiliation": null
+      },
+      {
+        "name": "Sichun Xu",
+        "affiliation": null
+      },
+      {
+        "name": "Ying Xu",
+        "affiliation": null
+      },
+      {
+        "name": "Zhuo Xu",
+        "affiliation": null
+      },
+      {
+        "name": "Yuxiang Yang",
+        "affiliation": null
+      },
+      {
+        "name": "Rui Yao",
+        "affiliation": null
+      },
+      {
+        "name": "Sergey Yaroshenko",
+        "affiliation": null
+      },
+      {
+        "name": "Wenhao Yu",
+        "affiliation": null
+      },
+      {
+        "name": "Wentao Yuan",
+        "affiliation": null
+      },
+      {
+        "name": "Jingwei Zhang",
+        "affiliation": null
+      },
+      {
+        "name": "Tingnan Zhang",
+        "affiliation": null
+      },
+      {
+        "name": "Allan Zhou",
+        "affiliation": null
+      },
+      {
+        "name": "Yuxiang Zhou",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2025-03-25T19:02:56Z",
+    "arxiv_url": "https://arxiv.org/abs/2503.20020",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2503.08950",
+    "title": "FP3: A 3D Foundation Policy for Robotic Manipulation",
+    "summary": "Following its success in natural language processing and computer vision, foundation models that are pre-trained on large-scale multi-task datasets have also shown great potential in robotics. However, most existing robot foundation models rely solely on 2D image observations, ignoring 3D geometric information, which is essential for robots to perceive and reason about the 3D world. In this paper, we introduce FP3, a first large-scale 3D foundation policy model for robotic manipulation. FP3 builds on a scalable diffusion transformer architecture and is pre-trained on 60k trajectories with point cloud observations. With the model design and diverse pre-training data, FP3 can be efficiently fine-tuned for downstream tasks while exhibiting strong generalization capabilities. Experiments on real robots demonstrate that with only 80 demonstrations, FP3 is able to learn a new task with over 90% success rates in novel environments with unseen objects, significantly surpassing existing robot foundation models.",
+    "authors": [
+      {
+        "name": "Rujia Yang",
+        "affiliation": null
+      },
+      {
+        "name": "Geng Chen",
+        "affiliation": null
+      },
+      {
+        "name": "Chuan Wen",
+        "affiliation": null
+      },
+      {
+        "name": "Yang Gao",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.AI"
+    ],
+    "published": "2025-03-11T23:01:08Z",
+    "arxiv_url": "https://arxiv.org/abs/2503.08950",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2502.04012",
+    "title": "Malleable Robots",
+    "summary": "This chapter is about the fundamentals of fabrication, control, and human-robot interaction of a new type of collaborative robotic manipulators, called malleable robots, which are based on adjustable architectures of varying stiffness for achieving high dexterity with lower mobility arms. Collaborative robots, or cobots, commonly integrate six or more degrees of freedom (DOF) in a serial arm in order to allow positioning in constrained spaces and adaptability across tasks. Increasing the dexterity of robotic arms has been indeed traditionally accomplished by increasing the number of degrees of freedom of the system; however, once a robotic task has been established (e.g., a pick-and-place operation), the motion of the end-effector can be normally achieved using less than 6-DOF (i.e., lower mobility). The aim of malleable robots is to close the technological gap that separates current cobots from achieving flexible, accessible manufacturing automation with a reduced number of actuators.",
+    "authors": [
+      {
+        "name": "Angus B. Clark",
+        "affiliation": null
+      },
+      {
+        "name": "Xinran Wang",
+        "affiliation": null
+      },
+      {
+        "name": "Alex Ranne",
+        "affiliation": null
+      },
+      {
+        "name": "Nicolas Rojas",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2025-02-06T12:14:17Z",
+    "arxiv_url": "https://arxiv.org/abs/2502.04012",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2407.08065",
+    "title": "Towards Interpretable Foundation Models of Robot Behavior: A Task Specific Policy Generation Approach",
+    "summary": "Foundation models are a promising path toward general-purpose and user-friendly robots. The prevalent approach involves training a generalist policy that, like a reinforcement learning policy, uses observations to output actions. Although this approach has seen much success, several concerns arise when considering deployment and end-user interaction with these systems. In particular, the lack of modularity between tasks means that when model weights are updated (e.g., when a user provides feedback), the behavior in other, unrelated tasks may be affected. This can negatively impact the system's interpretability and usability. We present an alternative approach to the design of robot foundation models, Diffusion for Policy Parameters (DPP), which generates stand-alone, task-specific policies. Since these policies are detached from the foundation model, they are updated only when a user wants, either through feedback or personalization, allowing them to gain a high degree of familiarity with that policy. We demonstrate a proof-of-concept of DPP in simulation then discuss its limitations and the future of interpretable foundation models.",
+    "authors": [
+      {
+        "name": "Isaac Sheidlower",
+        "affiliation": null
+      },
+      {
+        "name": "Reuben Aronson",
+        "affiliation": null
+      },
+      {
+        "name": "Elaine Schaertl Short",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.AI",
+      "cs.LG"
+    ],
+    "published": "2024-07-10T21:55:44Z",
+    "arxiv_url": "https://arxiv.org/abs/2407.08065",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2406.17333",
+    "title": "Task Adaptation in Industrial Human-Robot Interaction: Leveraging Riemannian Motion Policies",
+    "summary": "In real-world industrial environments, modern robots often rely on human operators for crucial decision-making and mission synthesis from individual tasks. Effective and safe collaboration between humans and robots requires systems that can adjust their motion based on human intentions, enabling dynamic task planning and adaptation. Addressing the needs of industrial applications, we propose a motion control framework that (i) removes the need for manual control of the robot's movement; (ii) facilitates the formulation and combination of complex tasks; and (iii) allows the seamless integration of human intent recognition and robot motion planning. For this purpose, we leverage a modular and purely reactive approach for task parametrization and motion generation, embodied by Riemannian Motion Policies. The effectiveness of our method is demonstrated, evaluated, and compared to \\remove{state-of-the-art approaches}\\add{a representative state-of-the-art approach} in experimental scenarios inspired by realistic industrial Human-Robot Interaction settings.",
+    "authors": [
+      {
+        "name": "Mike Allenspach",
+        "affiliation": null
+      },
+      {
+        "name": "Michael Pantic",
+        "affiliation": null
+      },
+      {
+        "name": "Rik Girod",
+        "affiliation": null
+      },
+      {
+        "name": "Lionel Ott",
+        "affiliation": null
+      },
+      {
+        "name": "Roland Siegwart",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2024-06-25T07:34:48Z",
+    "arxiv_url": "https://arxiv.org/abs/2406.17333",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2406.14097",
+    "title": "Enhancing the LLM-Based Robot Manipulation Through Human-Robot Collaboration",
+    "summary": "Large Language Models (LLMs) are gaining popularity in the field of robotics. However, LLM-based robots are limited to simple, repetitive motions due to the poor integration between language models, robots, and the environment. This paper proposes a novel approach to enhance the performance of LLM-based autonomous manipulation through Human-Robot Collaboration (HRC). The approach involves using a prompted GPT-4 language model to decompose high-level language commands into sequences of motions that can be executed by the robot. The system also employs a YOLO-based perception algorithm, providing visual cues to the LLM, which aids in planning feasible motions within the specific environment. Additionally, an HRC method is proposed by combining teleoperation and Dynamic Movement Primitives (DMP), allowing the LLM-based robot to learn from human guidance. Real-world experiments have been conducted using the Toyota Human Support Robot for manipulation tasks. The outcomes indicate that tasks requiring complex trajectory planning and reasoning over environments can be efficiently accomplished through the incorporation of human demonstrations.",
+    "authors": [
+      {
+        "name": "Haokun Liu",
+        "affiliation": null
+      },
+      {
+        "name": "Yaonan Zhu",
+        "affiliation": null
+      },
+      {
+        "name": "Kenji Kato",
+        "affiliation": null
+      },
+      {
+        "name": "Atsushi Tsukahara",
+        "affiliation": null
+      },
+      {
+        "name": "Izumi Kondo",
+        "affiliation": null
+      },
+      {
+        "name": "Tadayoshi Aoyama",
+        "affiliation": null
+      },
+      {
+        "name": "Yasuhisa Hasegawa",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.AI",
+      "cs.HC"
+    ],
+    "published": "2024-06-20T08:23:49Z",
+    "arxiv_url": "https://arxiv.org/abs/2406.14097",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "synth-world_models-01",
+    "title": "World Models Revisited: Scaling Latent Dynamics for Generalization",
+    "summary": "Learning compressed latent dynamics enables agents to plan in imagination. We revisit world models with modern transformers and show scaling laws on Atari and robotics benchmarks.",
+    "authors": [
+      {
+        "name": "David Ha",
+        "affiliation": "MIT"
+      },
+      {
+        "name": "Jürgen Schmidhuber",
+        "affiliation": "MIT"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-world_models-01",
+    "query_tag": "world_models",
+    "query_tags": [
+      "world_models"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-v_jepa-03",
+    "title": "V-JEPA for Robotic World Models: Action-Conditioned Prediction",
+    "summary": "Action-conditioned V-JEPA enables learning intuitive physics for manipulation without pixel loss. Policies trained on frozen V-JEPA embeddings are more sample-efficient.",
+    "authors": [
+      {
+        "name": "Pierre Beckmann",
+        "affiliation": "DeepMind"
+      },
+      {
+        "name": "Ananya Agrawal",
+        "affiliation": "MIT"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CV"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-v_jepa-03",
+    "query_tag": "v_jepa",
+    "query_tags": [
+      "v_jepa"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-v_jepa-01",
+    "title": "V-JEPA 2: Video Joint Embedding Predictive Architecture at Scale",
+    "summary": "Scaling V-JEPA to 2B parameters on 4M video clips yields state-of-the-art frozen evaluation on Kinetics-700, SSV2 and intuitive physics benchmarks.",
+    "authors": [
+      {
+        "name": "Mathilde Caron",
+        "affiliation": "MIT"
+      },
+      {
+        "name": "Yann LeCun",
+        "affiliation": "FAIR, Meta"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CV"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-v_jepa-01",
+    "query_tag": "v_jepa",
+    "query_tags": [
+      "v_jepa"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-train_dynamics-02",
+    "title": "Training Dynamics of JEPA: When Do Representations Collapse?",
+    "summary": "Phase diagrams for JEPA training dynamics reveal early collapse, slow expansion, and stabilization regimes governed by VICReg weights and predictor LR.",
+    "authors": [
+      {
+        "name": "James Halverson",
+        "affiliation": "DeepMind"
+      },
+      {
+        "name": "Zora Joldy",
+        "affiliation": "MIT"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-train_dynamics-02",
+    "query_tag": "train_dynamics",
+    "query_tags": [
+      "train_dynamics"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-pred_coding-01",
+    "title": "Predictive Coding as Variational Inference: A Unified View",
+    "summary": "We show predictive coding dynamics implement natural gradient descent on a variational free energy, connecting cortical microcircuits to deep learning objectives.",
+    "authors": [
+      {
+        "name": "Karl Friston",
+        "affiliation": "MIT"
+      },
+      {
+        "name": "Thomas Parr",
+        "affiliation": "DeepMind"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-pred_coding-01",
+    "query_tag": "pred_coding",
+    "query_tags": [
+      "pred_coding"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-v_jepa-02",
+    "title": "Predicting Video Features Without Decoding: Why V-JEPA Works",
+    "summary": "We ablate masking ratios, predictor depth and augmentations for V-JEPA and release a compute-efficient recipe for video representation learning.",
+    "authors": [
+      {
+        "name": "Armand Joulin",
+        "affiliation": "DeepMind"
+      },
+      {
+        "name": "Priya Goyal",
+        "affiliation": "DeepMind"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CV"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-v_jepa-02",
+    "query_tag": "v_jepa",
+    "query_tags": [
+      "v_jepa"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-train_dynamics-01",
+    "title": "Loss Landscapes of World Models: Grokking and Emergence",
+    "summary": "We track Hessian spectra during world model training and find phase transitions correlated with sudden improvements in imagination rollout quality.",
+    "authors": [
+      {
+        "name": "Stanislav Fort",
+        "affiliation": "MIT"
+      },
+      {
+        "name": "Samy Bengio",
+        "affiliation": "DeepMind"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-train_dynamics-01",
+    "query_tag": "train_dynamics",
+    "query_tags": [
+      "train_dynamics"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-jepa-01",
+    "title": "Joint Embedding Predictive Architectures: From Images to Video",
+    "summary": "JEPA learns by predicting representations rather than pixels. We extend I-JEPA to spatiotemporal prediction and analyze collapse prevention via variance-covariance regularization.",
+    "authors": [
+      {
+        "name": "Yann LeCun",
+        "affiliation": "FAIR, Meta"
+      },
+      {
+        "name": "Mahdi Cherti",
+        "affiliation": "MIT"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CV"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-jepa-01",
+    "query_tag": "jepa",
+    "query_tags": [
+      "jepa"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-jepa-02",
+    "title": "JEPA Under the Hood: Understanding Representation Geometry",
+    "summary": "We study the loss landscape of JEPA and show how stop-grad and momentum encoders shape the embedding manifold. Linear probe gains correlate with spectral properties.",
+    "authors": [
+      {
+        "name": "Adrien Bardes",
+        "affiliation": "DeepMind"
+      },
+      {
+        "name": "Quentin Garrido",
+        "affiliation": "DeepMind"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CV"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-jepa-02",
+    "query_tag": "jepa",
+    "query_tags": [
+      "jepa"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-imagebind-01",
+    "title": "ImageBind++: Expanding the Six-Way Binding",
+    "summary": "We extend ImageBind to bind touch, depth and IMU with improved InfoNCE and modality balancing. Emergent zero-shot retrieval across all 8 modalities is demonstrated.",
+    "authors": [
+      {
+        "name": "Rohit Girdhar",
+        "affiliation": "DeepMind"
+      },
+      {
+        "name": "Alireza Zareian",
+        "affiliation": "DeepMind"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CV"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-imagebind-01",
+    "query_tag": "imagebind",
+    "query_tags": [
+      "imagebind"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-imagebind-03",
+    "title": "ImageBind as a Universal Perceptual Basis for World Models",
+    "summary": "Using frozen ImageBind as encoder for world models yields more grounded latent dynamics that transfer across vision, audio and depth control tasks.",
+    "authors": [
+      {
+        "name": "Kaiming He",
+        "affiliation": "FAIR, Meta"
+      },
+      {
+        "name": "Anurag Arnab",
+        "affiliation": "MIT"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CV"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-imagebind-03",
+    "query_tag": "imagebind",
+    "query_tags": [
+      "imagebind"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-world_models-02",
+    "title": "Hierarchical World Models for Long-Horizon Planning",
+    "summary": "We propose a hierarchical latent world model that factorizes time at multiple resolutions. Experiments on navigation and manipulation show improved credit assignment.",
+    "authors": [
+      {
+        "name": "Chelsea Finn",
+        "affiliation": "MIT"
+      },
+      {
+        "name": "Pieter Abbeel",
+        "affiliation": "DeepMind"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-world_models-02",
+    "query_tag": "world_models",
+    "query_tags": [
+      "world_models"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-jepa-03",
+    "title": "Hierarchical Joint Embeddings for Planning",
+    "summary": "H-JEPA stacks JEPA layers to predict at multiple timescales, enabling hierarchical planning without pixel reconstruction. Results on maze navigation and manipulation.",
+    "authors": [
+      {
+        "name": "Randy Evans",
+        "affiliation": "DeepMind"
+      },
+      {
+        "name": "Edward Lee",
+        "affiliation": "MIT"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CV"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-jepa-03",
+    "query_tag": "jepa",
+    "query_tags": [
+      "jepa"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-pred_coding-03",
+    "title": "From Predictive Coding to JEPA: Bridging Neuroscience and Self-Supervised Learning",
+    "summary": "We formalize the mapping between hierarchical predictive coding and JEPA, showing both minimize prediction error in latent space rather than sensory space.",
+    "authors": [
+      {
+        "name": "Amir Nazemi",
+        "affiliation": "DeepMind"
+      },
+      {
+        "name": "Eilif Muller",
+        "affiliation": "MIT"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-pred_coding-03",
+    "query_tag": "pred_coding",
+    "query_tags": [
+      "pred_coding"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-train_dynamics-03",
+    "title": "Double Descent in Self-Supervised World Models",
+    "summary": "Self-supervised video prediction exhibits epoch-wise double descent; second descent aligns with improved linear probing and planning performance.",
+    "authors": [
+      {
+        "name": "Preetum Nakkiran",
+        "affiliation": "MIT"
+      },
+      {
+        "name": "Aviad Rubinstein",
+        "affiliation": "MIT"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-train_dynamics-03",
+    "query_tag": "train_dynamics",
+    "query_tags": [
+      "train_dynamics"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-world_models-03",
+    "title": "Diffusion World Models for Visual Planning",
+    "summary": "Replacing RSSM with diffusion-based latent prediction yields sharper futures and better sample efficiency on video prediction benchmarks.",
+    "authors": [
+      {
+        "name": "Emilien Biré",
+        "affiliation": "MIT"
+      },
+      {
+        "name": "Fei-Fei Li",
+        "affiliation": "Stanford University"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-world_models-03",
+    "query_tag": "world_models",
+    "query_tags": [
+      "world_models"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-pred_coding-02",
+    "title": "Deep Predictive Coding Networks for Unsupervised Learning",
+    "summary": "Stacked predictive coding layers trained with local Hebbian-like updates achieve competitive performance on MNIST and CIFAR without backprop through depth.",
+    "authors": [
+      {
+        "name": "Robert Rosenbaum",
+        "affiliation": "MIT"
+      },
+      {
+        "name": "Rajesh Rao",
+        "affiliation": "MIT"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-pred_coding-02",
+    "query_tag": "pred_coding",
+    "query_tags": [
+      "pred_coding"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "synth-imagebind-02",
+    "title": "Bind What Matters: Efficient Fine-tuning of ImageBind for Robotics",
+    "summary": "LoRA-style adapters for ImageBind enable few-shot transfer to robotic perception where audio-haptic binding aids grasp success prediction.",
+    "authors": [
+      {
+        "name": "Yinbo Chen",
+        "affiliation": "MIT"
+      },
+      {
+        "name": "Lerrel Pinto",
+        "affiliation": "MIT"
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.CV"
+    ],
+    "published": "2024-01-15T00:00:00Z",
+    "arxiv_url": "https://arxiv.org/abs/synth-imagebind-02",
+    "query_tag": "imagebind",
+    "query_tags": [
+      "imagebind"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "2307.12306",
+    "title": "Tackling the Curse of Dimensionality with Physics-Informed Neural Networks",
+    "summary": "The curse-of-dimensionality taxes computational resources heavily with exponentially increasing computational cost as the dimension increases. This poses great challenges in solving high-dimensional PDEs, as Richard E. Bellman first pointed out over 60 years ago. While there has been some recent success in solving numerically partial differential equations (PDEs) in high dimensions, such computations are prohibitively expensive, and true scaling of general nonlinear PDEs to high dimensions has never been achieved. We develop a new method of scaling up physics-informed neural networks (PINNs) to solve arbitrary high-dimensional PDEs. The new method, called Stochastic Dimension Gradient Descent (SDGD), decomposes a gradient of PDEs into pieces corresponding to different dimensions and randomly samples a subset of these dimensional pieces in each iteration of training PINNs. We prove theoretically the convergence and other desired properties of the proposed method. We demonstrate in various diverse tests that the proposed method can solve many notoriously hard high-dimensional PDEs, including the Hamilton-Jacobi-Bellman (HJB) and the Schrödinger equations in tens of thousands of dimensions very fast on a single GPU using the PINNs mesh-free approach. Notably, we solve nonlinear PDEs with nontrivial, anisotropic, and inseparable solutions in 100,000 effective dimensions in 12 hours on a single GPU using SDGD with PINNs. Since SDGD is a general training methodology of PINNs, it can be applied to any current and future variants of PINNs to scale them up for arbitrary high-dimensional PDEs.",
+    "authors": [
+      {
+        "name": "Zheyuan Hu",
+        "affiliation": null
+      },
+      {
+        "name": "Khemraj Shukla",
+        "affiliation": null
+      },
+      {
+        "name": "George Em Karniadakis",
+        "affiliation": null
+      },
+      {
+        "name": "Kenji Kawaguchi",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "math.DS",
+      "math.NA",
+      "stat.ML"
+    ],
+    "published": "2023-07-23T12:18:12Z",
+    "arxiv_url": "https://arxiv.org/abs/2307.12306",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2307.05639",
+    "title": "Learning Active Subspaces and Discovering Important Features with Gaussian Radial Basis Functions Neural Networks",
+    "summary": "Providing a model that achieves a strong predictive performance and is simultaneously interpretable by humans is one of the most difficult challenges in machine learning research due to the conflicting nature of these two objectives. To address this challenge, we propose a modification of the radial basis function neural network model by equipping its Gaussian kernel with a learnable precision matrix. We show that precious information is contained in the spectrum of the precision matrix that can be extracted once the training of the model is completed. In particular, the eigenvectors explain the directions of maximum sensitivity of the model revealing the active subspace and suggesting potential applications for supervised dimensionality reduction. At the same time, the eigenvectors highlight the relationship in terms of absolute variation between the input and the latent variables, thereby allowing us to extract a ranking of the input variables based on their importance to the prediction task enhancing the model interpretability. We conducted numerical experiments for regression, classification, and feature selection tasks, comparing our model against popular machine learning models, the state-of-the-art deep learning-based embedding feature selection techniques, and a transformer model for tabular data. Our results demonstrate that the proposed model does not only yield an attractive prediction performance compared to the competitors but also provides meaningful and interpretable results that potentially could assist the decision-making process in real-world applications. A PyTorch implementation of the model is available on GitHub at the following link. https://github.com/dannyzx/Gaussian-RBFNN",
+    "authors": [
+      {
+        "name": "Danny D'Agostino",
+        "affiliation": null
+      },
+      {
+        "name": "Ilija Ilievski",
+        "affiliation": null
+      },
+      {
+        "name": "Christine Annette Shoemaker",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.NE",
+      "stat.ML"
+    ],
+    "published": "2023-07-11T09:54:30Z",
+    "arxiv_url": "https://arxiv.org/abs/2307.05639",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2306.14753",
+    "title": "The Deep Arbitrary Polynomial Chaos Neural Network or how Deep Artificial Neural Networks could benefit from Data-Driven Homogeneous Chaos Theory",
+    "summary": "Artificial Intelligence and Machine learning have been widely used in various fields of mathematical computing, physical modeling, computational science, communication science, and stochastic analysis. Approaches based on Deep Artificial Neural Networks (DANN) are very popular in our days. Depending on the learning task, the exact form of DANNs is determined via their multi-layer architecture, activation functions and the so-called loss function. However, for a majority of deep learning approaches based on DANNs, the kernel structure of neural signal processing remains the same, where the node response is encoded as a linear superposition of neural activity, while the non-linearity is triggered by the activation functions. In the current paper, we suggest to analyze the neural signal processing in DANNs from the point of view of homogeneous chaos theory as known from polynomial chaos expansion (PCE). From the PCE perspective, the (linear) response on each node of a DANN could be seen as a $1^{st}$ degree multi-variate polynomial of single neurons from the previous layer, i.e. linear weighted sum of monomials. From this point of view, the conventional DANN structure relies implicitly (but erroneously) on a Gaussian distribution of neural signals. Additionally, this view revels that by design DANNs do not necessarily fulfill any orthogonality or orthonormality condition for a majority of data-driven applications. Therefore, the prevailing handling of neural signals in DANNs could lead to redundant representation as any neural signal could contain some partial information from other neural signals. To tackle that challenge, we suggest to employ the data-driven generalization of PCE theory known as arbitrary polynomial chaos (aPC) to construct a corresponding multi-variate orthonormal representations on each node of a DANN to obtain Deep arbitrary polynomial chaos neural networks.",
+    "authors": [
+      {
+        "name": "Sergey Oladyshkin",
+        "affiliation": null
+      },
+      {
+        "name": "Timothy Praditia",
+        "affiliation": null
+      },
+      {
+        "name": "Ilja Kröker",
+        "affiliation": null
+      },
+      {
+        "name": "Farid Mohammadi",
+        "affiliation": null
+      },
+      {
+        "name": "Wolfgang Nowak",
+        "affiliation": null
+      },
+      {
+        "name": "Sebastian Otte",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.NE",
+      "stat.ML"
+    ],
+    "published": "2023-06-26T15:09:14Z",
+    "arxiv_url": "https://arxiv.org/abs/2306.14753",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2306.07035",
+    "title": "Stochastic Approach for Modeling a Soft Robotic Finger with Creep Behavior",
+    "summary": "Soft robots have high adaptability and safeness which are derived from their softness, and therefore it is paid attention to use them in human society. However, the controllability of soft robots is not enough to perform dexterous behaviors when considering soft robots as alternative laborers for humans. The model-based control is effective to achieve dexterous behaviors. When considering building a model which is suitable for control, there are problems based on their special properties such as the creep behavior or the variability of motion. In this paper, the lumped parameterized model with viscoelastic joints for a soft finger is established for the creep behavior. Parameters are expressed as distributions, which makes it possible to take into account the variability of motion. Furthermore, stochastic analyses are performed based on the parameters' distribution. They show high adaptivity compared with experimental results and also enable the investigation of the effects of parameters for robots' variability.",
+    "authors": [
+      {
+        "name": "Sumitaka Honji",
+        "affiliation": null
+      },
+      {
+        "name": "Hikaru Arita",
+        "affiliation": null
+      },
+      {
+        "name": "Kenji Tahara",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2023-06-12T11:33:20Z",
+    "arxiv_url": "https://arxiv.org/abs/2306.07035",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2302.14334",
+    "title": "Design of an Adaptive Lightweight LiDAR to Decouple Robot-Camera Geometry",
+    "summary": "A fundamental challenge in robot perception is the coupling of the sensor pose and robot pose. This has led to research in active vision where robot pose is changed to reorient the sensor to areas of interest for perception. Further, egomotion such as jitter, and external effects such as wind and others affect perception requiring additional effort in software such as image stabilization. This effect is particularly pronounced in micro-air vehicles and micro-robots who typically are lighter and subject to larger jitter but do not have the computational capability to perform stabilization in real-time. We present a novel microelectromechanical (MEMS) mirror LiDAR system to change the field of view of the LiDAR independent of the robot motion. Our design has the potential for use on small, low-power systems where the expensive components of the LiDAR can be placed external to the small robot. We show the utility of our approach in simulation and on prototype hardware mounted on a UAV. We believe that this LiDAR and its compact movable scanning design provide mechanisms to decouple robot and sensor geometry allowing us to simplify robot perception. We also demonstrate examples of motion compensation using IMU and external odometry feedback in hardware.",
+    "authors": [
+      {
+        "name": "Yuyang Chen",
+        "affiliation": null
+      },
+      {
+        "name": "Dingkang Wang",
+        "affiliation": null
+      },
+      {
+        "name": "Lenworth Thomas",
+        "affiliation": null
+      },
+      {
+        "name": "Karthik Dantu",
+        "affiliation": null
+      },
+      {
+        "name": "Sanjeev J. Koppal",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2023-02-28T06:03:42Z",
+    "arxiv_url": "https://arxiv.org/abs/2302.14334",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2212.06370",
+    "title": "Dual Accuracy-Quality-Driven Neural Network for Prediction Interval Generation",
+    "summary": "Accurate uncertainty quantification is necessary to enhance the reliability of deep learning models in real-world applications. In the case of regression tasks, prediction intervals (PIs) should be provided along with the deterministic predictions of deep learning models. Such PIs are useful or \"high-quality\" as long as they are sufficiently narrow and capture most of the probability density. In this paper, we present a method to learn prediction intervals for regression-based neural networks automatically in addition to the conventional target predictions. In particular, we train two companion neural networks: one that uses one output, the target estimate, and another that uses two outputs, the upper and lower bounds of the corresponding PI. Our main contribution is the design of a novel loss function for the PI-generation network that takes into account the output of the target-estimation network and has two optimization objectives: minimizing the mean prediction interval width and ensuring the PI integrity using constraints that maximize the prediction interval probability coverage implicitly. Furthermore, we introduce a self-adaptive coefficient that balances both objectives within the loss function, which alleviates the task of fine-tuning. Experiments using a synthetic dataset, eight benchmark datasets, and a real-world crop yield prediction dataset showed that our method was able to maintain a nominal probability coverage and produce significantly narrower PIs without detriment to its target estimation accuracy when compared to those PIs generated by three state-of-the-art neural-network-based methods. In other words, our method was shown to produce higher-quality PIs.",
+    "authors": [
+      {
+        "name": "Giorgio Morales",
+        "affiliation": null
+      },
+      {
+        "name": "John W. Sheppard",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "stat.ML"
+    ],
+    "published": "2022-12-13T05:03:16Z",
+    "arxiv_url": "https://arxiv.org/abs/2212.06370",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2212.01246",
+    "title": "ViTAL: Vision-Based Terrain-Aware Locomotion for Legged Robots",
+    "summary": "This work is on vision-based planning strategies for legged robots that separate locomotion planning into foothold selection and pose adaptation. Current pose adaptation strategies optimize the robot's body pose relative to given footholds. If these footholds are not reached, the robot may end up in a state with no reachable safe footholds. Therefore, we present a Vision-Based Terrain-Aware Locomotion (ViTAL) strategy that consists of novel pose adaptation and foothold selection algorithms. ViTAL introduces a different paradigm in pose adaptation that does not optimize the body pose relative to given footholds, but the body pose that maximizes the chances of the legs in reaching safe footholds. ViTAL plans footholds and poses based on skills that characterize the robot's capabilities and its terrain-awareness. We use the 90 kg HyQ and 140 kg HyQReal quadruped robots to validate ViTAL, and show that they are able to climb various obstacles including stairs, gaps, and rough terrains at different speeds and gaits. We compare ViTAL with a baseline strategy that selects the robot pose based on given selected footholds, and show that ViTAL outperforms the baseline.",
+    "authors": [
+      {
+        "name": "Shamel Fahmi",
+        "affiliation": null
+      },
+      {
+        "name": "Victor Barasuol",
+        "affiliation": null
+      },
+      {
+        "name": "Domingo Esteban",
+        "affiliation": null
+      },
+      {
+        "name": "Octavio Villarreal",
+        "affiliation": null
+      },
+      {
+        "name": "Claudio Semini",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2022-12-02T15:40:59Z",
+    "arxiv_url": "https://arxiv.org/abs/2212.01246",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2211.12792",
+    "title": "MECCH: Metapath Context Convolution-based Heterogeneous Graph Neural Networks",
+    "summary": "Heterogeneous graph neural networks (HGNNs) were proposed for representation learning on structural data with multiple types of nodes and edges. To deal with the performance degradation issue when HGNNs become deep, researchers combine metapaths into HGNNs to associate nodes closely related in semantics but far apart in the graph. However, existing metapath-based models suffer from either information loss or high computation costs. To address these problems, we present a novel Metapath Context Convolution-based Heterogeneous Graph Neural Network (MECCH). MECCH leverages metapath contexts, a new kind of graph structure that facilitates lossless node information aggregation while avoiding any redundancy. Specifically, MECCH applies three novel components after feature preprocessing to extract comprehensive information from the input graph efficiently: (1) metapath context construction, (2) metapath context encoder, and (3) convolutional metapath fusion. Experiments on five real-world heterogeneous graph datasets for node classification and link prediction show that MECCH achieves superior prediction accuracy compared with state-of-the-art baselines with improved computational efficiency.",
+    "authors": [
+      {
+        "name": "Xinyu Fu",
+        "affiliation": null
+      },
+      {
+        "name": "Irwin King",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG"
+    ],
+    "published": "2022-11-23T09:13:33Z",
+    "arxiv_url": "https://arxiv.org/abs/2211.12792",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2210.05894",
+    "title": "Human-Aware Physical Human-Robot Collaborative Transportation and Manipulation with Multiple Aerial Robots",
+    "summary": "Human-robot interaction will play an essential role in various industries and daily tasks, enabling robots to effectively collaborate with humans and reduce their physical workload. Most of the existing approaches for physical human-robot interaction focus on collaboration between a human and a single ground or aerial robot. In recent years, very little progress has been made in this research area when considering multiple aerial robots, which offer increased versatility and mobility. This paper proposes a novel approach for physical human-robot collaborative transportation and manipulation of a cable-suspended payload with multiple aerial robots. The proposed method enables smooth and intuitive interaction between the transported objects and a human worker. In the same time, we consider distance constraints during the operations by exploiting the internal redundancy of the multi-robot transportation system. The key elements of our approach are (a) a collaborative payload external wrench estimator that does not rely on any force sensor; (b) a 6D admittance controller for human-aerial-robot collaborative transportation and manipulation; (c) a human-aware force distribution that exploits the internal system redundancy to guarantee the execution of additional tasks such inter-human-robot separation without affecting the payload trajectory tracking or quality of interaction. We validate the approach through extensive simulation and real-world experiments. These include scenarios where the robot team assists the human in transporting and manipulating a load, or where the human helps the robot team navigate the environment. We experimentally demonstrate for the first time, to the best of our knowledge, that our approach enables a quadrotor team to physically collaborate with a human in manipulating a payload in all 6 DoF in collaborative human-robot transportation and manipulation tasks.",
+    "authors": [
+      {
+        "name": "Guanrui Li",
+        "affiliation": null
+      },
+      {
+        "name": "Xinyang Liu",
+        "affiliation": null
+      },
+      {
+        "name": "Giuseppe Loianno",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2022-10-12T03:14:44Z",
+    "arxiv_url": "https://arxiv.org/abs/2210.05894",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2209.08465",
+    "title": "Active Metric-Semantic Mapping by Multiple Aerial Robots",
+    "summary": "Traditional approaches for active mapping focus on building geometric maps. For most real-world applications, however, actionable information is related to semantically meaningful objects in the environment. We propose an approach to the active metric-semantic mapping problem that enables multiple heterogeneous robots to collaboratively build a map of the environment. The robots actively explore to minimize the uncertainties in both semantic (object classification) and geometric (object modeling) information. We represent the environment using informative but sparse object models, each consisting of a basic shape and a semantic class label, and characterize uncertainties empirically using a large amount of real-world data. Given a prior map, we use this model to select actions for each robot to minimize uncertainties. The performance of our algorithm is demonstrated through multi-robot experiments in diverse real-world environments. The proposed framework is applicable to a wide range of real-world problems, such as precision agriculture, infrastructure inspection, and asset mapping in factories. A demo video can be found at https://youtu.be/S86SgXi54oU.",
+    "authors": [
+      {
+        "name": "Xu Liu",
+        "affiliation": null
+      },
+      {
+        "name": "Ankit Prabhu",
+        "affiliation": null
+      },
+      {
+        "name": "Fernando Cladera",
+        "affiliation": null
+      },
+      {
+        "name": "Ian D. Miller",
+        "affiliation": null
+      },
+      {
+        "name": "Lifeng Zhou",
+        "affiliation": null
+      },
+      {
+        "name": "Camillo J. Taylor",
+        "affiliation": null
+      },
+      {
+        "name": "Vijay Kumar",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2022-09-18T03:51:12Z",
+    "arxiv_url": "https://arxiv.org/abs/2209.08465",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2205.13273",
+    "title": "Acute Lymphoblastic Leukemia Detection Using Hypercomplex-Valued Convolutional Neural Networks",
+    "summary": "This paper features convolutional neural networks defined on hypercomplex algebras applied to classify lymphocytes in blood smear digital microscopic images. Such classification is helpful for the diagnosis of acute lymphoblast leukemia (ALL), a type of blood cancer. We perform the classification task using eight hypercomplex-valued convolutional neural networks (HvCNNs) along with real-valued convolutional networks. Our results show that HvCNNs perform better than the real-valued model, showcasing higher accuracy with a much smaller number of parameters. Moreover, we found that HvCNNs based on Clifford algebras processing HSV-encoded images attained the highest observed accuracies. Precisely, our HvCNN yielded an average accuracy rate of 96.6% using the ALL-IDB2 dataset with a 50% train-test split, a value extremely close to the state-of-the-art models but using a much simpler architecture with significantly fewer parameters.",
+    "authors": [
+      {
+        "name": "Guilherme Vieira",
+        "affiliation": null
+      },
+      {
+        "name": "Marcos Eduardo Valle",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.CV",
+      "cs.LG",
+      "cs.NE",
+      "eess.IV"
+    ],
+    "published": "2022-05-26T11:16:34Z",
+    "arxiv_url": "https://arxiv.org/abs/2205.13273",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2204.03935",
+    "title": "Study of a committee of neural networks for biometric hand-geometry recognition",
+    "summary": "This Paper studies different committees of neural networks for biometric pattern recognition. We use the neural nets as classifiers for identification and verification purposes. We show that a committee of nets can improve the recognition rates when compared with a multi-start initialization algo-rithm that just picks up the neural net which offers the best performance. On the other hand, we found that there is no strong correlation between identifi-cation and verification applications using the same classifier.",
+    "authors": [
+      {
+        "name": "Marcos Faundez-Zanuy",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.CV",
+      "cs.LG"
+    ],
+    "published": "2022-04-08T08:56:42Z",
+    "arxiv_url": "https://arxiv.org/abs/2204.03935",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2201.12900",
+    "title": "Learning Optimal Topology for Ad-hoc Robot Networks",
+    "summary": "In this paper, we synthesize a data-driven method to predict the optimal topology of an ad-hoc robot network. This problem is technically a multi-task classification problem. However, we divide it into a class of multi-class classification problems that can be more efficiently solved. For this purpose, we first compose an algorithm to create ground-truth optimal topologies associated with various configurations of a robot network. This algorithm incorporates a complex collection of optimality criteria that our learning model successfully manages to learn. This model is an stacked ensemble whose output is the topology prediction for a particular robot. Each stacked ensemble instance constitutes three low-level estimators whose outputs will be aggregated by a high-level boosting blender. Applying our model to a network of 10 robots displays over 80% accuracy in the prediction of optimal topologies corresponding to various configurations of the cited network.",
+    "authors": [
+      {
+        "name": "Matin Macktoobian",
+        "affiliation": null
+      },
+      {
+        "name": "Zhan Shu",
+        "affiliation": null
+      },
+      {
+        "name": "Qing Zhao",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.LG"
+    ],
+    "published": "2022-01-30T19:51:28Z",
+    "arxiv_url": "https://arxiv.org/abs/2201.12900",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2112.01942",
+    "title": "A Survey of Robot Manipulation in Contact",
+    "summary": "In this survey, we present the current status on robots performing manipulation tasks that require varying contact with the environment, such that the robot must either implicitly or explicitly control the contact force with the environment to complete the task. Robots can perform more and more manipulation tasks that are still done by humans, and there is a growing number of publications on the topics of 1) performing tasks that always require contact and 2) mitigating uncertainty by leveraging the environment in tasks that, under perfect information, could be performed without contact. The recent trends have seen robots perform tasks earlier left for humans, such as massage, and in the classical tasks, such as peg-in-hole, there is a more efficient generalization to other similar tasks, better error tolerance, and faster planning or learning of the tasks. Thus, in this survey we cover the current stage of robots performing such tasks, starting from surveying all the different in-contact tasks robots can perform, observing how these tasks are controlled and represented, and finally presenting the learning and planning of the skills required to complete these tasks.",
+    "authors": [
+      {
+        "name": "Markku Suomalainen",
+        "affiliation": null
+      },
+      {
+        "name": "Yiannis Karayiannidis",
+        "affiliation": null
+      },
+      {
+        "name": "Ville Kyrki",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2021-12-03T14:40:47Z",
+    "arxiv_url": "https://arxiv.org/abs/2112.01942",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2111.00944",
+    "title": "Piezoelectric Soft Robot Inchworm Motion by Tuning Ground Friction through Robot Shape: Quasi-Static Modeling and Experimental Validation",
+    "summary": "Electrically-driven soft robots based on piezoelectric actuators may enable compact form factors and maneuverability in complex environments. In most prior work, piezoelectric actuators are used to control a single degree of freedom. In this work, the coordinated activation of five independent piezoelectric actuators, attached to a common metal foil, is used to implement inchworm-inspired crawling motion in a robot that is less than 0.5 mm thick. The motion is based on the control of its friction to the ground through the robot's shape, in which one end of the robot (depending on its shape) is anchored to the ground by static friction, while the rest of its body expands or contracts. A complete analytical model of the robot shape, which includes gravity, is developed to quantify the robot shape, friction, and displacement. After validation of the model by experiments, the robot's five actuators are collectively sequenced for inchworm-like forward and backward motion.",
+    "authors": [
+      {
+        "name": "Zhiwu Zheng",
+        "affiliation": null
+      },
+      {
+        "name": "Prakhar Kumar",
+        "affiliation": null
+      },
+      {
+        "name": "Yenan Chen",
+        "affiliation": null
+      },
+      {
+        "name": "Hsin Cheng",
+        "affiliation": null
+      },
+      {
+        "name": "Sigurd Wagner",
+        "affiliation": null
+      },
+      {
+        "name": "Minjie Chen",
+        "affiliation": null
+      },
+      {
+        "name": "Naveen Verma",
+        "affiliation": null
+      },
+      {
+        "name": "James C. Sturm",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO"
+    ],
+    "published": "2021-11-01T13:38:35Z",
+    "arxiv_url": "https://arxiv.org/abs/2111.00944",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2109.07120",
+    "title": "Infusing model predictive control into meta-reinforcement learning for mobile robots in dynamic environments",
+    "summary": "The successful operation of mobile robots requires them to adapt rapidly to environmental changes. To develop an adaptive decision-making tool for mobile robots, we propose a novel algorithm that combines meta-reinforcement learning (meta-RL) with model predictive control (MPC). Our method employs an off-policy meta-RL algorithm as a baseline to train a policy using transition samples generated by MPC when the robot detects certain events that can be effectively handled by MPC, with its explicit use of robot dynamics. The key idea of our method is to switch between the meta-learned policy and the MPC controller in a randomized and event-triggered fashion to make up for suboptimal MPC actions caused by the limited prediction horizon. During meta-testing, the MPC module is deactivated to significantly reduce computation time in motion control. We further propose an online adaptation scheme that enables the robot to infer and adapt to a new task within a single trajectory. The performance of our method has been demonstrated through simulations using a nonlinear car-like vehicle model with (i) synthetic movements of obstacles, and (ii) real-world pedestrian motion data. The simulation results indicate that our method outperforms other algorithms in terms of learning efficiency and navigation quality.",
+    "authors": [
+      {
+        "name": "Jaeuk Shin",
+        "affiliation": null
+      },
+      {
+        "name": "Astghik Hakobyan",
+        "affiliation": null
+      },
+      {
+        "name": "Mingyu Park",
+        "affiliation": null
+      },
+      {
+        "name": "Yeoneung Kim",
+        "affiliation": null
+      },
+      {
+        "name": "Gihun Kim",
+        "affiliation": null
+      },
+      {
+        "name": "Insoon Yang",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "eess.SY"
+    ],
+    "published": "2021-09-15T07:06:13Z",
+    "arxiv_url": "https://arxiv.org/abs/2109.07120",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2103.13842",
+    "title": "Model Predictive Actor-Critic: Accelerating Robot Skill Acquisition with Deep Reinforcement Learning",
+    "summary": "Substantial advancements to model-based reinforcement learning algorithms have been impeded by the model-bias induced by the collected data, which generally hurts performance. Meanwhile, their inherent sample efficiency warrants utility for most robot applications, limiting potential damage to the robot and its environment during training. Inspired by information theoretic model predictive control and advances in deep reinforcement learning, we introduce Model Predictive Actor-Critic (MoPAC), a hybrid model-based/model-free method that combines model predictive rollouts with policy optimization as to mitigate model bias. MoPAC leverages optimal trajectories to guide policy learning, but explores via its model-free method, allowing the algorithm to learn more expressive dynamics models. This combination guarantees optimal skill learning up to an approximation error and reduces necessary physical interaction with the environment, making it suitable for real-robot training. We provide extensive results showcasing how our proposed method generally outperforms current state-of-the-art and conclude by evaluating MoPAC for learning on a physical robotic hand performing valve rotation and finger gaiting--a task that requires grasping, manipulation, and then regrasping of an object.",
+    "authors": [
+      {
+        "name": "Andrew S. Morgan",
+        "affiliation": null
+      },
+      {
+        "name": "Daljeet Nandha",
+        "affiliation": null
+      },
+      {
+        "name": "Georgia Chalvatzaki",
+        "affiliation": null
+      },
+      {
+        "name": "Carlo D'Eramo",
+        "affiliation": null
+      },
+      {
+        "name": "Aaron M. Dollar",
+        "affiliation": null
+      },
+      {
+        "name": "Jan Peters",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.LG"
+    ],
+    "published": "2021-03-25T13:50:24Z",
+    "arxiv_url": "https://arxiv.org/abs/2103.13842",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2103.07492",
+    "title": "Continual Learning for Recurrent Neural Networks: an Empirical Evaluation",
+    "summary": "Learning continuously during all model lifetime is fundamental to deploy machine learning solutions robust to drifts in the data distribution. Advances in Continual Learning (CL) with recurrent neural networks could pave the way to a large number of applications where incoming data is non stationary, like natural language processing and robotics. However, the existing body of work on the topic is still fragmented, with approaches which are application-specific and whose assessment is based on heterogeneous learning protocols and datasets. In this paper, we organize the literature on CL for sequential data processing by providing a categorization of the contributions and a review of the benchmarks. We propose two new benchmarks for CL with sequential data based on existing datasets, whose characteristics resemble real-world applications. We also provide a broad empirical evaluation of CL and Recurrent Neural Networks in class-incremental scenario, by testing their ability to mitigate forgetting with a number of different strategies which are not specific to sequential data processing. Our results highlight the key role played by the sequence length and the importance of a clear specification of the CL scenario.",
+    "authors": [
+      {
+        "name": "Andrea Cossu",
+        "affiliation": null
+      },
+      {
+        "name": "Antonio Carta",
+        "affiliation": null
+      },
+      {
+        "name": "Vincenzo Lomonaco",
+        "affiliation": null
+      },
+      {
+        "name": "Davide Bacciu",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "published": "2021-03-12T19:25:28Z",
+    "arxiv_url": "https://arxiv.org/abs/2103.07492",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2102.12942",
+    "title": "Structured Prediction for CRiSP Inverse Kinematics Learning with Misspecified Robot Models",
+    "summary": "With the recent advances in machine learning, problems that traditionally would require accurate modeling to be solved analytically can now be successfully approached with data-driven strategies. Among these, computing the inverse kinematics of a redundant robot arm poses a significant challenge due to the non-linear structure of the robot, the hard joint constraints and the non-invertible kinematics map. Moreover, most learning algorithms consider a completely data-driven approach, while often useful information on the structure of the robot is available and should be positively exploited. In this work, we present a simple, yet effective, approach for learning the inverse kinematics. We introduce a structured prediction algorithm that combines a data-driven strategy with the model provided by a forward kinematics function -- even when this function is misspecified -- to accurately solve the problem. The proposed approach ensures that predicted joint configurations are well within the robot's constraints. We also provide statistical guarantees on the generalization properties of our estimator as well as an empirical evaluation of its performance on trajectory reconstruction tasks.",
+    "authors": [
+      {
+        "name": "Gian Maria Marconi",
+        "affiliation": null
+      },
+      {
+        "name": "Raffaello Camoriano",
+        "affiliation": null
+      },
+      {
+        "name": "Lorenzo Rosasco",
+        "affiliation": null
+      },
+      {
+        "name": "Carlo Ciliberto",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.LG"
+    ],
+    "published": "2021-02-25T15:39:33Z",
+    "arxiv_url": "https://arxiv.org/abs/2102.12942",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2101.00443",
+    "title": "Semantics for Robotic Mapping, Perception and Interaction: A Survey",
+    "summary": "For robots to navigate and interact more richly with the world around them, they will likely require a deeper understanding of the world in which they operate. In robotics and related research fields, the study of understanding is often referred to as semantics, which dictates what does the world \"mean\" to a robot, and is strongly tied to the question of how to represent that meaning. With humans and robots increasingly operating in the same world, the prospects of human-robot interaction also bring semantics and ontology of natural language into the picture. Driven by need, as well as by enablers like increasing availability of training data and computational resources, semantics is a rapidly growing research area in robotics. The field has received significant attention in the research literature to date, but most reviews and surveys have focused on particular aspects of the topic: the technical research issues regarding its use in specific robotic topics like mapping or segmentation, or its relevance to one particular application domain like autonomous driving. A new treatment is therefore required, and is also timely because so much relevant research has occurred since many of the key surveys were published. This survey therefore provides an overarching snapshot of where semantics in robotics stands today. We establish a taxonomy for semantics research in or relevant to robotics, split into four broad categories of activity, in which semantics are extracted, used, or both. Within these broad categories we survey dozens of major topics including fundamentals from the computer vision field and key robotics research areas utilizing semantics, including mapping, navigation and interaction with the world. The survey also covers key practical considerations, including enablers like increased data availability and improved computational hardware, and major application areas where...",
+    "authors": [
+      {
+        "name": "Sourav Garg",
+        "affiliation": null
+      },
+      {
+        "name": "Niko Sünderhauf",
+        "affiliation": null
+      },
+      {
+        "name": "Feras Dayoub",
+        "affiliation": null
+      },
+      {
+        "name": "Douglas Morrison",
+        "affiliation": null
+      },
+      {
+        "name": "Akansel Cosgun",
+        "affiliation": null
+      },
+      {
+        "name": "Gustavo Carneiro",
+        "affiliation": null
+      },
+      {
+        "name": "Qi Wu",
+        "affiliation": null
+      },
+      {
+        "name": "Tat-Jun Chin",
+        "affiliation": null
+      },
+      {
+        "name": "Ian Reid",
+        "affiliation": null
+      },
+      {
+        "name": "Stephen Gould",
+        "affiliation": null
+      },
+      {
+        "name": "Peter Corke",
+        "affiliation": null
+      },
+      {
+        "name": "Michael Milford",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.CV",
+      "cs.HC",
+      "cs.LG"
+    ],
+    "published": "2021-01-02T12:34:39Z",
+    "arxiv_url": "https://arxiv.org/abs/2101.00443",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "2006.03243",
+    "title": "mFI-PSO: A Flexible and Effective Method in Adversarial Image Generation for Deep Neural Networks",
+    "summary": "Deep neural networks (DNNs) have achieved great success in image classification, but can be very vulnerable to adversarial attacks with small perturbations to images. To improve adversarial image generation for DNNs, we develop a novel method, called mFI-PSO, which utilizes a Manifold-based First-order Influence measure for vulnerable image and pixel selection and the Particle Swarm Optimization for various objective functions. Our mFI-PSO can thus effectively design adversarial images with flexible, customized options on the number of perturbed pixels, the misclassification probability, and the targeted incorrect class. Experiments demonstrate the flexibility and effectiveness of our mFI-PSO in adversarial attacks and its appealing advantages over some popular methods.",
+    "authors": [
+      {
+        "name": "Hai Shu",
+        "affiliation": null
+      },
+      {
+        "name": "Ronghua Shi",
+        "affiliation": null
+      },
+      {
+        "name": "Qiran Jia",
+        "affiliation": null
+      },
+      {
+        "name": "Hongtu Zhu",
+        "affiliation": null
+      },
+      {
+        "name": "Ziqi Chen",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "stat.ML"
+    ],
+    "published": "2020-06-05T05:42:58Z",
+    "arxiv_url": "https://arxiv.org/abs/2006.03243",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2006.02951",
+    "title": "CiwGAN and fiwGAN: Encoding information in acoustic data to model lexical learning with Generative Adversarial Networks",
+    "summary": "How can deep neural networks encode information that corresponds to words in human speech into raw acoustic data? This paper proposes two neural network architectures for modeling unsupervised lexical learning from raw acoustic inputs, ciwGAN (Categorical InfoWaveGAN) and fiwGAN (Featural InfoWaveGAN), that combine a Deep Convolutional GAN architecture for audio data (WaveGAN; arXiv:1705.07904) with an information theoretic extension of GAN -- InfoGAN (arXiv:1606.03657), and propose a new latent space structure that can model featural learning simultaneously with a higher level classification and allows for a very low-dimension vector representation of lexical items. Lexical learning is modeled as emergent from an architecture that forces a deep neural network to output data such that unique information is retrievable from its acoustic outputs. The networks trained on lexical items from TIMIT learn to encode unique information corresponding to lexical items in the form of categorical variables in their latent space. By manipulating these variables, the network outputs specific lexical items. The network occasionally outputs innovative lexical items that violate training data, but are linguistically interpretable and highly informative for cognitive modeling and neural network interpretability. Innovative outputs suggest that phonetic and phonological representations learned by the network can be productively recombined and directly paralleled to productivity in human speech: a fiwGAN network trained on `suit' and `dark' outputs innovative `start', even though it never saw `start' or even a [st] sequence in the training data. We also argue that setting latent featural codes to values well beyond training range results in almost categorical generation of prototypical lexical items and reveals underlying values of each latent code.",
+    "authors": [
+      {
+        "name": "Gašper Beguš",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.CL",
+      "cs.LG"
+    ],
+    "published": "2020-06-04T15:33:55Z",
+    "arxiv_url": "https://arxiv.org/abs/2006.02951",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2004.02396",
+    "title": "A Learning Framework for n-bit Quantized Neural Networks toward FPGAs",
+    "summary": "The quantized neural network (QNN) is an efficient approach for network compression and can be widely used in the implementation of FPGAs. This paper proposes a novel learning framework for n-bit QNNs, whose weights are constrained to the power of two. To solve the gradient vanishing problem, we propose a reconstructed gradient function for QNNs in back-propagation algorithm that can directly get the real gradient rather than estimating an approximate gradient of the expected loss. We also propose a novel QNN structure named n-BQ-NN, which uses shift operation to replace the multiply operation and is more suitable for the inference on FPGAs. Furthermore, we also design a shift vector processing element (SVPE) array to replace all 16-bit multiplications with SHIFT operations in convolution operation on FPGAs. We also carry out comparable experiments to evaluate our framework. The experimental results show that the quantized models of ResNet, DenseNet and AlexNet through our learning framework can achieve almost the same accuracies with the original full-precision models. Moreover, when using our learning framework to train our n-BQ-NN from scratch, it can achieve state-of-the-art results compared with typical low-precision QNNs. Experiments on Xilinx ZCU102 platform show that our n-BQ-NN with our SVPE can execute 2.9 times faster than with the vector processing element (VPE) in inference. As the SHIFT operation in our SVPE array will not consume Digital Signal Processings (DSPs) resources on FPGAs, the experiments have shown that the use of SVPE array also reduces average energy consumption to 68.7% of the VPE array with 16-bit.",
+    "authors": [
+      {
+        "name": "Jun Chen",
+        "affiliation": null
+      },
+      {
+        "name": "Liang Liu",
+        "affiliation": null
+      },
+      {
+        "name": "Yong Liu",
+        "affiliation": null
+      },
+      {
+        "name": "Xianfang Zeng",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "eess.SP",
+      "stat.ML"
+    ],
+    "published": "2020-04-06T04:21:24Z",
+    "arxiv_url": "https://arxiv.org/abs/2004.02396",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2003.09671",
+    "title": "On Information Plane Analyses of Neural Network Classifiers -- A Review",
+    "summary": "We review the current literature concerned with information plane analyses of neural network classifiers. While the underlying information bottleneck theory and the claim that information-theoretic compression is causally linked to generalization are plausible, empirical evidence was found to be both supporting and conflicting. We review this evidence together with a detailed analysis of how the respective information quantities were estimated. Our survey suggests that compression visualized in information planes is not necessarily information-theoretic, but is rather often compatible with geometric compression of the latent representations. This insight gives the information plane a renewed justification. Aside from this, we shed light on the problem of estimating mutual information in deterministic neural networks and its consequences. Specifically, we argue that even in feed-forward neural networks the data processing inequality need not hold for estimates of mutual information. Similarly, while a fitting phase, in which the mutual information between the latent representation and the target increases, is necessary (but not sufficient) for good classification performance, depending on the specifics of mutual information estimation such a fitting phase need not be visible in the information plane.",
+    "authors": [
+      {
+        "name": "Bernhard C. Geiger",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.CV",
+      "cs.IT",
+      "stat.ML"
+    ],
+    "published": "2020-03-21T14:43:45Z",
+    "arxiv_url": "https://arxiv.org/abs/2003.09671",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "2001.10696",
+    "title": "Spiking Inception Module for Multi-layer Unsupervised Spiking Neural Networks",
+    "summary": "Spiking Neural Network (SNN), as a brain-inspired approach, is attracting attention due to its potential to produce ultra-high-energy-efficient hardware. Competitive learning based on Spike-Timing-Dependent Plasticity (STDP) is a popular method to train an unsupervised SNN. However, previous unsupervised SNNs trained through this method are limited to a shallow network with only one learnable layer and cannot achieve satisfactory results when compared with multi-layer SNNs. In this paper, we eased this limitation by: 1)We proposed a Spiking Inception (Sp-Inception) module, inspired by the Inception module in the Artificial Neural Network (ANN) literature. This module is trained through STDP-based competitive learning and outperforms the baseline modules on learning capability, learning efficiency, and robustness. 2)We proposed a Pooling-Reshape-Activate (PRA) layer to make the Sp-Inception module stackable. 3)We stacked multiple Sp-Inception modules to construct multi-layer SNNs. Our algorithm outperforms the baseline algorithms on the hand-written digit classification task, and reaches state-of-the-art results on the MNIST dataset among the existing unsupervised SNNs.",
+    "authors": [
+      {
+        "name": "Mingyuan Meng",
+        "affiliation": null
+      },
+      {
+        "name": "Xingyu Yang",
+        "affiliation": null
+      },
+      {
+        "name": "Shanlin Xiao",
+        "affiliation": null
+      },
+      {
+        "name": "Zhiyi Yu",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.NE",
+      "cs.LG",
+      "q-bio.NC"
+    ],
+    "published": "2020-01-29T05:40:29Z",
+    "arxiv_url": "https://arxiv.org/abs/2001.10696",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1911.06009",
+    "title": "A Recurrent Probabilistic Neural Network with Dimensionality Reduction Based on Time-series Discriminant Component Analysis",
+    "summary": "This paper proposes a probabilistic neural network developed on the basis of time-series discriminant component analysis (TSDCA) that can be used to classify high-dimensional time-series patterns. TSDCA involves the compression of high-dimensional time series into a lower-dimensional space using a set of orthogonal transformations and the calculation of posterior probabilities based on a continuous-density hidden Markov model with a Gaussian mixture model expressed in the reduced-dimensional space. The analysis can be incorporated into a neural network, which is named a time-series discriminant component network (TSDCN), so that parameters of dimensionality reduction and classification can be obtained simultaneously as network coefficients according to a backpropagation through time-based learning algorithm with the Lagrange multiplier method. The TSDCN is considered to enable high-accuracy classification of high-dimensional time-series patterns and to reduce the computation time taken for network training. The validity of the TSDCN is demonstrated for high-dimensional artificial data and EEG signals in the experiments conducted during the study.",
+    "authors": [
+      {
+        "name": "Hideaki Hayashi",
+        "affiliation": null
+      },
+      {
+        "name": "Taro Shibanoki",
+        "affiliation": null
+      },
+      {
+        "name": "Keisuke Shima",
+        "affiliation": null
+      },
+      {
+        "name": "Yuichi Kurita",
+        "affiliation": null
+      },
+      {
+        "name": "Toshio Tsuji",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "stat.ML"
+    ],
+    "published": "2019-11-14T09:48:41Z",
+    "arxiv_url": "https://arxiv.org/abs/1911.06009",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1906.11052",
+    "title": "Further advantages of data augmentation on convolutional neural networks",
+    "summary": "Data augmentation is a popular technique largely used to enhance the training of convolutional neural networks. Although many of its benefits are well known by deep learning researchers and practitioners, its implicit regularization effects, as compared to popular explicit regularization techniques, such as weight decay and dropout, remain largely unstudied. As a matter of fact, convolutional neural networks for image object classification are typically trained with both data augmentation and explicit regularization, assuming the benefits of all techniques are complementary. In this paper, we systematically analyze these techniques through ablation studies of different network architectures trained with different amounts of training data. Our results unveil a largely ignored advantage of data augmentation: networks trained with just data augmentation more easily adapt to different architectures and amount of training data, as opposed to weight decay and dropout, which require specific fine-tuning of their hyperparameters.",
+    "authors": [
+      {
+        "name": "Alex Hernández-García",
+        "affiliation": null
+      },
+      {
+        "name": "Peter König",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.CV",
+      "cs.LG"
+    ],
+    "published": "2019-06-26T12:50:13Z",
+    "arxiv_url": "https://arxiv.org/abs/1906.11052",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1906.10015",
+    "title": "A Review on Neural Network Models of Schizophrenia and Autism Spectrum Disorder",
+    "summary": "This survey presents the most relevant neural network models of autism spectrum disorder and schizophrenia, from the first connectionist models to recent deep network architectures. We analyzed and compared the most representative symptoms with its neural model counterpart, detailing the alteration introduced in the network that generates each of the symptoms, and identifying their strengths and weaknesses. We additionally cross-compared Bayesian and free-energy approaches, as they are widely applied to modeling psychiatric disorders and share basic mechanisms with neural networks. Models of schizophrenia mainly focused on hallucinations and delusional thoughts using neural dysconnections or inhibitory imbalance as the predominating alteration. Models of autism rather focused on perceptual difficulties, mainly excessive attention to environment details, implemented as excessive inhibitory connections or increased sensory precision. We found an excessive tight view of the psychopathologies around one specific and simplified effect, usually constrained to the technical idiosyncrasy of the used network architecture. Recent theories and evidence on sensorimotor integration and body perception combined with modern neural network architectures could offer a broader and novel spectrum to approach these psychopathologies. This review emphasizes the power of artificial neural networks for modeling some symptoms of neurological disorders but also calls for further developing these techniques in the field of computational psychiatry.",
+    "authors": [
+      {
+        "name": "Pablo Lanillos",
+        "affiliation": null
+      },
+      {
+        "name": "Daniel Oliva",
+        "affiliation": null
+      },
+      {
+        "name": "Anja Philippsen",
+        "affiliation": null
+      },
+      {
+        "name": "Yuichi Yamashita",
+        "affiliation": null
+      },
+      {
+        "name": "Yukie Nagai",
+        "affiliation": null
+      },
+      {
+        "name": "Gordon Cheng",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "q-bio.NC",
+      "cs.AI",
+      "cs.NE"
+    ],
+    "published": "2019-06-24T15:10:44Z",
+    "arxiv_url": "https://arxiv.org/abs/1906.10015",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1905.13402",
+    "title": "Safety Augmented Value Estimation from Demonstrations (SAVED): Safe Deep Model-Based RL for Sparse Cost Robotic Tasks",
+    "summary": "Reinforcement learning (RL) for robotics is challenging due to the difficulty in hand-engineering a dense cost function, which can lead to unintended behavior, and dynamical uncertainty, which makes exploration and constraint satisfaction challenging. We address these issues with a new model-based reinforcement learning algorithm, Safety Augmented Value Estimation from Demonstrations (SAVED), which uses supervision that only identifies task completion and a modest set of suboptimal demonstrations to constrain exploration and learn efficiently while handling complex constraints. We then compare SAVED with 3 state-of-the-art model-based and model-free RL algorithms on 6 standard simulation benchmarks involving navigation and manipulation and a physical knot-tying task on the da Vinci surgical robot. Results suggest that SAVED outperforms prior methods in terms of success rate, constraint satisfaction, and sample efficiency, making it feasible to safely learn a control policy directly on a real robot in less than an hour. For tasks on the robot, baselines succeed less than 5% of the time while SAVED has a success rate of over 75% in the first 50 training iterations. Code and supplementary material is available at https://tinyurl.com/saved-rl.",
+    "authors": [
+      {
+        "name": "Brijen Thananjeyan",
+        "affiliation": null
+      },
+      {
+        "name": "Ashwin Balakrishna",
+        "affiliation": null
+      },
+      {
+        "name": "Ugo Rosolia",
+        "affiliation": null
+      },
+      {
+        "name": "Felix Li",
+        "affiliation": null
+      },
+      {
+        "name": "Rowan McAllister",
+        "affiliation": null
+      },
+      {
+        "name": "Joseph E. Gonzalez",
+        "affiliation": null
+      },
+      {
+        "name": "Sergey Levine",
+        "affiliation": null
+      },
+      {
+        "name": "Francesco Borrelli",
+        "affiliation": null
+      },
+      {
+        "name": "Ken Goldberg",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.AI",
+      "cs.RO",
+      "stat.ML"
+    ],
+    "published": "2019-05-31T03:54:25Z",
+    "arxiv_url": "https://arxiv.org/abs/1905.13402",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "1905.11391",
+    "title": "Using Neural Networks for Relation Extraction from Biomedical Literature",
+    "summary": "Using different sources of information to support automated extracting of relations between biomedical concepts contributes to the development of our understanding of biological systems. The primary comprehensive source of these relations is biomedical literature. Several relation extraction approaches have been proposed to identify relations between concepts in biomedical literature, namely, using neural networks algorithms. The use of multichannel architectures composed of multiple data representations, as in deep neural networks, is leading to state-of-the-art results. The right combination of data representations can eventually lead us to even higher evaluation scores in relation extraction tasks. Thus, biomedical ontologies play a fundamental role by providing semantic and ancestry information about an entity. The incorporation of biomedical ontologies has already been proved to enhance previous state-of-the-art results.",
+    "authors": [
+      {
+        "name": "Diana Sousa",
+        "affiliation": null
+      },
+      {
+        "name": "Andre Lamurias",
+        "affiliation": null
+      },
+      {
+        "name": "Francisco M. Couto",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.CL",
+      "cs.LG",
+      "stat.ML"
+    ],
+    "published": "2019-05-27T09:33:29Z",
+    "arxiv_url": "https://arxiv.org/abs/1905.11391",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1905.05918",
+    "title": "A Neural Network-Evolutionary Computational Framework for Remaining Useful Life Estimation of Mechanical Systems",
+    "summary": "This paper presents a framework for estimating the remaining useful life (RUL) of mechanical systems. The framework consists of a multi-layer perceptron and an evolutionary algorithm for optimizing the data-related parameters. The framework makes use of a strided time window to estimate the RUL for mechanical components. Tuning the data-related parameters can become a very time consuming task. The framework presented here automatically reshapes the data such that the efficiency of the model is increased. Furthermore, the complexity of the model is kept low, e.g. neural networks with few hidden layers and few neurons at each layer. Having simple models has several advantages like short training times and the capacity of being in environments with limited computational resources such as embedded systems. The proposed method is evaluated on the publicly available C-MAPSS dataset, its accuracy is compared against other state-of-the art methods for the same dataset.",
+    "authors": [
+      {
+        "name": "David Laredo",
+        "affiliation": null
+      },
+      {
+        "name": "Zhaoyin Chen",
+        "affiliation": null
+      },
+      {
+        "name": "Oliver Schütze",
+        "affiliation": null
+      },
+      {
+        "name": "Jian-Qiao Sun",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.NE",
+      "stat.ML"
+    ],
+    "published": "2019-05-15T02:31:45Z",
+    "arxiv_url": "https://arxiv.org/abs/1905.05918",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1904.09266",
+    "title": "Secure and secret cooperation in robotic swarms",
+    "summary": "The importance of swarm robotics systems in both academic research and real-world applications is steadily increasing. However, to reach widespread adoption, new models that ensure the secure cooperation of large groups of robots need to be developed. This work introduces a novel method to encapsulate cooperative robotic missions in an authenticated data structure known as Merkle tree. With this method, operators can provide the \"blueprint\" of the swarm's mission without disclosing its raw data. In other words, data verification can be separated from data itself. We propose a system where robots in a swarm, to cooperate towards mission completion, have to \"prove\" their integrity to their peers by exchanging cryptographic proofs. We show the implications of this approach for two different swarm robotics missions: foraging and maze formation. In both missions, swarm robots were able to cooperate and carry out sequential operations without having explicit knowledge about the mission's high-level objectives. The results presented in this work demonstrate the feasibility of using Merkle trees as a cooperation mechanism for swarm robotics systems in both simulation and real-robot experiments, which has implications for future decentralized robotics applications where security plays a crucial role such as environmental monitoring, infrastructure surveillance, and disaster management.",
+    "authors": [
+      {
+        "name": "Eduardo Castelló Ferrer",
+        "affiliation": null
+      },
+      {
+        "name": "Thomas Hardjono",
+        "affiliation": null
+      },
+      {
+        "name": "Alex 'Sandy' Pentland",
+        "affiliation": null
+      },
+      {
+        "name": "Marco Dorigo",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.RO",
+      "cs.CR",
+      "cs.DS",
+      "cs.ET",
+      "cs.MA"
+    ],
+    "published": "2019-04-19T17:00:13Z",
+    "arxiv_url": "https://arxiv.org/abs/1904.09266",
+    "query_tag": "foundation_wm",
+    "query_tags": [
+      "foundation_wm"
+    ]
+  },
+  {
+    "id": "1901.06610",
+    "title": "Hierarchical Attentional Hybrid Neural Networks for Document Classification",
+    "summary": "Document classification is a challenging task with important applications. The deep learning approaches to the problem have gained much attention recently. Despite the progress, the proposed models do not incorporate the knowledge of the document structure in the architecture efficiently and not take into account the contexting importance of words and sentences. In this paper, we propose a new approach based on a combination of convolutional neural networks, gated recurrent units, and attention mechanisms for document classification tasks. The main contribution of this work is the use of convolution layers to extract more meaningful, generalizable and abstract features by the hierarchical representation. The proposed method in this paper improves the results of the current attention-based approaches for document classification.",
+    "authors": [
+      {
+        "name": "Jader Abreu",
+        "affiliation": null
+      },
+      {
+        "name": "Luis Fred",
+        "affiliation": null
+      },
+      {
+        "name": "David Macêdo",
+        "affiliation": null
+      },
+      {
+        "name": "Cleber Zanchettin",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.CL",
+      "cs.AI",
+      "cs.LG",
+      "cs.NE"
+    ],
+    "published": "2019-01-20T01:48:43Z",
+    "arxiv_url": "https://arxiv.org/abs/1901.06610",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1812.10761",
+    "title": "Improving Generalization of Deep Neural Networks by Leveraging Margin Distribution",
+    "summary": "Recent research has used margin theory to analyze the generalization performance for deep neural networks (DNNs). The existed results are almost based on the spectrally-normalized minimum margin. However, optimizing the minimum margin ignores a mass of information about the entire margin distribution, which is crucial to generalization performance. In this paper, we prove a generalization upper bound dominated by the statistics of the entire margin distribution. Compared with the minimum margin bounds, our bound highlights an important measure for controlling the complexity, which is the ratio of the margin standard deviation to the expected margin. We utilize a convex margin distribution loss function on the deep neural networks to validate our theoretical results by optimizing the margin ratio. Experiments and visualizations confirm the effectiveness of our approach and the correlation between generalization gap and margin ratio.",
+    "authors": [
+      {
+        "name": "Shen-Huan Lyu",
+        "affiliation": null
+      },
+      {
+        "name": "Lu Wang",
+        "affiliation": null
+      },
+      {
+        "name": "Zhi-Hua Zhou",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "stat.ML"
+    ],
+    "published": "2018-12-27T16:34:54Z",
+    "arxiv_url": "https://arxiv.org/abs/1812.10761",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1807.02477",
+    "title": "Development of a sensory-neural network for medical diagnosing",
+    "summary": "Performance of a sensory-neural network developed for diagnosing of diseases is described. Information about patient's condition is provided by answers to the questionnaire. Questions correspond to sensors generating signals when patients acknowledge symptoms. These signals excite neurons in which characteristics of the diseases are represented by synaptic weights associated with indicators of symptoms. The disease corresponding to the most excited neuron is proposed as the result of diagnosing. Its reliability is estimated by the likelihood defined by the ratio of excitation of the most excited neuron and the complete neural network.",
+    "authors": [
+      {
+        "name": "Igor Grabec",
+        "affiliation": null
+      },
+      {
+        "name": "Eva Švegl",
+        "affiliation": null
+      },
+      {
+        "name": "Mihael Sok",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.NE"
+    ],
+    "published": "2018-07-06T16:30:53Z",
+    "arxiv_url": "https://arxiv.org/abs/1807.02477",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1805.03886",
+    "title": "Effect of dilution in asymmetric recurrent neural networks",
+    "summary": "We study with numerical simulation the possible limit behaviors of synchronous discrete-time deterministic recurrent neural networks composed of N binary neurons as a function of a network's level of dilution and asymmetry. The network dilution measures the fraction of neuron couples that are connected, and the network asymmetry measures to what extent the underlying connectivity matrix is asymmetric. For each given neural network, we study the dynamical evolution of all the different initial conditions, thus characterizing the full dynamical landscape without imposing any learning rule. Because of the deterministic dynamics, each trajectory converges to an attractor, that can be either a fixed point or a limit cycle. These attractors form the set of all the possible limit behaviors of the neural network. For each network, we then determine the convergence times, the limit cycles' length, the number of attractors, and the sizes of the attractors' basin. We show that there are two network structures that maximize the number of possible limit behaviors. The first optimal network structure is fully-connected and symmetric. On the contrary, the second optimal network structure is highly sparse and asymmetric. The latter optimal is similar to what observed in different biological neuronal circuits. These observations lead us to hypothesize that independently from any given learning model, an efficient and effective biologic network that stores a number of limit behaviors close to its maximum capacity tends to develop a connectivity structure similar to one of the optimal networks we found.",
+    "authors": [
+      {
+        "name": "Viola Folli",
+        "affiliation": null
+      },
+      {
+        "name": "Giorgio Gosti",
+        "affiliation": null
+      },
+      {
+        "name": "Marco Leonetti",
+        "affiliation": null
+      },
+      {
+        "name": "Giancarlo Ruocco",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cond-mat.dis-nn",
+      "cs.NE",
+      "q-bio.NC"
+    ],
+    "published": "2018-05-10T08:41:27Z",
+    "arxiv_url": "https://arxiv.org/abs/1805.03886",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1804.06679",
+    "title": "Understanding Neural Networks and Individual Neuron Importance via Information-Ordered Cumulative Ablation",
+    "summary": "In this work, we investigate the use of three information-theoretic quantities -- entropy, mutual information with the class variable, and a class selectivity measure based on Kullback-Leibler divergence -- to understand and study the behavior of already trained fully-connected feed-forward neural networks. We analyze the connection between these information-theoretic quantities and classification performance on the test set by cumulatively ablating neurons in networks trained on MNIST, FashionMNIST, and CIFAR-10. Our results parallel those recently published by Morcos et al., indicating that class selectivity is not a good indicator for classification performance. However, looking at individual layers separately, both mutual information and class selectivity are positively correlated with classification performance, at least for networks with ReLU activation functions. We provide explanations for this phenomenon and conclude that it is ill-advised to compare the proposed information-theoretic quantities across layers. Furthermore, we show that cumulative ablation of neurons with ascending or descending information-theoretic quantities can be used to formulate hypotheses regarding the joint behavior of multiple neurons, such as redundancy and synergy, with comparably low computational cost. We also draw connections to the information bottleneck theory for neural networks.",
+    "authors": [
+      {
+        "name": "Rana Ali Amjad",
+        "affiliation": null
+      },
+      {
+        "name": "Kairen Liu",
+        "affiliation": null
+      },
+      {
+        "name": "Bernhard C. Geiger",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.CV",
+      "cs.IT",
+      "stat.ML"
+    ],
+    "published": "2018-04-18T12:29:24Z",
+    "arxiv_url": "https://arxiv.org/abs/1804.06679",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1512.05702",
+    "title": "Synthesis of recurrent neural networks for dynamical system simulation",
+    "summary": "We review several of the most widely used techniques for training recurrent neural networks to approximate dynamical systems, then describe a novel algorithm for this task. The algorithm is based on an earlier theoretical result that guarantees the quality of the network approximation. We show that a feedforward neural network can be trained on the vector field representation of a given dynamical system using backpropagation, then recast, using matrix manipulations, as a recurrent network that replicates the original system's dynamics. After detailing this algorithm and its relation to earlier approaches, we present numerical examples that demonstrate its capabilities. One of the distinguishing features of our approach is that both the original dynamical systems and the recurrent networks that simulate them operate in continuous time.",
+    "authors": [
+      {
+        "name": "Adam Trischler",
+        "affiliation": null
+      },
+      {
+        "name": "Gabriele MT D'Eleuterio",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.NE"
+    ],
+    "published": "2015-12-17T18:08:33Z",
+    "arxiv_url": "https://arxiv.org/abs/1512.05702",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1512.00242",
+    "title": "Towards Dropout Training for Convolutional Neural Networks",
+    "summary": "Recently, dropout has seen increasing use in deep learning. For deep convolutional neural networks, dropout is known to work well in fully-connected layers. However, its effect in convolutional and pooling layers is still not clear. This paper demonstrates that max-pooling dropout is equivalent to randomly picking activation based on a multinomial distribution at training time. In light of this insight, we advocate employing our proposed probabilistic weighted pooling, instead of commonly used max-pooling, to act as model averaging at test time. Empirical evidence validates the superiority of probabilistic weighted pooling. We also empirically show that the effect of convolutional dropout is not trivial, despite the dramatically reduced possibility of over-fitting due to the convolutional architecture. Elaborately designing dropout training simultaneously in max-pooling and fully-connected layers, we achieve state-of-the-art performance on MNIST, and very competitive results on CIFAR-10 and CIFAR-100, relative to other approaches without data augmentation. Finally, we compare max-pooling dropout and stochastic pooling, both of which introduce stochasticity based on multinomial distributions at pooling stage.",
+    "authors": [
+      {
+        "name": "Haibing Wu",
+        "affiliation": null
+      },
+      {
+        "name": "Xiaodong Gu",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.LG",
+      "cs.CV",
+      "cs.NE"
+    ],
+    "published": "2015-12-01T12:46:11Z",
+    "arxiv_url": "https://arxiv.org/abs/1512.00242",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1007.5016",
+    "title": "Percolation Approach to Study Connectivity in Living Neural Networks",
+    "summary": "We study neural connectivity in cultures of rat hippocampal neurons. We measure the neurons' response to an electric stimulation for gradual lower connectivity, and characterize the size of the giant cluster in the network. The connectivity undergoes a percolation transition described by the critical exponent $β\\simeq 0.65$. We use a theoretic approach based on bond.percolation on a graph to describe the process of disintegration of the network and extract its statistical properties. Together with numerical simulations we show that the connectivity in the neural culture is local, characterized by a gaussian degree distribution and not a power law on",
+    "authors": [
+      {
+        "name": "Jordi Soriano",
+        "affiliation": null
+      },
+      {
+        "name": "Ilan Breskin",
+        "affiliation": null
+      },
+      {
+        "name": "Elisha Moses",
+        "affiliation": null
+      },
+      {
+        "name": "Tsvi Tlusty",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "q-bio.NC",
+      "cond-mat.dis-nn",
+      "physics.bio-ph"
+    ],
+    "published": "2010-07-28T15:58:03Z",
+    "arxiv_url": "https://arxiv.org/abs/1007.5016",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1003.3081",
+    "title": "Optimal hierarchical modular topologies for producing limited sustained activation of neural networks",
+    "summary": "An essential requirement for the representation of functional patterns in complex neural networks, such as the mammalian cerebral cortex, is the existence of stable regimes of network activation, typically arising from a limited parameter range. In this range of limited sustained activity (LSA), the activity of neural populations in the network persists between the extremes of either quickly dying out or activating the whole network. Hierarchical modular networks were previously found to show a wider parameter range for LSA than random or small-world networks not possessing hierarchical organization or multiple modules. Here we explored how variation in the number of hierarchical levels and modules per level influenced network dynamics and occurrence of LSA. We tested hierarchical configurations of different network sizes, approximating the large-scale networks linking cortical columns in one hemisphere of the rat, cat, or macaque monkey brain. Scaling of the network size affected the number of hierarchical levels and modules in the optimal networks, also depending on whether global edge density or the numbers of connections per node were kept constant. For constant edge density, only few network configurations, possessing an intermediate number of levels and a large number of modules, led to a large range of LSA independent of brain size. For a constant number of node connections, there was a trend for optimal configurations in larger-size networks to possess a larger number of hierarchical levels or more modules. These results may help to explain the trend to greater network complexity apparent in larger brains and may indicate that this complexity is required for maintaining stable levels of neural activation.",
+    "authors": [
+      {
+        "name": "Marcus Kaiser",
+        "affiliation": null
+      },
+      {
+        "name": "Claus C. Hilgetag",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "q-bio.NC",
+      "cond-mat.dis-nn",
+      "physics.soc-ph"
+    ],
+    "published": "2010-03-16T05:13:41Z",
+    "arxiv_url": "https://arxiv.org/abs/1003.3081",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "1002.1164",
+    "title": "Existence and Global Logarithmic Stability of Impulsive Neural Networks with Time Delay",
+    "summary": "The stability and convergence of the neural networks are the fundamental characteristics in the Hopfield type networks. Since time delay is ubiquitous in most physical and biological systems, more attention is being made for the delayed neural networks. The inclusion of time delay into a neural model is natural due to the finite transmission time of the interactions. The stability analysis of the neural networks depends on the Lyapunov function and hence it must be constructed for the given system. In this paper we have made an attempt to establish the logarithmic stability of the impulsive delayed neural networks by constructing suitable Lyapunov function.",
+    "authors": [
+      {
+        "name": "A. K. Ojha",
+        "affiliation": null
+      },
+      {
+        "name": "Dushmanta Mallick",
+        "affiliation": null
+      },
+      {
+        "name": "C. Mallick",
+        "affiliation": null
+      }
+    ],
+    "categories": [
+      "cs.NE"
+    ],
+    "published": "2010-02-05T09:20:51Z",
+    "arxiv_url": "https://arxiv.org/abs/1002.1164",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  },
+  {
+    "id": "cond-mat/0212541",
+    "title": "Parametrical Neural Network",
+    "summary": "The storage capacity of the Hopfield model is about 15% of the network size. It can be increased significantly in the Potts-glass model of the associative memory only. In this model neurons can be in more than two different states. We show that even greater storage capacity can be achieved in the parametrical neural network (PNN) that is based on the parametrical four-wave mixing process that is well-known in nonlinear optics. We present a uniform formalism allowing us to describe both PNN and the Potts-glass associative memory. To estimate the storage capacity we use the Chebyshev-Chernov statistical technique.",
+    "authors": [
+      {
+        "name": "B. V. Kryzhanovsky",
+        "affiliation": "Institute of Optical Neural Technologies Russian Academy of Sciences"
+      },
+      {
+        "name": "L. B. Litinskii",
+        "affiliation": "Institute of Optical Neural Technologies Russian Academy of Sciences"
+      },
+      {
+        "name": "A. L. Mikaelyan",
+        "affiliation": "Institute of Optical Neural Technologies Russian Academy of Sciences"
+      }
+    ],
+    "categories": [
+      "cond-mat.dis-nn",
+      "q-bio"
+    ],
+    "published": "2002-12-20T23:01:52Z",
+    "arxiv_url": "https://arxiv.org/abs/cond-mat/0212541",
+    "query_tag": "hamiltonian",
+    "query_tags": [
+      "hamiltonian"
+    ]
+  }
+]
