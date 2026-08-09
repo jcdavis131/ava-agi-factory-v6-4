@@ -9,6 +9,7 @@ from typing import Any
 import torch
 import torch.nn.functional as F
 
+from ava._safe_load import safe_torch_load
 from ava.config import AvaConfig
 from ava.model import build_model, set_router_bias
 from ava.tokenizer import AvaTokenizer
@@ -48,7 +49,7 @@ def load_model(
 
     label = "random-init"
     if ckpt_path and ckpt_path != "none":
-        blob = torch.load(ckpt_path, map_location=dev, weights_only=False)
+        blob = safe_torch_load(ckpt_path, map_location=dev)
         model.load_state_dict(blob["model"])
         label = str(ckpt_path)
         if branch_chat and cfg.branch_chat:
@@ -136,7 +137,7 @@ def count_state_tensors(model: AvaModel1B, ckpt_path: str | None) -> int:
     """Assert checkpoint tensor count matches built model when loading."""
     if not ckpt_path or ckpt_path == "none":
         return sum(1 for _ in model.state_dict())
-    blob = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    blob = safe_torch_load(ckpt_path, map_location="cpu")
     ck = blob["model"]
     built = model.state_dict()
     if set(ck.keys()) != set(built.keys()):

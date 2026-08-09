@@ -28,6 +28,7 @@ from typing import Any, Generator, Optional
 import torch
 import torch.nn.functional as F
 
+from ava._safe_load import safe_torch_load
 from ava.config import AvaConfig
 from ava.model import build_model, count_params
 from ava.tokenizer import AvaTokenizer
@@ -175,7 +176,7 @@ class ServeEngine:
     def _load_model(self, ckpt_file: Path):
         cfg = AvaConfig.load(self.preset)
         model = build_model(cfg, use_memory=False)
-        blob = torch.load(ckpt_file, map_location=self.device, weights_only=False)
+        blob = safe_torch_load(ckpt_file, map_location=self.device)
         state = blob["model"] if isinstance(blob, dict) and "model" in blob else blob
         model.load_state_dict(state)
         model.eval().to(self.device)

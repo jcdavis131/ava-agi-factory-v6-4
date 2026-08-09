@@ -317,8 +317,9 @@ def main():
                 if str(factory_root) not in sys.path:
                     sys.path.insert(0, str(factory_root))
                 from model_1b import get_model
+                from ava._safe_load import safe_torch_load
                 model = get_model()
-                sd = torch.load(args.ckpt, map_location="cpu")
+                sd = safe_torch_load(args.ckpt, map_location="cpu")
                 model.load_state_dict(sd.get("model", sd), strict=False)
                 print(f"Loaded ckpt {args.ckpt}")
             except Exception as e:
