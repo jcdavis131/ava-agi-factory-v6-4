@@ -91,6 +91,7 @@ print("[Distill] Loading Ava distillation module — off-policy + MOPD + privile
 try:
     import torch
     import torch.nn.functional as F
+    from ava._safe_load import safe_torch_load
     HAS_TORCH = True
 except Exception as e:
     HAS_TORCH = False
@@ -296,7 +297,7 @@ def load_checkpoint(model, ckpt_path: str, device="cpu"):
     try:
         # Support both torch.save dict and safetensors
         if p.suffix in [".pt", ".bin", ".pth"]:
-            state = torch.load(str(p), map_location=device)
+            state = safe_torch_load(str(p), map_location=device)
             # Common structures: {"model": state_dict} or direct state_dict
             if isinstance(state, dict) and "model" in state:
                 state = state["model"]

@@ -31,6 +31,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from ava._safe_load import safe_torch_load
 from ava.config import AvaConfig, PhaseConfig
 from ava.data import StreamingShardSampler
 from ava.jlosses import JSpaceObjective
@@ -110,7 +111,7 @@ def _point_latest_at(ckpt_dir: Path, target: Path) -> None:
 
 
 def load_ckpt(path: Path, *, model, opt, sampler, device: str) -> tuple[int, int]:
-    blob = torch.load(path, map_location=device, weights_only=False)
+    blob = safe_torch_load(path, map_location=device)
     model.load_state_dict(blob["model"])        # the blueprint printed "Loading..." and never did this
     opt.load_state_dict(blob["optimizer"])
     sampler.load_state_dict(blob["sampler"])
@@ -195,7 +196,7 @@ def main(argv=None) -> int:
         if spec is None:
             raise SystemExit(f"preset {cfg.preset} defines no branch {args.branch!r}")
         src = Path(args.init or spec["init"])
-        blob = torch.load(src, map_location=device, weights_only=False)
+        blob = safe_torch_load(src, map_location=device)
         model.load_state_dict(blob["model"])
         model.freeze_spaces(list(spec["freeze"]))
         set_router_bias(model, list(spec["router_bias"]))
