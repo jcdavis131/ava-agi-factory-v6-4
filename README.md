@@ -8,6 +8,19 @@
 
 Ex Machina Ava blueprint - 1B model with explicit J-Space (Global Workspace) inspired by Anthropic July 2026 J-Space paper.
 
+## Ecosystem (2026-08-09)
+
+This repo is the origin of the foundation-model factory (J-Space, scale ladder smoke → nano → mini → base1b), and the foundation-model track (P3) continues here. It is one part of a larger system whose center is the [dottie monorepo](https://github.com/jcdavis131/dottie); the normative map is dottie `docs/ECOSYSTEM.md`.
+
+| Track | Where it lives | Reference (in dottie) |
+|---|---|---|
+| Orchestration / harness (goal routing, execution tiers, live API) | dottie monorepo — all development lands there | `docs/ECOSYSTEM.md`, `docs/CONSOLIDATION.md` |
+| Trainer package mirror | Frozen at dottie `apps/ava-factory/dottie/**`, bind-mounted into the live trainer; this repo is the source of that mirror. No code lands on that path directly — changes require a dated adopt/decline review artifact in `tasks/artifacts/`, then a numbered spec, per the frozen-path doctrine | `docs/LONGCAT2_INSIGHTS_SPEC.md`, `docs/PLATFORM_IMPROVEMENT_PLAN.md` |
+| Orchestration router training progress | Public at [slasso.com](https://www.slasso.com) (Validation Lab): training dashboard plus `/api/health` and `/api/route` serving the current champion | `docs/ECOSYSTEM.md`, `docs/CONSOLIDATION.md` |
+| Foundation-model scale ladder | Continues here, tracked as P3 — "Foundation model track (needs the RTX box)" | `docs/PLATFORM_IMPROVEMENT_PLAN.md` |
+
+In short: orchestration/harness development lands in dottie, and the foundation-model scale ladder continues in this repo per `PLAN.md` and the live tracker `TODOS.md`. (The `ORCHESTRATION.md` in this repo is the local foreman/worker build protocol, distinct from dottie's orchestration harness.)
+
 ## Architecture Overview
 
 - **Model:** 1B params, YaRN RoPE 10k→1M, QK-Norm, 3 regimes (early sensory no RoPE / middle workspace / final motor)
