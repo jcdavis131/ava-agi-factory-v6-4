@@ -6,15 +6,15 @@ HOME persona only — critical compliance: never upload Home data to work Drive 
 
 Features:
 - Checks drive connection type: if files list shows work-related health.json (camd@meta.com, lockedunn_health.json etc), ABORT upload
-- Supports folder creation: Ava-Datasets-Expansion not exists, create it, reuse ID
+- Supports folder creation: Dottie-Datasets-Expansion not exists, create it, reuse ID
 - Batch upload with parallel 2 workers, progress log, content-addressable dedup (filename = sha256 first12)
 - Retry with backoff 3x
 - Uses hatch_gws_cli drive files.* — efficient, resumable where possible
 
 Usage:
   python scripts/gdrive_uploader.py --check
-  python scripts/gdrive_uploader.py --upload data/daily_expanded/packed_*.jsonl.gz --folder Ava-Datasets-Expansion --dry-run
-  python scripts/gdrive_uploader.py --upload data/for_upload/ --folder Ava-Datasets-Expansion
+  python scripts/gdrive_uploader.py --upload data/daily_expanded/packed_*.jsonl.gz --folder Dottie-Datasets-Expansion --dry-run
+  python scripts/gdrive_uploader.py --upload data/for_upload/ --folder Dottie-Datasets-Expansion
 """
 import argparse, json, os, sys, subprocess, time, hashlib, pathlib, re, random, shlex
 from pathlib import Path
@@ -76,7 +76,7 @@ def check_work_drive_guard():
 
         if work_indicators:
             msg = "WORK DRIVE DETECTED — Home/Work separation violation risk. Indicators:\n" + "\n".join(f"  - {i}" for i in work_indicators[:5])
-            msg += "\n\nDO NOT upload Home data (Ava AGI Factory is HOME persona) to work Drive camd@meta.com per AGENTS.md absolute separation."
+            msg += "\n\nDO NOT upload Home data (Dottie AGI Factory is HOME persona) to work Drive camd@meta.com per AGENTS.md absolute separation."
             msg += "\nPlease connect personal Drive jcdavis131@gmail.com or use R2 fallback (CLOUDFLARE_R2_*)"
             return True, msg
         else:
@@ -259,7 +259,7 @@ def main():
     ap = argparse.ArgumentParser(description="GDrive uploader with Home/Work guard")
     ap.add_argument("--check", action="store_true", help="only check drive type")
     ap.add_argument("--upload", type=str, help="local file or folder or glob, e.g., data/daily_expanded/")
-    ap.add_argument("--folder", default="Ava-Datasets-Expansion", help="remote folder name")
+    ap.add_argument("--folder", default="Dottie-Datasets-Expansion", help="remote folder name")
     ap.add_argument("--dry-run", action="store_true", help="don't actually upload, just check dedup")
     ap.add_argument("--workers", type=int, default=2, help="parallel workers")
     args = ap.parse_args()

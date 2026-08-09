@@ -9,17 +9,17 @@ from typing import Any
 import torch
 import torch.nn.functional as F
 
-from ava.config import AvaConfig
-from ava.model import build_model, set_router_bias
-from ava.tokenizer import AvaTokenizer
-from model_1b import AvaModel1B, apply_rope_scaling
+from dottie.config import DottieConfig
+from dottie.model import build_model, set_router_bias
+from dottie.tokenizer import DottieTokenizer
+from model_1b import DottieModel1B, apply_rope_scaling
 
 _REPO = Path(__file__).resolve().parent.parent
 EVAL_SEED = 1234
 
 
-def _tokenizer_path(cfg: AvaConfig) -> Path:
-    raw = cfg.data.get("tokenizer_path", "data/nano/tokenizer/ava_nano_bpe.json")
+def _tokenizer_path(cfg: DottieConfig) -> Path:
+    raw = cfg.data.get("tokenizer_path", "data/nano/tokenizer/dottie_nano_bpe.json")
     p = Path(raw)
     if not p.is_absolute():
         p = _REPO / p
@@ -33,9 +33,9 @@ def load_model(
     *,
     use_memory: bool = False,
     branch_chat: bool = False,
-) -> tuple[AvaModel1B, AvaTokenizer, str]:
+) -> tuple[DottieModel1B, DottieTokenizer, str]:
     """Build model, optionally load checkpoint, return (model, tokenizer, ckpt_label)."""
-    cfg = AvaConfig.load(preset)
+    cfg = DottieConfig.load(preset)
     model = build_model(cfg, use_memory=use_memory)
     dev = torch.device(device)
 
@@ -44,7 +44,7 @@ def load_model(
         raise FileNotFoundError(
             f"tokenizer missing at {tok_path}. Run scripts/build_eval_data.py first."
         )
-    tokenizer = AvaTokenizer.load(tok_path)
+    tokenizer = DottieTokenizer.load(tok_path)
 
     label = "random-init"
     if ckpt_path and ckpt_path != "none":
@@ -62,14 +62,14 @@ def load_model(
     return model, tokenizer, label
 
 
-def prep_eval(model: AvaModel1B, seed: int = EVAL_SEED) -> None:
+def prep_eval(model: DottieModel1B, seed: int = EVAL_SEED) -> None:
     """Standard eval preamble: fixed seed + cleared workspace memory."""
     torch.manual_seed(seed)
     model.reset_memory()
 
 
 def greedy_decode(
-    model: AvaModel1B,
+    model: DottieModel1B,
     prompt_ids: list[int],
     *,
     max_new: int = 8,
@@ -89,10 +89,10 @@ def greedy_decode(
 
 
 def logprob_of(
-    model: AvaModel1B,
+    model: DottieModel1B,
     prompt_ids: list[int],
     target: str,
-    tokenizer: AvaTokenizer,
+    tokenizer: DottieTokenizer,
     *,
     task_type: str = "deliberate",
     device: torch.device | None = None,
@@ -120,7 +120,7 @@ def logprob_of(
 
 
 def forward_out(
-    model: AvaModel1B,
+    model: DottieModel1B,
     prompt_ids: list[int],
     *,
     task_type: str = "deliberate",
@@ -132,7 +132,7 @@ def forward_out(
         return model(input_ids=x, task_type=task_type)
 
 
-def count_state_tensors(model: AvaModel1B, ckpt_path: str | None) -> int:
+def count_state_tensors(model: DottieModel1B, ckpt_path: str | None) -> int:
     """Assert checkpoint tensor count matches built model when loading."""
     if not ckpt_path or ckpt_path == "none":
         return sum(1 for _ in model.state_dict())
@@ -147,7 +147,7 @@ def count_state_tensors(model: AvaModel1B, ckpt_path: str | None) -> int:
 
 
 def data_dir(preset: str) -> Path:
-    cfg = AvaConfig.load(preset)
+    cfg = DottieConfig.load(preset)
     raw = cfg.data.get("packed_dir", f"data/{preset}")
     p = Path(raw)
     if not p.is_absolute():

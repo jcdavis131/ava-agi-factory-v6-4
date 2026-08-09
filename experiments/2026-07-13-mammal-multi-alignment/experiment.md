@@ -1,4 +1,4 @@
-# Ava AGI Factory v6.4 — Experiment Card: 2026-07-13-mammal-multi-alignment (Pure Ava-only 3-Stage Ablation Gate)
+# Dottie AGI Factory v6.4 — Experiment Card: 2026-07-13-mammal-multi-alignment (Pure Dottie-only 3-Stage Ablation Gate)
 
 > **Disclaimer:** Solo personal project, no connection to employer, built with public/free-tier only. Public pip only, no work/internal packages. WANDB_MODE=offline. Local Docker/CUDA only, no employer compute. This is a pre-train experiment card — no results invented.
 
@@ -15,7 +15,7 @@
 
 ## Hypothesis (tied to paper §3.1 Numerical Values Integration)
 
-If Ava replaces rank-binning scalar discretization with pure continuous MammalScalarProjection — learned linear scalar→d_model added to token embeddings plus modular tags `<MOLECULE>/<PROTEIN>/<RNA>/<ALIGN>` routed to S1 Fast 32 hl=8 tag detector and S2 Slow 64 hl=300 integrator — then bio frontier regression NRMSE (DTI, PPI ΔΔG) and classification AUROC (BBBP, ClinTox, AbAg) will improve vs baseline because Critic 16 hl=30 validates continuous scalars without digit-token inflation per MAMMAL Fig A1.
+If Dottie replaces rank-binning scalar discretization with pure continuous MammalScalarProjection — learned linear scalar→d_model added to token embeddings plus modular tags `<MOLECULE>/<PROTEIN>/<RNA>/<ALIGN>` routed to S1 Fast 32 hl=8 tag detector and S2 Slow 64 hl=300 integrator — then bio frontier regression NRMSE (DTI, PPI ΔΔG) and classification AUROC (BBBP, ClinTox, AbAg) will improve vs baseline because Critic 16 hl=30 validates continuous scalars without digit-token inflation per MAMMAL Fig A1.
 
 ## Methods Extracted (pdfminer/pymupdf verified, no hallucination)
 
@@ -31,16 +31,16 @@ From pymupdf extraction of 2410.22367v3 (40 pages, 15133679 bytes):
 
 5. **Pretraining (§3.4, Table 2, C.4-C.5):** 2B samples, 6 public datasets, 7 tasks concurrent span-denoising mean span 5 noise density 0.15: UniRef90 180M Protein LM, OAS 650M Antibody LM + 650M Antibody Denoise t~U[1,500], ZINC+PubChem 200M Small Molecule LM, CELLxGENE 30M Cell Genes LM, STRING 780M PPI classification + 390M generation. AdamW β1 0.9 β2 0.999 wd 0.01 grad_clip 1.0 2K warmup cosine decay to 10% LR, random sub-sequence cut with start/end tokens per max seq len.
 
-## Pure Ava-only 3-Stage Ablation Gate (user confirmed: pure priority)
+## Pure Dottie-only 3-Stage Ablation Gate (user confirmed: pure priority)
 
-**Priority: Pure Ava-only. HF teacher NOT convinced yields better. No HF pull by default. No logit matching. WANDB offline, public pip only. Push to prod only after gate PASS.**
+**Priority: Pure Dottie-only. HF teacher NOT convinced yields better. No HF pull by default. No logit matching. WANDB offline, public pip only. Push to prod only after gate PASS.**
 
 ### Stage 0 — Baseline: rank-binning
 - Scalar → quantile bins 0..999 → token_id = scalar_vocab_start + bin. Like Tx-LLM binning.
 - No projection, loses continuity, inflates length.
 - Metric: record bio frontier NRMSE/AUROC.
 
-### Stage 1 — Ablation1: MammalScalarProjection pure (PRIMARY, pure Ava-only)
+### Stage 1 — Ablation1: MammalScalarProjection pure (PRIMARY, pure Dottie-only)
 - Continuous learned `Linear(1,d_model)` LayerNorm std 0.02 per Fig A1.
 - Modular tags → J-Space heads:
   - `<MOLECULE>`/`<SMILES>` → S1 Fast 32 hl=8 tag detector (decay 0.917)
@@ -55,7 +55,7 @@ From pymupdf extraction of 2410.22367v3 (40 pages, 15133679 bytes):
 - Then optional local CPU-offload: load `ibm/biomed.omics.bl.sm.ma-ted-458m` public, extract scalar head, MSE distillation `L = MSE(Ava_pred_head, HF_head_l2norm)*0.1`
 - NO logit matching, NO seq distillation, NO tokenizer import, public pip `transformers` only reference. Requires manual approval. Default path = pure wins.
 
-## Ava J-Space Mapping (configs/base1b.yaml preserved)
+## Dottie J-Space Mapping (configs/base1b.yaml preserved)
 
 - S1 Fast 32 hl=8 associative — SMILES vs AA lexing, scalar delimiter
 - S2 Slow 64 hl=300 verifiable — cross-modal Protein+SM+Gene alignment, 2048 ctx binding pocket
@@ -67,7 +67,7 @@ YaRN/LongRoPE2, QK-Norm, Peri-LN, 4 attention sinks untouched.
 
 ## Code Patch Sketch (public pip only, compatible)
 
-### File: `ava-agi-factory-v6-4/multi_jspace_module.py`
+### File: `dottie-agi-factory-v6-4/multi_jspace_module.py`
 
 ```python
 # Solo personal project, no connection to employer, built with public/free-tier only
@@ -106,12 +106,12 @@ class BaselineRankBinning(nn.Module):
 # self.tag_emb = nn.Embedding(32, d_model)
 ```
 
-### File: `ava-agi-factory-v6-4/model_1b.py` — diff sketch
+### File: `dottie-agi-factory-v6-4/model_1b.py` — diff sketch
 
 ```diff
 --- a/model_1b.py
 +++ b/model_1b.py
-@@ class AvaModel1B
+@@ class DottieModel1B
 -        self.embed = nn.Embedding(vocab_size, d_model)
 +        self.embed = nn.Embedding(vocab_size, d_model)
 +        from multi_jspace_module import MammalScalarProjection, BaselineRankBinning
@@ -158,7 +158,7 @@ jspace:
 ## Scrutiny (required)
 
 ### Token vocab mismatch
-- MAMMAL modular tokenizer uses meta tokens `<@TOKENIZER-TYPE=AA|SMILES>` to avoid conflict between SMILES 'C' vs AA 'C' in shared ID space. Ava 32k SentencePiece merges `CC(=O)` → `CC` losing chem semantics.
+- MAMMAL modular tokenizer uses meta tokens `<@TOKENIZER-TYPE=AA|SMILES>` to avoid conflict between SMILES 'C' vs AA 'C' in shared ID space. Dottie 32k SentencePiece merges `CC(=O)` → `CC` losing chem semantics.
 - Mitigation: Keep S1 lexing overlay, add 4 special tag IDs at vocab end 32000-32031, reserve 1000 placeholder tokens, train tag_embeddings from scratch, do NOT import HF tokenizer. Validate via branch_harness vocab_stress.
 
 ### Leakage risk
@@ -189,13 +189,13 @@ WANDB_MODE=offline python eval_frontier_rubric.py --domain bio --judge mock --mo
 echo "GATE PASS: branch 100% CapPres + bio frontier >0.5 + Stage1 beats Baseline 1% for Stage2 eligibility"
 ```
 
-Expected paper proxy (not Ava results): DTI NRMSE 0.906 3.8% over SOTA, PPI Pearson 0.852 28.5% seq-only SOTA, CellType F1 0.763 7.5% Table1. Target directionality only.
+Expected paper proxy (not Dottie results): DTI NRMSE 0.906 3.8% over SOTA, PPI Pearson 0.852 28.5% seq-only SOTA, CellType F1 0.763 7.5% Table1. Target directionality only.
 
 ## 1-Command Train Stub — Local Docker CUDA (offline, public pip only)
 
 ```bash
 # Solo project, public pip only, YaRN/QK-Norm/WSD preserved, no HF pull default
-WANDB_MODE=offline docker-compose run --gpus all -e WANDB_MODE=offline ava-train bash -c "
+WANDB_MODE=offline docker-compose run --gpus all -e WANDB_MODE=offline dottie-train bash -c "
   pip install -q torch --index-url https://download.pytorch.org/whl/cu124 && \
   python train_1b_deepspeed.py \
     --config configs/base1b.yaml \
@@ -217,13 +217,13 @@ WANDB_MODE=offline docker-compose run --gpus all -e WANDB_MODE=offline ava-train
 "
 
 # Nano smoke (12GB, offline):
-# WANDB_MODE=offline docker-compose run --gpus all -e WANDB_MODE=offline ava-train python train_1b_deepspeed.py --config configs/nano.yaml --exp mammal-test-nano --tokens 1000000 --mammal_scalar_proj true --wandb_mode offline --no_hf_teacher
+# WANDB_MODE=offline docker-compose run --gpus all -e WANDB_MODE=offline dottie-train python train_1b_deepspeed.py --config configs/nano.yaml --exp mammal-test-nano --tokens 1000000 --mammal_scalar_proj true --wandb_mode offline --no_hf_teacher
 ```
 
 Stage2 optional only if Stage1 wins +1%:
 
 ```bash
-WANDB_MODE=offline docker-compose run --gpus all -e WANDB_MODE=offline ava-train bash -c "
+WANDB_MODE=offline docker-compose run --gpus all -e WANDB_MODE=offline dottie-train bash -c "
   pip install -q transformers torch && \
   HF_HUB_OFFLINE=1 python train_1b_deepspeed.py \
     --config configs/base1b.yaml \
@@ -256,4 +256,4 @@ WANDB_MODE=offline docker-compose run --gpus all -e WANDB_MODE=offline ava-train
 6. If Stage1 +1% PASS, file issue for Stage2 manual review, push updated card to both your_files and repo and prod
 
 ---
-*Generated for Ava AGI Factory v6.4 — 2026-07-13-mammal-multi-alignment Pure Ava-only 3-stage — Solo personal project, no connection to employer, built with public/free-tier only — Paper: arXiv 2410.22367 MAMMAL §3.1-3.3 Appendix A/B*
+*Generated for Dottie AGI Factory v6.4 — 2026-07-13-mammal-multi-alignment Pure Dottie-only 3-stage — Solo personal project, no connection to employer, built with public/free-tier only — Paper: arXiv 2410.22367 MAMMAL §3.1-3.3 Appendix A/B*

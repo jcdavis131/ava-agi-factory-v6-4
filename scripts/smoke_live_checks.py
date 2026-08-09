@@ -2,11 +2,11 @@
 """HTTP assertions for scripts/smoke_live.sh (live URL or TestClient dry-run).
 
 Live mode hits AVA_BASE_URL / --base-url with urllib (no extra deps).
-Dry-run (--dry / AVA_SMOKE_DRY_RUN=1) uses FastAPI TestClient + a fake engine
+Dry-run (--dry / DOTTIE_SMOKE_DRY_RUN=1) uses FastAPI TestClient + a fake engine
 so the same step checks run without a checkpoint, GPU, or long-lived uvicorn.
 
 Full live pass against a real nano ckpt is deferred to T9.1 when
-runs/chat/ava_nano_chat.pt is absent.
+runs/chat/dottie_nano_chat.pt is absent.
 """
 
 from __future__ import annotations
@@ -317,7 +317,7 @@ def run_dry() -> None:
     if str(_REPO) not in sys.path:
         sys.path.insert(0, str(_REPO))
 
-    from ava import serve_engine as se
+    from dottie import serve_engine as se
     import server as srv
 
     class _FakeEngine:
@@ -545,7 +545,7 @@ def main() -> int:
     ap.add_argument(
         "--dry",
         action="store_true",
-        default=os.environ.get("AVA_SMOKE_DRY_RUN", "0") == "1",
+        default=os.environ.get("DOTTIE_SMOKE_DRY_RUN", "0") == "1",
         help="TestClient + fake engine (no ckpt / GPU)",
     )
     args = ap.parse_args()
@@ -558,7 +558,7 @@ def main() -> int:
             if not args.base_url:
                 print(
                     "SMOKE FAIL connect: set --base-url or AVA_BASE_URL "
-                    "(or use --dry / AVA_SMOKE_DRY_RUN=1)",
+                    "(or use --dry / DOTTIE_SMOKE_DRY_RUN=1)",
                     flush=True,
                 )
                 return 1

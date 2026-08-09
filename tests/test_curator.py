@@ -16,12 +16,12 @@ import numpy as np
 import pytest
 import zstandard as zstd
 
-from ava.pipeline import clean
-from ava.pipeline.dedup import MinHashDeduper, exact_hash
-from ava.pipeline.decontaminate import Decontaminator, write_report
-from ava.pipeline.split import assign_split
-from ava.pipeline import pack
-from ava.pipeline.manifest import Manifest, PACKED, TokenizerMismatch, worker_id
+from dottie.pipeline import clean
+from dottie.pipeline.dedup import MinHashDeduper, exact_hash
+from dottie.pipeline.decontaminate import Decontaminator, write_report
+from dottie.pipeline.split import assign_split
+from dottie.pipeline import pack
+from dottie.pipeline.manifest import Manifest, PACKED, TokenizerMismatch, worker_id
 from evals.eval_sets import all_eval_texts, EVAL_SETS
 
 # ---------------------------------------------------------------------------
@@ -423,7 +423,7 @@ def _write_raw_shard(path: Path, docs: list[dict]) -> None:
 
 
 def test_end_to_end_once(tmp_path, tiny_tokenizer, monkeypatch):
-    from ava.pipeline.curator import Curator
+    from dottie.pipeline.curator import Curator
 
     # Isolate from any live metrics_{preset}.jsonl that would redirect claims
     # to the trainer's current phase.

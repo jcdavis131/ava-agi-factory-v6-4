@@ -1,4 +1,4 @@
-# LLM pretrain syllabus — gaps vs frontier + Ava levers
+# LLM pretrain syllabus — gaps vs frontier + Dottie levers
 
 Date: 2026-07-11  
 Sources: live mini climb, `configs/mini.yaml` / `sources.yaml`, FineWeb + Llama-3 anneal notes,
@@ -6,7 +6,7 @@ canvas `llm-pretrain-syllabus`, other-agent docs on `origin/master`
 (`docs/CONTINUOUS_PIPELINES.md`, `docs/DISTILLATION_INTEGRATION.md`, `CURRICULUM_LOOP_PLAN.md`,
 `inner_monologue_research.md`).
 
-## Ava syllabus (already shipped)
+## Dottie syllabus (already shipped)
 
 | Phase | Role | Mix highlights |
 |-------|------|----------------|
@@ -21,7 +21,7 @@ Closed-loop **demand** (expand / curate / examples) is ahead of most open recipe
 
 ## Gaps vs frontier syllabi
 
-| Gap | Frontier practice | Ava status | When |
+| Gap | Frontier practice | Dottie status | When |
 |-----|-------------------|------------|------|
 | G1 Polyak / EMA | Average anneal ckpts (Llama 3) | Not implemented | P5 / end of mini |
 | G2 Code volume | Stack-v2 scale, 5–15% code | Modest until P2 (~25% mix + GitHub) | P2+ |

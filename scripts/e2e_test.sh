@@ -1,6 +1,6 @@
 #!/bin/bash
 # Solo personal project, no connection to employer, built with public/free-tier only
-# HOME persona only — Ava AGI Factory v6.4 End-to-End Local Test Harness
+# HOME persona only — Dottie AGI Factory v6.4 End-to-End Local Test Harness
 # Designed to run WITHOUT GPU, WITHOUT HF_TOKEN, WITHOUT Ollama — mock-friendly for Hatch VM & Alienware quick check
 
 set -euo pipefail
@@ -14,9 +14,9 @@ DISCLAIMER="Solo personal project, no connection to employer, built with public/
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_DIR="$ROOT/logs"
 LOG_FILE="$LOG_DIR/e2e_test_${TIMESTAMP}.log"
-mkdir -p "$LOG_DIR" "$ROOT/data/for_upload" "$ROOT/data/daily_expanded" "$ROOT/data/discovery" "$ROOT/your_files/ava-agi/dataset_discovery"
+mkdir -p "$LOG_DIR" "$ROOT/data/for_upload" "$ROOT/data/daily_expanded" "$ROOT/data/discovery" "$ROOT/your_files/dottie-agi/dataset_discovery"
 
-echo -e "${GREEN}[Ava E2E] $DISCLAIMER${NC}" | tee "$LOG_FILE"
+echo -e "${GREEN}[Dottie E2E] $DISCLAIMER${NC}" | tee "$LOG_FILE"
 echo "Root: $ROOT | Log: $LOG_FILE" | tee -a "$LOG_FILE"
 echo "Date: $(date -Is)" | tee -a "$LOG_FILE"
 echo "Host: $(hostname) — GPU check:" | tee -a "$LOG_FILE"
@@ -61,7 +61,7 @@ run_step "dataset_expansion 1M dry-run" python3 scripts/dataset_expansion.py --t
 
 # 3. Dataset discovery dry-run
 echo -e "\n${YELLOW}[3/9] Dataset discovery dry-run${NC}" | tee -a "$LOG_FILE"
-run_step "dataset_discovery dry-run" python3 scripts/dataset_discovery.py --dry-run || python3 scripts/dataset_discovery.py --domains finance bio code --out your_files/ava-agi/dataset_discovery/ || true
+run_step "dataset_discovery dry-run" python3 scripts/dataset_discovery.py --dry-run || python3 scripts/dataset_discovery.py --domains finance bio code --out your_files/dottie-agi/dataset_discovery/ || true
 
 # 4. HF uploader dry-run (no token needed)
 echo -e "\n${YELLOW}[4/9] HF uploader dry-run${NC}" | tee -a "$LOG_FILE"
@@ -119,16 +119,16 @@ cat <<'EOF'
    ./scripts/local_train.sh python scripts/dataset_expansion.py --tokens 10M --phases p0_logic p1_math p2_foundation p3_code --out data/daily_expanded
 
 2. HF push:
-   HF_TOKEN=hf_REDACTED_ROTATED... python scripts/hf_REDACTED_ROTATED.py --repo jcdavis131/ava-textbook-v6 --manifest "data/daily_expanded/manifest_*.jsonl" --private --push
+   HF_TOKEN=hf_REDACTED_ROTATED... python scripts/hf_REDACTED_ROTATED.py --repo jcdavis131/dottie-textbook-v6 --manifest "data/daily_expanded/manifest_*.jsonl" --private --push
 
 3. Train streaming from HF:
-   ./scripts/local_train.sh torchrun --nproc_per_node=1 train_1b_deepspeed.py --preset mini --data-source hf://jcdavis131/ava-textbook-v6 --streaming --tokens_total 2500000000
+   ./scripts/local_train.sh torchrun --nproc_per_node=1 train_1b_deepspeed.py --preset mini --data-source hf://jcdavis131/dottie-textbook-v6 --streaming --tokens_total 2500000000
 
 4. Discovery:
    python scripts/dataset_discovery.py --domains finance bio code math safety
 
 5. Distill MOPD:
-   ./scripts/distill.sh torchrun --nproc_per_node=1 on_policy_distill.py --mode mopd --teachers checkpoints/code_expert.pt checkpoints/math_expert.pt --student-ckpt ava_stable_736k.pt --tokens_total 100M --preserve-router
+   ./scripts/distill.sh torchrun --nproc_per_node=1 on_policy_distill.py --mode mopd --teachers checkpoints/code_expert.pt checkpoints/math_expert.pt --student-ckpt dottie_stable_736k.pt --tokens_total 100M --preserve-router
 
 6. Prefect UI:
    pip install prefect==3.4.0 && prefect server start --port 4200

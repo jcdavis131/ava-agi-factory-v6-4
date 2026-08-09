@@ -10,15 +10,15 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from ava.config import AvaConfig
-from ava.model import build_model
-from ava.tokenizer import AvaTokenizer
+from dottie.config import DottieConfig
+from dottie.model import build_model
+from dottie.tokenizer import DottieTokenizer
 from evals.common import prep_eval
 from evals.interventions import WorkspaceSwap, concept_vector
 from evals.run_harness import run_harness, write_reports
 
 _REPO = Path(__file__).resolve().parent.parent
-_NANO_TOK = _REPO / "data" / "nano" / "tokenizer" / "ava_nano_bpe.json"
+_NANO_TOK = _REPO / "data" / "nano" / "tokenizer" / "dottie_nano_bpe.json"
 
 
 @pytest.fixture(scope="module")
@@ -26,8 +26,8 @@ def nano_random_model():
     if not _NANO_TOK.exists():
         pytest.skip("run scripts/build_eval_data.py first")
     torch.manual_seed(0)
-    model = build_model(AvaConfig.load("nano")).eval()
-    tok = AvaTokenizer.load(_NANO_TOK)
+    model = build_model(DottieConfig.load("nano")).eval()
+    tok = DottieTokenizer.load(_NANO_TOK)
     return model, tok
 
 

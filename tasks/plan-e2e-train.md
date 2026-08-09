@@ -1,4 +1,4 @@
-# Plan: Train Ava-agi end to end (auto-mode)
+# Plan: Train Dottie-agi end to end (auto-mode)
 
 Date: 2026-07-10  
 Branch: `claude/model-training-workflow-plan-n5vep5`  
@@ -31,7 +31,7 @@ Mode: auto — advance until budget / GO-NO-GO gates.
 1. Trainer: early-exit when resume already at `total_steps`; compose `restart: on-failure`.
 2. Start `server` on `/ckpt/latest` → `base_final.pt`; health + generate.
 3. Short chat branch fork (`--branch chat --init base_final --max-steps` smoke-scale) → `chat_final.pt`.
-4. `AVA_BASE_URL` / `AVA_CKPT` live smoke (or compose-equivalent).
+4. `AVA_BASE_URL` / `DOTTIE_CKPT` live smoke (or compose-equivalent).
 5. Mark T9.1 done in `TODOS.md`; scoped commit.
 
 ## Non-goals this session

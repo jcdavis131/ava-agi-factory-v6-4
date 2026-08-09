@@ -16,14 +16,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from ava.data import UNTAGGED_CONCEPT, _LoadedShard
-from ava.pipeline.manifest import PACKED, Manifest, Shard
-from ava.tokenizer import ENDOFDOC_ID
+from dottie.data import UNTAGGED_CONCEPT, _LoadedShard
+from dottie.pipeline.manifest import PACKED, Manifest, Shard
+from dottie.tokenizer import ENDOFDOC_ID
 
 
 def _write_shard(dirpath: Path, doc_lens: list[int], task_types: list[str],
                  concepts: list[int]) -> Shard:
-    """Pack synthetic docs exactly the way ava/pipeline/pack.py does."""
+    """Pack synthetic docs exactly the way dottie/pipeline/pack.py does."""
     dirpath.mkdir(parents=True, exist_ok=True)
     stream: list[int] = []
     docs = []

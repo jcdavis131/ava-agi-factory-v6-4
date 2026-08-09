@@ -13,13 +13,13 @@ from pathlib import Path
 
 import pytest
 
-from ava.pipeline.manifest import Manifest, TokenizerMismatch
-from ava.tokenizer import (
+from dottie.pipeline.manifest import Manifest, TokenizerMismatch
+from dottie.tokenizer import (
     ASSISTANT_ID,
     ENDOFDOC_ID,
     PAD_ID,
     SPECIALS,
-    AvaTokenizer,
+    DottieTokenizer,
     sha256_file,
     train,
 )
@@ -52,7 +52,7 @@ def trained(tmp_path_factory, corpus_dir) -> tuple[Path, str]:
 
 def test_special_token_ids_are_pinned(trained):
     path, _ = trained
-    t = AvaTokenizer.load(path)
+    t = DottieTokenizer.load(path)
     assert PAD_ID == 0 and ENDOFDOC_ID == 3 and ASSISTANT_ID == 5
     assert len(SPECIALS) == 6
 
@@ -60,7 +60,7 @@ def test_special_token_ids_are_pinned(trained):
 def test_roundtrip_is_exact(trained):
     """Chat markers are real tokens, so fidelity requires skip_special=False."""
     path, _ = trained
-    t = AvaTokenizer.load(path)
+    t = DottieTokenizer.load(path)
     for s in set(_CORPUS):
         assert t.decode(t.encode(s), skip_special=False) == s
 
@@ -68,7 +68,7 @@ def test_roundtrip_is_exact(trained):
 def test_decode_skips_specials_by_default(trained):
     """Serving must not emit <|endofdoc|> into generated text."""
     path, _ = trained
-    t = AvaTokenizer.load(path)
+    t = DottieTokenizer.load(path)
     ids = t.encode_doc("hello world")
     assert "<|endofdoc|>" not in t.decode(ids)
     assert "<|endofdoc|>" in t.decode(ids, skip_special=False)
@@ -76,7 +76,7 @@ def test_decode_skips_specials_by_default(trained):
 
 def test_encode_doc_terminates_with_endofdoc(trained):
     path, _ = trained
-    t = AvaTokenizer.load(path)
+    t = DottieTokenizer.load(path)
     ids = t.encode_doc("hello world")
     assert ids[-1] == ENDOFDOC_ID
     assert ids[:-1] == t.encode("hello world")
@@ -86,7 +86,7 @@ def test_concept_token_is_a_real_id(trained):
     """The blueprint used sha256(concept) % vocab -- a random direction with no
     relationship to the concept. This must be a real token."""
     path, _ = trained
-    t = AvaTokenizer.load(path)
+    t = DottieTokenizer.load(path)
     tid = t.concept_token("spider")
     assert 0 <= tid < t.vocab_size
     assert t.concept_token("spider") == tid          # deterministic
@@ -95,7 +95,7 @@ def test_concept_token_is_a_real_id(trained):
 
 def test_ids_fit_uint16(trained):
     path, _ = trained
-    t = AvaTokenizer.load(path)
+    t = DottieTokenizer.load(path)
     assert t.vocab_size <= 65535
     assert max(t.encode(" ".join(set(_CORPUS)))) < 65536
 
@@ -112,8 +112,8 @@ def test_training_is_atomic_no_tmp_left(trained):
 
 
 def test_missing_tokenizer_error_names_the_fix(tmp_path):
-    with pytest.raises(FileNotFoundError, match="python -m ava.tokenizer train"):
-        AvaTokenizer.load(tmp_path / "nope.json")
+    with pytest.raises(FileNotFoundError, match="python -m dottie.tokenizer train"):
+        DottieTokenizer.load(tmp_path / "nope.json")
 
 
 def test_sha_is_stable_and_binds_the_manifest(tmp_path, trained):
@@ -136,7 +136,7 @@ def test_compression_ratio_is_sane(trained):
     """Not a quality bar (a 512-vocab toy tokenizer on 6 sentences is not the
     production artifact) -- just proof BPE merged anything at all."""
     path, _ = trained
-    t = AvaTokenizer.load(path)
+    t = DottieTokenizer.load(path)
     text = " ".join(set(_CORPUS))
     ratio = len(text) / len(t.encode(text))
     assert ratio > 1.5, f"chars/token {ratio:.2f} -- BPE learned no merges"

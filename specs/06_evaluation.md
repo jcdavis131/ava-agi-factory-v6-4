@@ -107,7 +107,7 @@ scale > 2 exercises the YaRN ramp branch of `YaRNScaledRoPE.update` (model_1b.py
 `(32000, 1.2)` afterwards. Output accuracy-per-depth for both. MEASURED, no bar.
 
 ### evals/run_harness.py
-`python evals/run_harness.py --preset nano --base-ckpt runs/base/ava_nano_stable.pt
+`python evals/run_harness.py --preset nano --base-ckpt runs/base/dottie_nano_stable.pt
 --chat-ckpt runs/chat/ckpt_latest.pt --device cpu [--skip needle]`
 - Runs: perplexity (both ckpts), probes (both), jspace_tests (both), needle (base). Wall-clock budget:
   keep totals < 20 min CPU — cap probe items evaluated per set via `--probe-n` (default 200).
@@ -156,7 +156,7 @@ The mock harness's giveaway literals (verified in eval_branch_harness.py): `0.82
    → exit 0, both report files written, wall < 10 min. (Random init: bars will FAIL — that is correct
    honest output; completion is the acceptance bar here.)
 3. After real checkpoints exist: `python evals/run_harness.py --preset nano --base-ckpt
-   runs/base/ava_nano_stable.pt --chat-ckpt runs/chat/ckpt_latest.pt --device cpu` → exit 0, total
+   runs/base/dottie_nano_stable.pt --chat-ckpt runs/chat/ckpt_latest.pt --device cpu` → exit 0, total
    wall < 20 min, REPORT_REAL.md shows measured numbers (foreman judges bars, not the worker).
 4. `python - -c "import json; d=json.load(open('reports/branch_eval_results_real.json'));
    assert 'meta' in d"` style sanity → ok. `grep -E '0\.983|0\.967' reports/branch_eval_results_real.json`

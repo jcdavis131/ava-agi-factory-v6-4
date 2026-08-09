@@ -1,6 +1,6 @@
 # Solo personal project, no connection to employer, built with public/free-tier only
 #
-# Ava continuous pipeline: gather -> clean -> train -> serve, all concurrent.
+# Dottie continuous pipeline: gather -> clean -> train -> serve, all concurrent.
 #
 # Coordination is via a SQLite WAL manifest on the shared `ava_state` volume.
 # Named volumes (not bind mounts to C:) on purpose: bind mounts cross the
@@ -10,19 +10,19 @@
 #   docker compose up -d                 # whole pipeline
 #   docker compose up -d collector curator   # data plane only
 #   docker compose logs -f trainer
-#   docker compose up -d ava-train       # ad hoc interactive GPU dev shell (not part of the pipeline)
+#   docker compose up -d dottie-train       # ad hoc interactive GPU dev shell (not part of the pipeline)
 
 x-cpu-image: &cpu-image
   build:
     context: .
     dockerfile: docker/Dockerfile.cpu
-  image: ava/cpu:latest
+  image: dottie/cpu:latest
 
 x-gpu-image: &gpu-image
   build:
     context: .
     dockerfile: docker/Dockerfile.gpu
-  image: ava/gpu:latest
+  image: dottie/gpu:latest
 
 x-common-env: &common-env
   AVA_PRESET: ${AVA_PRESET:-nano}
@@ -62,7 +62,7 @@ services:
     volumes:
       - ava_raw:/raw
       - ava_state:/state
-      - ava_reports:/reports
+      - dottie_reports:/reports
       - *host-disk
     deploy:
       replicas: 4
@@ -82,7 +82,7 @@ services:
       - ava_raw:/raw
       - ava_packed:/packed
       - ava_state:/state
-      - ava_reports:/reports
+      - dottie_reports:/reports
       - *host-disk
     deploy:
       replicas: 6
@@ -121,7 +121,7 @@ services:
       - ava_packed:/packed
       - ava_ckpt:/ckpt
       - ava_state:/state
-      - ava_reports:/reports
+      - dottie_reports:/reports
       - *host-disk
     depends_on:
       - curator
@@ -133,14 +133,14 @@ services:
   # Pipeline monitor (/dashboard). Use AVA_SKIP_ENGINE_BOOT=1 during training so
   # this service does not load a second model. No GPU reservation in that mode —
   # sharing the 4080 with the trainer caused CUBLAS / silent shutdowns.
-  # For J-Space viewer: set AVA_SKIP_ENGINE_BOOT=0, point AVA_CKPT at a .pt, and
+  # For J-Space viewer: set AVA_SKIP_ENGINE_BOOT=0, point DOTTIE_CKPT at a .pt, and
   # add the gpu-reservation anchor back (stop trainer first on this host).
   server:
     <<: *gpu-image
     command: ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       <<: *common-env
-      AVA_CKPT: ${AVA_CKPT:-/ckpt/latest}
+      DOTTIE_CKPT: ${DOTTIE_CKPT:-/ckpt/latest}
       AVA_TOKENIZER: /state/tokenizer.json
       AVA_SKIP_ENGINE_BOOT: ${AVA_SKIP_ENGINE_BOOT:-0}
       ENABLE_JSPACE_WRITE: ${ENABLE_JSPACE_WRITE:-0}
@@ -150,11 +150,11 @@ services:
     volumes:
       - ava_ckpt:/ckpt
       - ava_state:/state
-      - ava_reports:/reports
+      - dottie_reports:/reports
       - *host-disk
-      # Read-only: lets /evals show agent-eval's scoreboard (the Ava-claw /
+      # Read-only: lets /evals show agent-eval's scoreboard (the Dottie-claw /
       # AgenticOS agentic hill-climb, a different axis than the pretraining
-      # evals above) alongside it. ava_claw_run.py writes here from the host;
+      # evals above) alongside it. dottie_claw_run.py writes here from the host;
       # the dashboard only ever reads. User-confirmed 2026-07-13.
       - type: bind
         source: ${AGENT_EVAL_HOST_PATH:-C:/Users/jcdav/agent-eval}
@@ -172,11 +172,11 @@ services:
   # Interactive GPU box for manual experiments — separate image/volumes from
   # the pipeline services above so it never fights them for ava_state/ava_ckpt.
   # Port remapped to 8001 so it can coexist with the pipeline `server` service.
-  ava-train:
+  dottie-train:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    image: ava-agi-factory:2.4.0-cuda12.4
+    image: dottie-agi-factory:2.4.0-cuda12.4
     runtime: nvidia
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
@@ -215,4 +215,4 @@ volumes:
   ava_packed:  { external: true }
   ava_ckpt:    { external: true }
   ava_state:   { external: true }
-  ava_reports: { external: true }
+  dottie_reports: { external: true }

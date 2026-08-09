@@ -10,7 +10,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from ava.config import AvaConfig
+from dottie.config import DottieConfig
 from evals.common import EVAL_SEED, heldout_path, prep_eval
 
 
@@ -31,7 +31,7 @@ def compute_ppl(
     device: str = "cpu",
 ) -> dict[int, dict[str, float]]:
     """Per-phase PPL: exp(mean NLL) on non-overlapping windows at training seq_len."""
-    cfg = AvaConfig.load(preset)
+    cfg = DottieConfig.load(preset)
     phases = phases if phases is not None else list(range(len(cfg.phases)))
     dev = torch.device(device)
     prep_eval(model, EVAL_SEED)

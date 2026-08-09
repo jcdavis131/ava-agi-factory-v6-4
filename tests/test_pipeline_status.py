@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ava.pipeline_status import _SERIES_FIELDS, current_run_series, full_run_series
+from dottie.pipeline_status import _SERIES_FIELDS, current_run_series, full_run_series
 
 
 def test_current_run_series_drops_pre_restart_history():

@@ -7,7 +7,7 @@ Deletes packed files under AVA_PACKED_DIR after DB invalidation.
 Usage (cpu image)::
 
     python scripts/reset_tokenizer_cutover.py
-    python -m ava.tokenizer train --preset mini --corpus /raw --out /state/tokenizer.json --freeze
+    python -m dottie.tokenizer train --preset mini --corpus /raw --out /state/tokenizer.json --freeze
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from ava.pipeline.manifest import Manifest
+from dottie.pipeline.manifest import Manifest
 
 
 def main() -> int:

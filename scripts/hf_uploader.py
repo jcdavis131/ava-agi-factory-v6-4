@@ -1,5 +1,5 @@
 """
-Ava AGI Factory — HF Hub Curated Dataset Uploader (Loop 1 -> Loop 2)
+Dottie AGI Factory — HF Hub Curated Dataset Uploader (Loop 1 -> Loop 2)
 Solo personal project, no connection to employer, built with public/free-tier only
 """
 import argparse, glob, json, hashlib, os, sys
@@ -25,7 +25,7 @@ def gather_manifests(pattern):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--repo", default="jcdavis131/ava-textbook-v6")
+    ap.add_argument("--repo", default="jcdavis131/dottie-textbook-v6")
     ap.add_argument("--manifest", default="data/daily_expanded/manifest_*.jsonl")
     ap.add_argument("--private", action="store_true", default=True)
     ap.add_argument("--parquet", action="store_true")
@@ -72,7 +72,7 @@ def main():
             "manifests": [str(p) for p in mfiles],
             "total_tokens": total_tokens,
             "split": args.split,
-            "note": "On Alienware: HF_TOKEN=... python scripts/hf_uploader.py --repo jcdavis131/ava-textbook-v6 --push",
+            "note": "On Alienware: HF_TOKEN=... python scripts/hf_uploader.py --repo jcdavis131/dottie-textbook-v6 --push",
             "streaming_example": f'from datasets import load_dataset; ds = load_dataset("{args.repo}", streaming=True, split="train"); next(iter(ds))'
         }, indent=2))
         print(f"Saved {out}")

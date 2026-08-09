@@ -16,8 +16,8 @@ from pathlib import Path
 import pytest
 import zstandard as zstd
 
-from ava.pipeline import collector
-from ava.pipeline.collector import (
+from dottie.pipeline import collector
+from dottie.pipeline.collector import (
     CollectorConfig,
     SourceSpec,
     build_doc,
@@ -27,8 +27,8 @@ from ava.pipeline.collector import (
     serve,
     sources_for_phase,
 )
-from ava.pipeline.flow import FlowConfig, PauseReason
-from ava.pipeline.manifest import RAW, Manifest
+from dottie.pipeline.flow import FlowConfig, PauseReason
+from dottie.pipeline.manifest import RAW, Manifest
 
 REPO = Path(__file__).resolve().parent.parent
 SOURCES_YAML = REPO / "configs" / "sources.yaml"
@@ -263,7 +263,7 @@ def test_sources_yaml_parses_and_has_required_keys():
         if s.kind == "hf":
             assert s.dataset and s.split
         else:
-            from ava.datagen import GENERATORS
+            from dottie.datagen import GENERATORS
             assert s.generator in GENERATORS, f"{s.name}: unknown generator {s.generator}"
             # the registry may not claim a phase the generator cannot emit
             gen_phases = set(GENERATORS[s.generator].phases)

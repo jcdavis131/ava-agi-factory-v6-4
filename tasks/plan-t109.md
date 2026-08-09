@@ -7,7 +7,7 @@ when free disk falls below `storage.evict_high_water_gb`. Collectors already pau
 on dead phases via pacer/backpressure; this sheds the expanding-store tail.
 
 ## Design
-- Thin policy module `ava/pipeline/eviction.py` (pure ranking + protect rules).
+- Thin policy module `dottie/pipeline/eviction.py` (pure ranking + protect rules).
 - Janitor calls it after CONSUMED reclaim when `free_gb < evict_high_water_gb`.
 - Never val/test; never PACKED that would drop `tokens_ready(phase)` below
   `packed_min_tokens` (lead floor until full pacer lands).

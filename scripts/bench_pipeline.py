@@ -32,7 +32,7 @@ def _log(msg: str) -> None:
 
 def _resolve_tokenizer(preset: str) -> Path:
     cfg_path = _REPO / "configs" / f"{preset}.yaml"
-    tok = _REPO / "data" / preset / "tokenizer" / f"ava_{preset}_bpe.json"
+    tok = _REPO / "data" / preset / "tokenizer" / f"dottie_{preset}_bpe.json"
     if cfg_path.is_file():
         try:
             import yaml
@@ -48,7 +48,7 @@ def _resolve_tokenizer(preset: str) -> Path:
     if tok.is_file():
         return tok
     # common nano name
-    alt = _REPO / "data" / "nano" / "tokenizer" / "ava_nano_bpe.json"
+    alt = _REPO / "data" / "nano" / "tokenizer" / "dottie_nano_bpe.json"
     if alt.is_file():
         return alt
     raise FileNotFoundError(
@@ -59,9 +59,9 @@ def _resolve_tokenizer(preset: str) -> Path:
 
 def bench_collector(workdir: Path, *, target_bytes: int, max_docs: int, seed: int) -> dict:
     """Synthetic collect → RAW .jsonl.zst; report docs/s and approx tok/s."""
-    from ava.datagen.logic import LogicGenerator
-    from ava.pipeline.collector import ShardWriter, doc_id_for
-    from ava.pipeline.pack import load_tokenizer
+    from dottie.datagen.logic import LogicGenerator
+    from dottie.pipeline.collector import ShardWriter, doc_id_for
+    from dottie.pipeline.pack import load_tokenizer
 
     raw_dir = workdir / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -118,12 +118,12 @@ def bench_collector(workdir: Path, *, target_bytes: int, max_docs: int, seed: in
 
 def bench_curator(workdir: Path, *, n_docs: int, seed: int, pipeline_cfg: Path) -> dict:
     """Clean + dedup + decontam + pack on synthetic docs; measure packed tok/s."""
-    from ava.datagen.logic import LogicGenerator
-    from ava.pipeline import clean, decontaminate
-    from ava.pipeline.dedup import MinHashDeduper
-    from ava.pipeline.decontaminate import Decontaminator
-    from ava.pipeline.pack import load_tokenizer, pack_docs, write_shard
-    from ava.pipeline.split import assign_split
+    from dottie.datagen.logic import LogicGenerator
+    from dottie.pipeline import clean, decontaminate
+    from dottie.pipeline.dedup import MinHashDeduper
+    from dottie.pipeline.decontaminate import Decontaminator
+    from dottie.pipeline.pack import load_tokenizer, pack_docs, write_shard
+    from dottie.pipeline.split import assign_split
     import yaml
 
     cfg = yaml.safe_load(pipeline_cfg.read_text(encoding="utf-8"))
@@ -203,12 +203,12 @@ def bench_trainer(preset: str, *, device: str, warmup: int, steps: int, seq: int
     """
     import torch
 
-    from ava.config import AvaConfig
-    from ava.jlosses import JSpaceObjective
-    from ava.model import build_model
-    from ava.train import build_optimizer, micro_batch_for
+    from dottie.config import DottieConfig
+    from dottie.jlosses import JSpaceObjective
+    from dottie.model import build_model
+    from dottie.train import build_optimizer, micro_batch_for
 
-    cfg = AvaConfig.load(preset)
+    cfg = DottieConfig.load(preset)
     if device == "cuda" and not torch.cuda.is_available():
         device = "cpu"
         _log("WARN: CUDA requested but unavailable; falling back to cpu")
@@ -272,7 +272,7 @@ def bench_trainer(preset: str, *, device: str, warmup: int, steps: int, seq: int
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Ava pipeline throughput bench + 3× gate")
+    ap = argparse.ArgumentParser(description="Dottie pipeline throughput bench + 3× gate")
     ap.add_argument("--preset", default=os.environ.get("AVA_PRESET", "nano"))
     ap.add_argument("--device", default=None, help="cpu|cuda (default: cuda if available)")
     ap.add_argument("--collector-docs", type=int, default=400)
@@ -295,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _log(f"bench_pipeline preset={args.preset} device={device} tokenizer={tok_path}")
 
-    workdir = Path(tempfile.mkdtemp(prefix="ava_bench_"))
+    workdir = Path(tempfile.mkdtemp(prefix="dottie_bench_"))
     result: dict = {
         "preset": args.preset,
         "device": device,

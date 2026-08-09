@@ -3,7 +3,7 @@ server.py - Live J-Lens Viewer
 Solo personal project, no connection to employer
 
 Wires FastAPI endpoints to ``ava.serve_engine.ServeEngine``. Checkpoint loads
-in the lifespan handler so a broken ``AVA_CKPT`` fails at boot, not on first
+in the lifespan handler so a broken ``DOTTIE_CKPT`` fails at boot, not on first
 request. Hot-reload of ``ckpt/latest`` (text pointer) lives inside the engine.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from fastapi import FastAPI, HTTPException, Query, WebSocket
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from ava.serve_engine import get_engine
+from dottie.serve_engine import get_engine
 
 _REPO = Path(__file__).resolve().parent
 # Compose mounts the shared reports volume at AVA_REPORTS_DIR (/reports);
@@ -29,7 +29,7 @@ _EVAL_JSON = _REPORTS / "branch_eval_results_real.json"
 _EVAL_MD = _REPORTS / "REPORT_REAL.md"
 _REPORT_HTML = _REPORTS / "index.html"
 # Read-only mount of the sibling agent-eval repo (see docker-compose.yml's
-# `server` service) -- the Ava-claw / AgenticOS agentic hill-climb scoreboard,
+# `server` service) -- the Dottie-claw / AgenticOS agentic hill-climb scoreboard,
 # a different axis from the pretraining evals above (tool-use/grounding vs.
 # perplexity/probes/J-Space). Optional: /agent_eval/scoreboard 404s cleanly
 # if the mount isn't present (e.g. a bare-metal boot with no AGENT_EVAL_DIR).
@@ -37,7 +37,7 @@ _AGENT_EVAL_DIR = Path(os.environ.get("AGENT_EVAL_DIR", str(_REPO.parent / "agen
 _AGENT_EVAL_SCOREBOARD = _AGENT_EVAL_DIR / "scoreboard.md"
 
 VIEWER_HTML = """
-<!DOCTYPE html><html><head><title>Ava J-Space Viewer v6.4</title>
+<!DOCTYPE html><html><head><title>Dottie J-Space Viewer v6.4</title>
 <style>
 body{background:#0a0a0f;color:#e0e0ff;font-family:Inter,monospace;margin:0;padding:20px}
 .header{display:flex;justify-content:space-between;align-items:center}
@@ -60,7 +60,7 @@ button:disabled{opacity:0.3;cursor:not-allowed}
 .toggle .active{background:#6c5ce7;color:white}
 </style></head><body>
 <div class="header">
-<h2>🧠 Ava J-Space Viewer v6.4 — Multi-JSpace S1/S2/Critic/Planner</h2>
+<h2>🧠 Dottie J-Space Viewer v6.4 — Multi-JSpace S1/S2/Critic/Planner</h2>
 <div><span id="modeBadge" class="badge audit">🔍 Read-Only (Audit)</span> <select id="branchSel"><option>base</option><option>code</option><option>math</option><option>chat</option></select></div>
 </div>
 <div id="banner" style="padding:10px;background:#6c5ce733;border-radius:8px;margin:10px 0">Read-only J-lens, no writes, safe for prod, surfaces leverage/blackmail/threat before output</div>
@@ -122,10 +122,10 @@ class GenerateReq(BaseModel):
 
 
 class ChatMessage(BaseModel):
-    role: str  # "user" or "assistant" — matches ava/tokenizer.py's frozen
+    role: str  # "user" or "assistant" — matches dottie/tokenizer.py's frozen
     #            <|user|>/<|assistant|> specials (ids 0-5); no <|tool|> special
     #            exists, so tool results are also sent as role="user" (see
-    #            AgenticOS/ava_bridge.py, which owns that convention).
+    #            AgenticOS/dottie_bridge.py, which owns that convention).
     content: str
 
 
@@ -144,7 +144,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Ava J-Space Viewer v6.4", lifespan=lifespan)
+app = FastAPI(title="Dottie J-Space Viewer v6.4", lifespan=lifespan)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -162,14 +162,14 @@ async def root():
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard():
-    from ava.dashboard_html import DASHBOARD_HTML
+    from dottie.dashboard_html import DASHBOARD_HTML
 
     return HTMLResponse(DASHBOARD_HTML)
 
 
 @app.get("/evals", response_class=HTMLResponse)
 async def evals_page():
-    from ava.evals_html import EVALS_HTML
+    from dottie.evals_html import EVALS_HTML
 
     return HTMLResponse(EVALS_HTML)
 
@@ -178,28 +178,28 @@ async def evals_page():
 async def chat_page():
     """The chat UI. Coexists with POST /chat (the JSON API below) on the same
     path -- FastAPI dispatches by method, so this only ever serves GET."""
-    from ava.chat_html import CHAT_HTML
+    from dottie.chat_html import CHAT_HTML
 
     return HTMLResponse(CHAT_HTML)
 
 
 @app.get("/pipeline/status")
 async def pipeline_status():
-    from ava.pipeline_status import collect_status
+    from dottie.pipeline_status import collect_status
 
     return collect_status()
 
 
 @app.get("/ecosystem", response_class=HTMLResponse)
 async def ecosystem():
-    from ava.ecosystem_html import ECOSYSTEM_HTML
+    from dottie.ecosystem_html import ECOSYSTEM_HTML
 
     return HTMLResponse(ECOSYSTEM_HTML)
 
 
 @app.get("/ecosystem/status")
 async def ecosystem_status():
-    from ava.ecosystem_status import collect_ecosystem_status
+    from dottie.ecosystem_status import collect_ecosystem_status
 
     return collect_ecosystem_status()
 
@@ -229,7 +229,7 @@ async def generate(req: GenerateReq):
 
 _ROLE_TAGS = {"user": "<|user|>", "assistant": "<|assistant|>"}
 # generate() has no early-stop on <|eos|>/<|user|> (it fills max_tokens every
-# call — see ava/serve_engine.py:258's plain for-loop) — an undertrained chat
+# call — see dottie/serve_engine.py:258's plain for-loop) — an undertrained chat
 # checkpoint can ramble past its own turn into fabricated follow-up turns.
 # Truncate at the first token that would start a new turn.
 _TURN_END_RE = re.compile(r"<\|eos\|>|<\|user\|>|<\|assistant\|>")
@@ -238,9 +238,9 @@ _TURN_END_RE = re.compile(r"<\|eos\|>|<\|user\|>|<\|assistant\|>")
 @app.post("/chat")
 async def chat(req: ChatReq):
     """Thin wrapper over ServeEngine.generate() using the <|user|>/<|assistant|>
-    convention already frozen in ava/tokenizer.py (SPECIALS ids 0-5) — the same
-    convention ava/datagen/chat_safety.py already generates training data in.
-    AgenticOS/ava_bridge.py is the client: formats a ReAct tool-calling
+    convention already frozen in dottie/tokenizer.py (SPECIALS ids 0-5) — the same
+    convention dottie/datagen/chat_safety.py already generates training data in.
+    AgenticOS/dottie_bridge.py is the client: formats a ReAct tool-calling
     conversation into this shape and regex-parses the response back into the
     tool_calls shape harness.py's Ollama-backed chat() already returns, so the
     ReAct loop itself doesn't need to know which brain it's talking to.
@@ -351,9 +351,9 @@ async def eval_report():
 
 @app.get("/agent_eval/scoreboard")
 async def agent_eval_scoreboard():
-    """agent-eval's scoreboard.md (Ava-claw / AgenticOS hill-climb results) --
-    see ava_claw_run.py in the agent-eval repo. 404 if that repo isn't
-    mounted or hasn't produced a scoreboard yet (no run against Ava so far
+    """agent-eval's scoreboard.md (Dottie-claw / AgenticOS hill-climb results) --
+    see dottie_claw_run.py in the agent-eval repo. 404 if that repo isn't
+    mounted or hasn't produced a scoreboard yet (no run against Dottie so far
     is not an error state, just "nothing to show")."""
     if not _AGENT_EVAL_SCOREBOARD.is_file():
         raise HTTPException(

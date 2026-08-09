@@ -1,4 +1,4 @@
-# Hill-climb: Ava → SOTA (auto-mode + 5m closed-loop)
+# Hill-climb: Dottie → SOTA (auto-mode + 5m closed-loop)
 
 Date: 2026-07-11 (rev)  
 Mode: continuous iterate; data → arch → train → eval → repeat  

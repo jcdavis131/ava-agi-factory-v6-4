@@ -12,15 +12,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-from ava.pipeline import flow, janitor
-from ava.pipeline.janitor import (
+from dottie.pipeline import flow, janitor
+from dottie.pipeline.janitor import (
     Janitor,
     RetentionConfig,
     delete_shard_files,
     reclaim_consumed,
     rotate_checkpoints,
 )
-from ava.pipeline.manifest import CONSUMED, DELETED, PACKED, Manifest, StateError
+from dottie.pipeline.manifest import CONSUMED, DELETED, PACKED, Manifest, StateError
 
 REPO = Path(__file__).resolve().parent.parent
 PIPELINE_YAML = REPO / "configs" / "pipeline.yaml"
@@ -162,7 +162,7 @@ def test_janitor_explicit_refuse_protected_split(db_path, tmp_path: Path, monkey
         _seed_consumed(m, shard_id="v1", path=str(val_bin), split="val")
 
         # Bypass the SQL filter so reclaim_consumed sees the protected row.
-        from ava.pipeline.manifest import Shard
+        from dottie.pipeline.manifest import Shard
 
         fake = Shard(
             id="v1", source="x", phase=0, split="val", state=CONSUMED,

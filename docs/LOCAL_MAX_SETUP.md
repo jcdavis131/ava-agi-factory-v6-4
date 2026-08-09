@@ -1,8 +1,8 @@
 Solo personal project, no connection to employer, built with public/free-tier only
 
-# Ava AGI Factory v6.4 — LOCAL MAX SETUP (RTX 4080/4090 + Docker + Ollama)
+# Dottie AGI Factory v6.4 — LOCAL MAX SETUP (RTX 4080/4090 + Docker + Ollama)
 
-**Goal:** Reach maximum potential of Ava 1B on YOUR machine with Docker + NVIDIA + Ollama (free SOTA judging) + WSD stop-anytime checkpoints.
+**Goal:** Reach maximum potential of Dottie 1B on YOUR machine with Docker + NVIDIA + Ollama (free SOTA judging) + WSD stop-anytime checkpoints.
 
 **Target:** RTX 4090 24GB (2-3x base1b throughput) OR RTX 4080 Laptop 12GB (reference). 100GB+ free disk, 32GB RAM recommended.
 
@@ -58,8 +58,8 @@ curl http://localhost:11434/api/tags | jq
 
 ### Repo clone
 ```bash
-git clone <your-fork> ava-agi-factory-v6-4
-cd ava-agi-factory-v6-4
+git clone <your-fork> dottie-agi-factory-v6-4
+cd dottie-agi-factory-v6-4
 ls configs/mini.yaml configs/base1b.yaml
 pip install -r requirements.txt  # host only for quick eval_frontier_rubric mock
 python eval_frontier_rubric.py --domain finance --judge mock --mode mock
@@ -112,11 +112,11 @@ CMD ["/bin/bash"]
 # Solo personal project, no connection to employer, built with public/free-tier only
 version: "3.8"
 services:
-  ava-train:
+  dottie-train:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    image: ava-agi-factory:2.4.0-cuda12.4
+    image: dottie-agi-factory:2.4.0-cuda12.4
     runtime: nvidia
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
@@ -165,7 +165,7 @@ services:
 Inside container, `host.docker.internal:11434` points to your host Ollama.
 
 ```bash
-# inside ava-train container
+# inside dottie-train container
 curl http://host.docker.internal:11434/api/tags
 OLLAMA_HOST=http://host.docker.internal:11434 ollama list || curl trick above for host
 ```
@@ -175,7 +175,7 @@ Build:
 ```bash
 docker compose build --progress=plain
 docker compose up -d
-docker exec -it ava-agi-factory-ava-train-1 bash
+docker exec -it dottie-agi-factory-dottie-train-1 bash
 # inside:
 nvidia-smi
 python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
@@ -200,22 +200,22 @@ processors=12
 
 ## 3. Data generation — from smoke to 15T
 
-All inside docker container `ava-train`:
+All inside docker container `dottie-train`:
 
 ```bash
 # tokenizer (shared mini/base1b)
-python -c "from streaming_data import build_tokenizer; build_tokenizer('data/mini/tokenizer/ava_bpe_32k.json')"
-ls data/mini/tokenizer/ava_bpe_32k.json
+python -c "from streaming_data import build_tokenizer; build_tokenizer('data/mini/tokenizer/dottie_bpe_32k.json')"
+ls data/mini/tokenizer/dottie_bpe_32k.json
 
 # Phase 0-1 synthetic logic + math (Phi Method B)
 python logic_textbook_pipeline.py --phases p0_logic p1_math --out data/mini/raw --tokens 500M --seed 1234
 
 # Pack to streaming shards (webdataset + packed)
-python -m streaming_data pack --in data/mini/raw --out data/mini/packed --seq 1024 --tokenizer data/mini/tokenizer/ava_bpe_32k.json
+python -m dottie.data pack --in data/mini/raw --out data/mini/packed --seq 1024 --tokenizer data/mini/tokenizer/dottie_bpe_32k.json
 
 # For base1b scale:
 python logic_textbook_pipeline.py --phases p0_logic p1_math p2_foundation --out data/base1b/raw --tokens 2B --seq 2048
-python -m streaming_data pack --in data/base1b/raw --out data/base1b/packed --seq 2048
+python -m dottie.data pack --in data/base1b/raw --out data/base1b/packed --seq 2048
 
 # Dolma + Nemo Curator pipeline (edu>=2 filter)
 dolma -c dolma_config.yaml  # outputs to data/base1b/raw/dolma
@@ -299,7 +299,7 @@ torchrun --nproc_per_node=1 train_1b_deepspeed.py --preset base1b --resume --dee
 # 12GB reality: ctx>16k at 1B needs mb 1 + grad checkpoint aggressive; 64k-128k blueprint ctx out of reach on this GPU — YaRN eval-time extension covers probe
 torchrun --nproc_per_node=1 train_1b_deepspeed.py --preset base1b --resume --deepspeed deepspeed_zero3_bf16.json --tokens_total 30000000000
 
-# Stable ckpt example: ava_stable_736k.pt (WSD 736k steps stable)
+# Stable ckpt example: dottie_stable_736k.pt (WSD 736k steps stable)
 ls -lh checkpoints/base1b/
 # checkpoint ~6GB (bf16 2.3 + 8bit optim 2.3 + master + meta), keep-last-3 rotation + 1 stable per phase boundary => 100GB budget
 ```
@@ -375,19 +375,19 @@ python eval_frontier_rubric.py --domain all --judge glm --mode mock
 
 ## 6. Branching for max — code / math / chat from stable ckpt
 
-From any WSD stable checkpoint (`ava_stable_736k.pt` or `checkpoints/base1b/stable/`):
+From any WSD stable checkpoint (`dottie_stable_736k.pt` or `checkpoints/base1b/stable/`):
 
 **Arith**: Branch LR lower (1e-4 code, 8e-5 math, 5e-5 chat), freeze sets, router bias, HL targets.
 
 ```bash
 # code branch — freeze system1, fine-tune system2/planner/router/arbitration, bias [0.25,0.45,0.05,0.25], HL S2 350 Planner200
-torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch code --ckpt checkpoints/base1b/ava_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json --preset base1b
+torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch code --ckpt checkpoints/base1b/dottie_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json --preset base1b
 
 # math — freeze system1,planner, fine-tune system2,critic,router bias [0.10,0.65,0.20,0.05] HL S2 400 Critic40
-torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch math --ckpt checkpoints/base1b/ava_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json --preset base1b
+torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch math --ckpt checkpoints/base1b/dottie_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json --preset base1b
 
 # chat — freeze system1,system2 capabilities frozen, fine-tune critic,planner,router,arbitration bias [0.15,0.25,0.35,0.25] HL Critic35 Planner180
-torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch chat --ckpt checkpoints/base1b/ava_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json --preset base1b
+torchrun --nproc_per_node=1 train_1b_deepspeed.py --branch chat --ckpt checkpoints/base1b/dottie_stable_736k.pt --deepspeed deepspeed_zero3_bf16.json --preset base1b
 
 ls checkpoints/ | grep branch
 # each branch ~6GB ckpt
@@ -427,7 +427,7 @@ uvicorn server:app --host 0.0.0.0 --port 8000 --reload &
 
 ```bash
 # convert deepspeed ckpt to HF
-python convert_to_hf.py --ckpt checkpoints/base1b/ava_stable_736k.pt --out hf_model/base1b
+python convert_to_hf.py --ckpt checkpoints/base1b/dottie_stable_736k.pt --out hf_model/base1b
 python convert_to_hf.py --ckpt checkpoints/branch_chat_step800000.pt --out hf_model/chat
 
 # serve
@@ -436,7 +436,7 @@ curl http://localhost:8000/health || curl http://localhost:8000/jspace/eval_bran
 
 # Docker already exposes 8000:8000 via compose, so host can curl http://localhost:8000
 docker compose ps
-docker logs ava-agi-factory-ava-train-1 -f
+docker logs dottie-agi-factory-dottie-train-1 -f
 ```
 
 ---
@@ -486,7 +486,7 @@ ls -lh checkpoints/base1b/ | grep stable
 **Week 2: M1 2B logic+math — first stop-anytime stable ckpt**
 - [ ] Day8: `torchrun --preset base1b --tokens_total 2B --compile`, 1.0-1.5k tok/s 12GB → 100M/day, 2-3.5k tok/s 4090 24GB → 250M/day
 - [ ] Mid: thermal check, power cap 120W if throttling, `WANDB_MODE=offline`
-- [ ] Gate M1: eval probes arithmetic/logic clearly above mini, 5 J-tests trending, save `ava_stable_736k.pt` style ckpt
+- [ ] Gate M1: eval probes arithmetic/logic clearly above mini, 5 J-tests trending, save `dottie_stable_736k.pt` style ckpt
 
 **Week 3: M2 10B foundation + branching prep**
 - [ ] Resume `--resume --tokens_total 10B`, phases p2_foundation frac 0.47 seq 2048 rope 10k mix 35% encyclopedia 25% code etc per base1b.yaml
@@ -502,7 +502,7 @@ ls -lh checkpoints/base1b/ | grep stable
 **Rerunnable commands cheatsheet:**
 ```bash
 docker compose up -d
-docker exec -it ava-agi-factory-ava-train-1 bash -c "
+docker exec -it dottie-agi-factory-dottie-train-1 bash -c "
   export OLLAMA_HOST=http://host.docker.internal:11434
   export OLLAMA_MODEL=qwen3:32b
   nvidia-smi && python -c \"import torch; print(torch.cuda.get_device_name(0))\"

@@ -12,16 +12,16 @@ from pathlib import Path
 import pytest
 import yaml
 
-from ava.pipeline import flow, janitor
-from ava.pipeline.eviction import (
+from dottie.pipeline import flow, janitor
+from dottie.pipeline.eviction import (
     StorageConfig,
     evict_oversupplied,
     rank_eviction_candidates,
     should_evict,
 )
-from ava.pipeline.flow import FlowConfig
-from ava.pipeline.janitor import Janitor
-from ava.pipeline.manifest import DELETED, PACKED, RAW, Manifest
+from dottie.pipeline.flow import FlowConfig
+from dottie.pipeline.janitor import Janitor
+from dottie.pipeline.manifest import DELETED, PACKED, RAW, Manifest
 
 REPO = Path(__file__).resolve().parent.parent
 PIPELINE_YAML = REPO / "configs" / "pipeline.yaml"

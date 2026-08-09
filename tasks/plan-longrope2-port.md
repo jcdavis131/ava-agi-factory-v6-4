@@ -37,7 +37,7 @@ exactly the property the interleaved/half-split mismatch destroys.
 
 ## What's in model_1b.py now, config-gated, default off
 
-- `rope_type: "yarn" | "longrope2"` on `TransformerBlock1B`/`AvaModel1B`.
+- `rope_type: "yarn" | "longrope2"` on `TransformerBlock1B`/`DottieModel1B`.
   `longrope2_factors()` + `LongRoPE2ScaledRoPE` give non-uniform per-dim RoPE
   factors (critical-dim shift 31->25 as scale 1->100, resonance-jitter
   mitigation) for near-lossless long-context scaling, same `.update()`/
@@ -60,8 +60,8 @@ exactly the property the interleaved/half-split mismatch destroys.
 
 ## Config plumbing
 
-`ava/config.py`'s `ModelConfig` gained `rope_type`/`n_sinks`/`use_peri_ln`
-(same defaults, validated in `__post_init__`); `ava/model.py`'s
+`dottie/config.py`'s `ModelConfig` gained `rope_type`/`n_sinks`/`use_peri_ln`
+(same defaults, validated in `__post_init__`); `dottie/model.py`'s
 `build_model()` passes them through. No preset (`nano`/`mini`/`base1b.yaml`)
 opts in yet — that's a training-behavior decision for whoever wants to spend
 a run on it, not implied by porting the code. To try it, add e.g.
@@ -76,7 +76,7 @@ runs against the ported function unchanged.
 - **Re-running master's hill-climb numbers** against the corrected rotation.
   That needs a real training run, not a code change — do it before trusting
   those numbers for anything.
-- **Wiring OroJaR into `ava/jlosses.py`'s objective.** `multi_jspace_module.py`
+- **Wiring OroJaR into `dottie/jlosses.py`'s objective.** `multi_jspace_module.py`
   already has `estimate_jacobian_fro_norm`/`orojar_orthogonal_loss`/
   `orojar_comprehensive_loss` from the earlier merge (that conflict was
   purely additive, no port needed) but nothing calls them yet.

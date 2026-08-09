@@ -1,10 +1,10 @@
-# Handoff — Ava continuous pipeline
+# Handoff — Dottie continuous pipeline
 
-Paste the block below into a fresh Claude Code session started in `C:\Users\jcdav\ava-agi`.
+Paste the block below into a fresh Claude Code session started in `C:\Users\jcdav\dottie-agi`.
 
 ---
 
-You are the foreman on the Ava AGI Factory project at `C:\Users\jcdav\ava-agi` (branch
+You are the foreman on the Dottie AGI Factory project at `C:\Users\jcdav\dottie-agi` (branch
 `claude/model-training-workflow-plan-n5vep5`, also pushed to `master`). Read `PLAN.md`,
 `TODOS.md`, and `ORCHESTRATION.md` first — they are current and accurate. `specs/` holds the
 per-stage contracts used to dispatch sub-agents.
@@ -19,7 +19,7 @@ continuous gather → clean → train → serve pipeline, on the local RTX 4080.
 ## State: Stages 0–6 done, verified, committed
 
 Five Docker services coordinated by a SQLite manifest with atomic leased claims
-(`ava/pipeline/manifest.py`). Collector streams HF + runs deterministic synthetic generators;
+(`dottie/pipeline/manifest.py`). Collector streams HF + runs deterministic synthetic generators;
 curator cleans/dedupes/decontaminates/splits/packs to uint16 shards; trainer consumes them live;
 janitor reclaims disk. **The nano smoke run passes on the GPU**: 13.79M params, lm loss
 9.053 → 3.400 in 30 steps at ~18–20k tok/s, checkpoint written, `--resume` verified.
@@ -70,17 +70,17 @@ ordering and was right.
    `sha256(concept) % vocab` — it never touches the model. Deliver `perplexity.py` (val in-training,
    test at milestones only), `probes.py`, `interventions.py` + `jspace_tests.py` (the 5 canonical
    tests as real forward-hook measurements using **real tokenizer ids** via
-   `AvaTokenizer.concept_token`), `needle.py`, `run_harness.py`. Plus `tests/test_no_mock.py`, which
+   `DottieTokenizer.concept_token`), `needle.py`, `run_harness.py`. Plus `tests/test_no_mock.py`, which
    must fail if any mock literal (`0.82`, `0.983`, `0.91`) appears unconditionally.
    Contract: `specs/06_evaluation.md`. **Do not inherit the old PASS bars** — they were tuned for a
    14M synthetic model. Report measured values.
-2. **Stage 8 — live serving** (`ava/serve_engine.py`, `server.py`). `server.py` currently uses
+2. **Stage 8 — live serving** (`dottie/serve_engine.py`, `server.py`). `server.py` currently uses
    `Optional` without importing it. Migrate `InterveneReq` to pydantic v2 `Field(alias="from")`,
    wire every endpoint to the engine, keep the `ENABLE_JSPACE_WRITE=1` + `?mode=research` 403 gate,
    add `/health` `/generate` `/report`, hot-reload `ckpt/latest` so the model can be probed *while it
    trains*. Contract: `specs/07_serving_deployment.md`.
 3. **T5.4** `scripts/bench_pipeline.py` — gate: curation tok/s ≥ 3× trainer tok/s.
-4. **T6.5** `ava/pipeline/janitor.py` — disk watermarks, delete CONSUMED (never val/test), ckpt rotation.
+4. **T6.5** `dottie/pipeline/janitor.py` — disk watermarks, delete CONSUMED (never val/test), ckpt rotation.
 5. **Stage 9** — full nano run, then mini (171M, ~2.5B tokens, 3–5 days), then the base1b GO/NO-GO.
 
 ## Open decisions for the user (do not decide alone)

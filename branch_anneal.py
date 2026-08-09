@@ -11,7 +11,7 @@ BRANCH_CONFIGS={
 }
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument("--stable_ckpt", default="ava_stable_736k.pt")
+    parser.add_argument("--stable_ckpt", default="dottie_stable_736k.pt")
     parser.add_argument("--branch", default="all", choices=["all","code","math","chat"])
     parser.add_argument("--steps", type=int, default=64000)
     args=parser.parse_args()
@@ -20,8 +20,8 @@ def main():
     for br in branches:
         cfg=BRANCH_CONFIGS[br]
         print(f"Branch {br}: data {cfg['data']} eval {cfg['eval']} steps {args.steps} cosine decay 2e-4->2e-5")
-        Path(f"ava_{br}_final_800k.pt").write_text(f"mock final {br}")
-        print(f"Produced ava_{br}_final_800k.pt")
+        Path(f"dottie_{br}_final_800k.pt").write_text(f"mock final {br}")
+        print(f"Produced dottie_{br}_final_800k.pt")
     print("Optional MoE merge via merge_branches_as_moe() — one stable 13.8T -> 3 specialists cost 1.2T each vs 15T scratch")
 
 if __name__=="__main__":

@@ -55,7 +55,7 @@ def gen_example_fast(topic, phase, nonce):
     # Add reasoning steps for token length ~ 300-600 tokens per doc
     extra_steps = random.randint(2,6)
     reasoning = "\n".join([f"Reasoning step {i}: analysis of {topic} under {phase}, consider formal semantics and proof obligations, check invariants, cross-reference with known results." for i in range(extra_steps)])
-    text = base + "\n\n" + reasoning + f"\n\nReferences: Synthesized for Ava v6.4 curriculum {phase}. Phase marker {phase}.\nVersion: v6.4-expansion nonce {nonce} sha {hashlib.md5(str(nonce).encode()).hexdigest()[:6]}"
+    text = base + "\n\n" + reasoning + f"\n\nReferences: Synthesized for Dottie v6.4 curriculum {phase}. Phase marker {phase}.\nVersion: v6.4-expansion nonce {nonce} sha {hashlib.md5(str(nonce).encode()).hexdigest()[:6]}"
     return {
         "text": text,
         "source": f"synthetic_phi_B_{phase}",
@@ -240,8 +240,8 @@ def main():
         "dedup": "md5 fast (simhash skipped for Hatch VM 4h loop, full simhash on Alienware)",
         "quality_filter": "fast heuristic (alpha, uniq, length)",
         "note": "Saved locally for efficient downstream use. For Alienware: rsync + HF upload. DO NOT upload to work Drive camd@meta.com per AGENTS.md",
-        "hf_repo": "jcdavis131/ava-textbook-v6",
-        "streaming_example": "from datasets import load_dataset; ds = load_dataset('jcdavis131/ava-textbook-v6', streaming=True, split='train'); next(iter(ds))",
+        "hf_repo": "jcdavis131/dottie-textbook-v6",
+        "streaming_example": "from datasets import load_dataset; ds = load_dataset('jcdavis131/dottie-textbook-v6', streaming=True, split='train'); next(iter(ds))",
         "local_paths": new_shards,
         "sha256_list": [e["sha256_full"] for e in batch_entries[:10]]  # sample
     }
@@ -252,7 +252,7 @@ def main():
     hf_ready_path = for_upload_root / f"hf_ready_{timestamp_str}.json"
     hf_ready_path.write_text(json.dumps({
         "disclaimer": DISCLAIMER,
-        "repo": "jcdavis131/ava-textbook-v6",
+        "repo": "jcdavis131/dottie-textbook-v6",
         "manifests": [str(daily_manifest_path)],
         "total_tokens": total_tokens,
         "split": args.split,
