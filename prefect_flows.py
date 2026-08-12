@@ -67,22 +67,28 @@ def push_to_hf_task(manifest_path: str = "data/daily_expanded/manifest_*.jsonl",
     """Push curated train/val/test to HF Hub for streaming Loop2 — Solo personal project, no work Drive"""
     _log(f"[hf] push_to_hf repo={repo} manifest={manifest_path}")
     hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
+    uploader = str(ROOT / "scripts" / "hf_uploader.py")
     if not hf_token:
         _log("[hf] HF_TOKEN not set — saving manifest to data/for_upload/hf_ready_*.json for Alienware push (expected in Hatch VM)")
         # call hf_uploader dry-run via subprocess or just log
         import subprocess
-        cmd = f"python3 {ROOT}/scripts/hf_uploader.py --repo {repo} --manifest '{manifest_path}' --dry-run"
+        cmd = ["python3", uploader, "--repo", repo, "--manifest", manifest_path, "--dry-run"]
         try:
-            subprocess.run(cmd, shell=True, timeout=30)
+            subprocess.run(cmd, timeout=30)
         except Exception as e:
             _log(f"[hf] dry-run warning: {e}")
         return {"pushed": False, "reason": "no_token", "repo": repo}
-    # real push
+    # Real push. hf_uploader.py reads HF_TOKEN/HUGGINGFACE_HUB_TOKEN from its own
+    # environment (os.environ.get), so the token is inherited via the subprocess's
+    # environment rather than interpolated into a shell string — shell=True with a
+    # secret spliced into the command line would leak it to any local user via
+    # `ps`/`/proc/<pid>/cmdline` for the life of the process, and would also open
+    # `manifest_path` up to shell injection since it isn't quoted.
     import subprocess
-    cmd = f"HF_TOKEN={hf_token} python3 {ROOT}/scripts/hf_uploader.py --repo {repo} --manifest '{manifest_path}' --private --push"
-    _log(f"[hf] cmd: {cmd}")
+    cmd = ["python3", uploader, "--repo", repo, "--manifest", manifest_path, "--private", "--push"]
+    _log(f"[hf] cmd: {' '.join(cmd)}")
     try:
-        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         _log(res.stdout[-2000:])
         if res.returncode == 0:
             return {"pushed": True, "repo": repo}
