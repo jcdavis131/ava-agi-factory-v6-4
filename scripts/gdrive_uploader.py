@@ -16,7 +16,7 @@ Usage:
   python scripts/gdrive_uploader.py --upload data/daily_expanded/packed_*.jsonl.gz --folder Ava-Datasets-Expansion --dry-run
   python scripts/gdrive_uploader.py --upload data/for_upload/ --folder Ava-Datasets-Expansion
 """
-import argparse, json, os, sys, subprocess, time, hashlib, pathlib, re, random, shlex
+import argparse, json, os, sys, subprocess, time, hashlib, pathlib, re, random
 from pathlib import Path
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -24,9 +24,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 DISCLAIMER = "Solo personal project, no connection to employer, built with public/free-tier only"
 
 def run_cli(cmd, retries=3):
+    """Run a hatch_gws_cli command. `cmd` must be a list of argv tokens (never a shell
+    string) so that folder names, file paths, and other data-derived values can never be
+    interpreted as shell syntax — no shell=True, nothing to escape or inject into."""
     for attempt in range(retries):
         try:
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
+            result = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=60)
             if result.returncode == 0:
                 return result.stdout
             else:
@@ -39,9 +42,9 @@ def run_cli(cmd, retries=3):
     return None
 
 def gdrive_list(params_dict):
-    """Safe wrapper for hatch_gws_cli drive files list --params <json> using shlex.quote"""
+    """Wrapper for hatch_gws_cli drive files list --params <json>"""
     params_json = json.dumps(params_dict)
-    cmd = f"hatch_gws_cli drive files list --params {shlex.quote(params_json)}"
+    cmd = ["hatch_gws_cli", "drive", "files", "list", "--params", params_json]
     return run_cli(cmd)
 
 def check_work_drive_guard():
@@ -125,7 +128,8 @@ def get_or_create_folder(folder_name):
 
     # Create folder
     print(f"[GDrive] Creating folder {folder_name}")
-    out = run_cli(f'hatch_gws_cli drive files create --json \'{{\"name\":\"{folder_name}\",\"mimeType\":\"application/vnd.google-apps.folder\"}}\'')
+    create_payload = json.dumps({"name": folder_name, "mimeType": "application/vnd.google-apps.folder"})
+    out = run_cli(["hatch_gws_cli", "drive", "files", "create", "--json", create_payload])
     if out:
         try:
             data = json.loads(out)
@@ -174,10 +178,7 @@ def upload_file_with_dedup(local_path: Path, folder_id, dry_run=False):
     # Check skill: files.create can take upload
     # Try:
     json_payload = json.dumps({"name": f"{local_path.stem}_{sha12}{local_path.suffix}", "parents": [folder_id]})
-    # Need to escape single quotes in shell
-    json_payload_escaped = json_payload.replace("'", "'\"'\"'")
-    cmd = f"hatch_gws_cli drive files create --json '{json_payload_escaped}' --upload {local_path} 2>&1"
-    # Actually tool uses --upload <path> maybe as flag value? Check typical usage: hatch_gws_cli drive +upload ... Let's try files.create with upload
+    cmd = ["hatch_gws_cli", "drive", "files", "create", "--json", json_payload, "--upload", str(local_path)]
     out = run_cli(cmd, retries=3)
     if out:
         try:
